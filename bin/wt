@@ -1,0 +1,425 @@
+#!/usr/bin/env bash
+# wt — agent worktree control plane
+#
+# Canonical repos live on the box (/mnt/agents/repos/<repo>). Agents get isolated
+# worktrees at workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
+# Folder = stable random city; branch = mutable label. Heavy git runs ON the box
+# over ssh; the Mac handles the interactive UX. wt manages only workspaces/<agent>/...
+set -uo pipefail
+
+# ---- config (overridable via wt.conf) ----
+BOX_HOST=server; BOX_USER=agents; BOX_ROOT=/mnt/agents; BOX_HOME=/mnt/agents/.home; MAC_ROOT=/Volumes/Agents
+VALID_AGENTS="claude codex cursor grok devin opencode"
+DEFAULT_ORG=intuitumxyz; DEFAULT_AGENT=codex; EDITOR_CMD=cursor
+CACHE_DIRS="node_modules .next .turbo dist build"
+CITIES="accra amman athens austin bali berlin bogota cairo dakar denver dublin geneva hanoi havana kyoto lagos lima lisbon luanda lusaka madrid manila maputo nairobi osaka oslo porto prague quito rabat reno riga rome seoul sofia taipei tokyo toledo tunis turin vienna warsaw zagreb"
+for c in "$MAC_ROOT/system/config/wt.conf" "$BOX_ROOT/system/config/wt.conf"; do [ -f "$c" ] && . "$c" 2>/dev/null && break; done
+
+if [ "$(uname)" = "Darwin" ]; then ON_MAC=1; ROOT="$MAC_ROOT"; else ON_MAC=0; ROOT="$BOX_ROOT"; export HOME="$BOX_HOME"; export GIT_TERMINAL_PROMPT=0; fi
+REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+
+# ---- palette (Greptile-style: green accent, bold-white heads, dim meta) ----
+GUMC=78
+if [ -t 1 ] || [ "${WT_COLOR:-0}" = 1 ]; then
+  B=$'\e[1m'; N=$'\e[0m'; DIM=$'\e[38;5;244m'; GRN=$'\e[38;5;78m'; W=$'\e[1;97m'
+  YEL=$'\e[38;5;179m'; RED=$'\e[38;5;174m'; AC=$GRN
+else B= N= DIM= GRN= W= YEL= RED= AC=; fi
+ok(){   printf '  %s✓%s %s\n' "$GRN" "$N" "$*"; }
+warn(){ printf '  %s•%s %s\n' "$YEL" "$N" "$*"; }
+err(){  printf '  %s✗%s %s\n' "$RED" "$N" "$*" >&2; }
+die(){  err "$*"; exit 1; }
+banner(){ printf '\n  %s%s%s\n' "$W" "${1:-}" "$N"; }
+
+# ---- logo + landing (isometric wt) ----
+LOGO=(
+'      ___           ___     '
+'     /\__\         /\  \    '
+'    /:/ _/_        \:\  \   '
+'   /:/ /\__\        \:\  \  '
+'  /:/ /:/ _/_       /::\  \ '
+' /:/_/:/ /\__\     /:/\:\__\'
+' \:\/:/ /:/  /    /:/  \/__/'
+'  \::/_/:/  /    /:/  /     '
+'   \:\/:/  /     \/__/      '
+'    \::/  /                 '
+'     \/__/                  '
+)
+_header(){
+  local -a T=()
+  T[4]="${W}wt${N} ${DIM}(agent worktrees)${N} ${DIM}v1.0${N}"
+  T[6]="${W}Shared git worktrees from your terminal.${N}"
+  T[7]="${DIM}Store on server:/mnt/agents  ·  mounted at $MAC_ROOT${N}"
+  echo; local i; for i in "${!LOGO[@]}"; do printf '  %s%-28s%s  %s\n' "$GRN" "${LOGO[i]}" "$N" "${T[i]:-}"; done; echo
+}
+_help(){
+  _header
+  printf '  %sEXAMPLES%s\n' "$W" "$N"
+  ex(){ printf '  %s%-26s%s %s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
+  ex "wt new <repo>" "Start a worktree in any repo (or just 'wt new' to pick)."
+  ex "wt archive" "Put a worktree away — keeps the branch, restorable."
+  ex "wt restore" "Bring an archived worktree back."
+  ex "wt open" "Pick a worktree and open it in $EDITOR_CMD."
+  echo
+  printf '  %sCOMMANDS%s\n' "$W" "$N"
+  cm(){ printf '  %s%-9s%s %s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
+  cm new     "Start a new worktree to work in."
+  cm open    "Open a worktree in $EDITOR_CMD."
+  cm cd      "Jump into a worktree in the terminal."
+  cm rename  "Rename a worktree's branch."
+  cm archive "Put a worktree away — removes the folder, keeps the branch."
+  cm restore "Recreate a worktree from an archived branch."
+  cm list    "List your active worktrees."
+  cm archived "List archived worktrees (folder gone, branch kept)."
+  cm clone   "Add a repo from GitHub to the store."
+  cm sync    "Pull the latest for every repo."
+  cm clean   "Remove safe worktrees whose remote branch is gone."
+  cm remove  "Permanently delete an archived worktree, or a repo."
+  cm config  "Set your defaults, or run guided setup."
+  cm update  "Catch this Mac up (re-mount + latest tools)."
+  cm doctor  "Check that everything's working."
+  echo
+}
+
+# ---- gum helpers (glamorous, with a plain fallback) ----
+_has_gum(){ command -v gum >/dev/null 2>&1; }
+_choose(){ local h=$1; shift; local -a o=("$@")
+  if _has_gum; then printf '%s\n' "${o[@]}" | gum choose --header "$h" --cursor "❯ " --cursor.foreground "$GUMC" --header.foreground 244 --height 18; return; fi
+  { printf '  %s%s%s\n' "$DIM" "$h" "$N"; local i=1 x; for x in "${o[@]}"; do printf '  %s%2d%s %s\n' "$GRN" "$i" "$N" "$x"; i=$((i+1)); done; printf '  %s#%s ' "$DIM" "$N"; } >&2
+  local n; read -r n; [ -n "$n" ] && [ "$n" -ge 1 ] 2>/dev/null && printf '%s' "${o[$((n-1))]}"; }
+_input(){ if _has_gum; then gum input --header "$1" --placeholder "${2:-}" --prompt "❯ " --prompt.foreground "$GUMC"; else printf '  %s%s%s ' "$B" "$1" "$N" >&2; local v; read -r v; printf '%s' "$v"; fi; }
+_confirm(){ if _has_gum; then gum confirm "$1"; else printf '  %s %s[y/N]%s ' "$1" "$DIM" "$N" >&2; local a; read -r a; case "$a" in y|Y) return 0;; *) return 1;; esac; fi; }
+
+# ---- progress bar + spinner ----
+_bar(){ local label=$1 pct=${2:-0} w=26 i filled bar=''; [ "$pct" -gt 100 ] 2>/dev/null && pct=100; filled=$(( pct * w / 100 ))
+  for ((i=0;i<w;i++)); do [ $i -lt $filled ] && bar+='█' || bar+='░'; done
+  printf '\r\e[2K  %s%s%s  %s%s%s %s%3s%%%s' "$DIM" "$label" "$N" "$GRN" "$bar" "$N" "$B" "$pct" "$N"; }
+_spin_run(){ local msg=$1; shift; local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
+  ( "$@" >"$tmp" 2>/dev/null ) & local pid=$! i=0 fr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+  if [ -t 1 ]; then printf '\e[?25l'; while kill -0 "$pid" 2>/dev/null; do printf '\r\e[2K  %s%s%s %s' "$GRN" "${fr:$((i%10)):1}" "$N" "$msg"; i=$((i+1)); sleep 0.08; done; printf '\r\e[2K\e[?25h'; fi
+  wait "$pid"; local rc=$?; SPIN_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"; return $rc; }
+
+# ============================================================================
+#  BOX BACKEND  (git as agents; direct on box, or via _bx over ssh)
+# ============================================================================
+_canon(){ printf '%s' "$REPOS/$1"; }
+_default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
+_repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
+_ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
+_is_agent(){ echo " $VALID_AGENTS " | grep -q " $1 "; }
+_pick_city(){ local dir="$WORK/$1/$2" arr n c t=0; arr=($CITIES); n=${#arr[@]}
+  while [ $t -lt 300 ]; do c=${arr[$((RANDOM % n))]}; [ -e "$dir/$c" ] || { printf '%s' "$c"; return 0; }; t=$((t+1)); done
+  printf '%s%s' "${arr[$((RANDOM % n))]}" "$RANDOM"; }
+cmd_repos(){ _repos_all; }
+cmd_worktrees(){ local r d
+  for r in $(_repos_all); do d=$(_canon "$r")
+    git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r wt; do
+      case "$wt" in "$WORK"/*) ;; *) continue;; esac; [ -e "$wt/.git" ] || continue
+      local rel=${wt#"$WORK"/} ag city; ag=${rel%%/*}; city=${rel##*/}; _is_agent "$ag" || continue
+      printf '%s\t%s\t%s\t%s\t%s\n' "$ag" "$r" "$city" "$wt" "$(git -C "$wt" branch --show-current 2>/dev/null)"
+    done; done; }
+cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
+  [ -n "$agent" ] && [ -n "$repo" ] || die "usage: new <agent> <repo> [feature]"
+  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _ensure_relpaths "$repo"
+  local city; city=$(_pick_city "$agent" "$repo"); local feat="${feature:-$city}" branch="$agent/${feature:-$city}" wtdir="$WORK/$agent/$repo/$city"
+  # New feature branches should not track the default branch. Tracking is set
+  # when the user first pushes their feature branch with `git push -u`.
+  mkdir -p "$(dirname "$wtdir")"; git -C "$d" worktree add -b "$branch" --no-track "$wtdir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
+  local ex; ex=$(git -C "$wtdir" rev-parse --git-path info/exclude 2>/dev/null)
+  [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
+  printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$wtdir" "$branch" "$city"; }
+cmd_rename(){ local wt="${1:-}" feature="${2:-}"; [ -n "$wt" ] && [ -n "$feature" ] || die "usage: rename <path> <feature>"
+  case "$wt" in "$WORK"/*) ;; *) die "not a wt worktree: $wt";; esac; [ -e "$wt/.git" ] || die "not a worktree: $wt"
+  local rel=${wt#"$WORK"/} agent repo; agent=${rel%%/*}; repo=$(printf '%s' "$rel" | cut -d/ -f2); _is_agent "$agent" || die "not a wt-managed worktree"
+  feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]'); local oldbr newbr="$agent/$feature"; oldbr=$(git -C "$wt" branch --show-current 2>/dev/null)
+  [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
+  git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
+cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo>"; local url repo
+  case "$spec" in http*|git@*) url=$spec; repo=$(basename "$spec");; */*) url="https://github.com/$spec.git"; repo=$(basename "$spec");; *) url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec;; esac
+  repo=${repo%.git}; local dest="$REPOS/$repo"; [ -e "$dest" ] && die "already have repos/$repo"
+  git clone --progress "$url" "$dest" >&2 || die "clone failed (auth or url?)"
+  git -C "$dest" remote set-head origin -a >/dev/null 2>&1; git -C "$dest" config worktree.useRelativePaths true
+  printf 'cloned: %s (default %s)\n' "$repo" "$(_default_branch "$repo")"; }
+cmd_delrepo(){ local repo="${1:-}" force="${2:-}"; [ -n "$repo" ] || die "usage: delrepo <repo>"
+  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; local risky=0 wt
+  for wt in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
+    [ "$wt" = "$d" ] && continue; [ -e "$wt/.git" ] || continue
+    local dirty unpushed; dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l | tr -d ' '); unpushed=$(git -C "$wt" log --branches --not --remotes --oneline 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$dirty" != 0 ] || [ "$unpushed" != 0 ]; then risky=$((risky+1)); printf '  at-risk: %s (dirty=%s unpushed=%s)\n' "${wt#"$WORK"/}" "$dirty" "$unpushed"; fi; done
+  if [ "$risky" -gt 0 ] && [ "$force" != "--force" ]; then printf 'REFUSED: %s worktree(s) hold uncommitted/unpushed work\n' "$risky"; return 3; fi
+  for wt in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do [ "$wt" = "$d" ] && continue; git -C "$d" worktree remove --force "$wt" 2>/dev/null; rm -rf "$wt" 2>/dev/null; done
+  rm -rf "$d"; printf 'deleted repo: %s\n' "$repo"; }
+cmd_sync(){ local target="${1:---all}" repos; if [ "$target" = "--all" ]; then repos=$(_repos_all); else repos="$target"; fi
+  for r in $repos; do local d; d=$(_canon "$r"); [ -d "${d}/.git" ] || { warn "skip $r (no canonical)"; continue; }
+    if git -C "$d" fetch --all --prune --quiet 2>/dev/null; then git -C "$d" remote set-head origin -a >/dev/null 2>&1; git -C "$d" maintenance run --auto --quiet 2>/dev/null; ok "synced $r"; else err "failed $r (auth?)"; fi; done; }
+cmd_clean(){ local force="${1:-}"
+  for r in $(_repos_all); do local d; d=$(_canon "$r"); git -C "$d" fetch --prune --quiet 2>/dev/null || { warn "skip $r (fetch failed)"; continue; }
+    git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r wt; do
+      case "$wt" in "$WORK"/*) ;; *) continue;; esac; local rel=${wt#"$WORK"/}; _is_agent "${rel%%/*}" || continue
+      if [ ! -e "$wt/.git" ]; then printf '  %sorphan%s   %s\n' "$YEL" "$N" "$wt"; [ "$force" = "--yes" ] && rm -rf "$wt"; continue; fi
+      [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && continue
+      local br up_remote up_merge rc unpushed; br=$(git -C "$wt" branch --show-current 2>/dev/null)
+      up_remote=$(git -C "$wt" config --get "branch.$br.remote" 2>/dev/null || true)
+      up_merge=$(git -C "$wt" config --get "branch.$br.merge" 2>/dev/null || true)
+      # A new worktree starts from origin/main but must never be treated as a
+      # deleted feature branch. Only branches that explicitly track themselves
+      # on origin are cleanup candidates.
+      [ "$up_remote" = origin ] && [ "$up_merge" = "refs/heads/$br" ] || continue
+      git -C "$d" ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1; rc=$?
+      if [ "$rc" = 2 ]; then
+        # A disappeared remote does not prove there is no local-only work
+        # (for example after a squash merge followed by more local commits).
+        unpushed=$(git -C "$wt" log "$br" --not --remotes --oneline 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$unpushed" != 0 ]; then
+          printf '  %sskip%s     %s %s(%s local-only commit(s))%s\n' "$YEL" "$N" "$wt" "$DIM" "$unpushed" "$N"
+          continue
+        fi
+        printf '  %sremote gone%s  %s %s(%s)%s\n' "$GRN" "$N" "$wt" "$DIM" "$br" "$N"
+        [ "$force" = "--yes" ] && git -C "$d" worktree remove --force "$wt" && git -C "$d" branch -D "$br" >/dev/null 2>&1 && printf '%s  removed %s (%s)\n' "$(date '+%F %T')" "$wt" "$br" >> "$LOGDIR/wt-clean.log" 2>/dev/null
+      fi
+    done; done; [ "$force" = "--yes" ] || printf '  %s(dry run — wt clean --yes to remove)%s\n' "$DIM" "$N"; }
+# archive: remove the worktree FOLDER but KEEP the branch (Conductor-style — restorable).
+cmd_archive(){ local wt="${1:-}" force="${2:-}"; [ -n "$wt" ] || die "usage: archive <path>"; case "$wt" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
+  local rel=${wt#"$WORK"/}; _is_agent "${rel%%/*}" || die "not a wt-managed worktree"; [ -e "$wt/.git" ] || die "not a worktree: $wt"
+  [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && [ "$force" != "--yes" ] && { printf 'DIRTY: uncommitted changes — commit first, or archive --yes to discard them\n'; return 3; }
+  local repo; repo=$(printf '%s' "$rel" | cut -d/ -f2); local br; br=$(git -C "$wt" branch --show-current 2>/dev/null)
+  git -C "$(_canon "$repo")" worktree remove --force "$wt" || die "worktree remove failed"; printf 'archived: %s\n' "$br"; }
+# archived: branches with an agent prefix that have NO worktree (the "archive" list).
+cmd_archived(){ local r d
+  for r in $(_repos_all); do d=$(_canon "$r")
+    local checked; checked=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}')
+    git -C "$d" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null | while read -r br; do
+      _is_agent "${br%%/*}" || continue; printf '%s\n' "$checked" | grep -qxF "$br" && continue
+      printf '%s\t%s\t%s\t%s\n' "${br%%/*}" "$r" "$br" "$(git -C "$d" log -1 --format='%cr' "$br" 2>/dev/null)"
+    done; done; }
+# restore: recreate a worktree on an EXISTING (archived) branch, in a fresh city folder.
+cmd_restore(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$branch" ] || die "usage: restore <repo> <branch>"
+  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"
+  git -C "$d" show-ref --verify --quiet "refs/heads/$branch" || die "no such branch: $branch"
+  local agent=${branch%%/*}; _is_agent "$agent" || die "not an agent branch: $branch"; _ensure_relpaths "$repo"
+  local city; city=$(_pick_city "$agent" "$repo"); local wtdir="$WORK/$agent/$repo/$city"
+  mkdir -p "$(dirname "$wtdir")"; git -C "$d" worktree add "$wtdir" "$branch" >&2 || die "worktree add failed"
+  local ex; ex=$(git -C "$wtdir" rev-parse --git-path info/exclude 2>/dev/null)
+  [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
+  printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$wtdir" "$branch" "$city"; }
+# rmbranch: permanently delete an ARCHIVED branch (must have no worktree).
+cmd_rmbranch(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$branch" ] || die "usage: rmbranch <repo> <branch>"
+  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _is_agent "${branch%%/*}" || die "not an agent branch: $branch"
+  git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}' | grep -qxF "$branch" && die "branch is active (worktree exists) — archive it first"
+  git -C "$d" branch -D "$branch" >/dev/null 2>&1 && printf 'removed branch: %s\n' "$branch" || die "branch delete failed"; }
+cmd_list(){ local rows; rows=$(cmd_worktrees)
+  printf '  %s%-8s %-12s %-22s %-6s %-9s %s%s\n' "$W" AGENT REPO FEATURE DIRTY AHD/BEH CITY "$N"
+  [ -z "$rows" ] && { printf '  %sno worktrees yet — try: wt new%s\n' "$DIM" "$N"; return; }
+  printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo city wt br; do local base; base=$(_default_branch "$repo")
+    local feat dv dc dcell ab; feat=${br#*/}; [ ${#feat} -gt 22 ] && feat="${feat:0:20}.."
+    if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then dv=yes; dc=$YEL; else dv="-"; dc=$DIM; fi; printf -v dcell '%-6s' "$dv"
+    ab=$(git -C "$wt" rev-list --left-right --count "origin/$base...HEAD" 2>/dev/null | awk '{printf "+%s/-%s",$2,$1}')
+    printf '  %s%-8s%s %-12s %s%-22s%s %s%s%s %-9s %s%s%s\n' "$GRN" "$ag" "$N" "$repo" "$W" "$feat" "$N" "$dc" "$dcell" "$N" "${ab:-?}" "$DIM" "$city" "$N"; done; }
+cmd_status(){ local n; n=$(cmd_worktrees | wc -l | tr -d ' '); printf 'worktrees: %s\ncanonicals:\n' "$n"
+  local r; for r in $(_repos_all); do printf '  %-14s %s\n' "$r" "$(git -C "$(_canon "$r")" log -1 --format='%h %cr' 2>/dev/null)"; done
+  printf 'disk: %s\n' "$(df -h "$BOX_ROOT" 2>/dev/null | awk 'NR==2{print $3" used / "$2}')"; }
+cmd_doctor(){ local r first missing=0; first=$(_repos_all | head -1)
+  if [ -n "$first" ] && git -C "$(_canon "$first")" ls-remote origin >/dev/null 2>&1; then ok "GitHub auth (PAT) valid"; else err "GitHub auth failing — re-run: sudo /usr/local/sbin/set-agents-token"; fi
+  local t; for t in wt-sync wt-clean; do systemctl is-active "$t.timer" >/dev/null 2>&1 && ok "$t.timer active" || err "$t.timer inactive"; done
+  for r in $(_repos_all); do [ "$(git -C "$(_canon "$r")" config --get worktree.useRelativePaths 2>/dev/null)" = true ] || { err "relpaths off: $r"; missing=1; }; done
+  [ "$missing" = 0 ] && ok "relative worktrees set on all canonicals"; }
+
+# ============================================================================
+#  MAC FRONTEND
+# ============================================================================
+_bx(){ local wc=0; [ -t 1 ] && wc=1; local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc $BOX_ROOT/system/bin/wt"; local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done; /usr/bin/ssh "$BOX_HOST" "$cmd"; }
+_tomac(){ printf '%s' "$1" | sed "s#^$BOX_ROOT#$MAC_ROOT#"; }
+_pick_worktree(){ local rows; rows=$(_bx worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
+  local -a labels=() paths=(); while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; local f=${br#*/}; [ -n "$f" ] || f=$city; labels+=("$repo / $f   ·   $ag"); paths+=("$path"); done <<< "$rows"
+  local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
+_resolve_worktree(){ local sel=$1 rows matches count
+  case "$sel" in "$MAC_ROOT"/*) sel="$BOX_ROOT${sel#"$MAC_ROOT"}";; esac
+  case "$sel" in "$BOX_ROOT"/*) printf '%s' "$sel"; return 0;; esac
+  rows=$(_bx worktrees)
+  matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo city path br; do
+    local feature=${br#*/}
+    if [ "$sel" = "$city" ] || [ "$sel" = "$br" ] || [ "$sel" = "$ag/$repo/$city" ] || [ "$sel" = "$repo/$feature" ]; then
+      printf '%s\n' "$path"
+    fi
+  done)
+  count=$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')
+  [ "$count" = 1 ] && { printf '%s' "$matches"; return 0; }
+  [ "$count" = 0 ] && die "no worktree matching '$sel'"
+  die "'$sel' matches multiple worktrees — use agent/repo/city"
+}
+mac_localdeps(){ local wt="${1:-$PWD}"; [ -d "$wt" ] || return 0; local key base; key=$(printf '%s' "$wt" | sed -E 's#^.*/workspaces/##; s#/#_#g'); base="$HOME/.wt-cache/$key"
+  local d; for d in $CACHE_DIRS; do [ -L "$wt/$d" ] && continue; mkdir -p "$base/$d"; { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "$wt/$d"; }; ln -s "$base/$d" "$wt/$d"; done; }
+mac_new(){ local agent="${WT_AGENT:-}" repo="" feature=""
+  while [ $# -gt 0 ]; do case "$1" in --agent) agent=$2; shift 2;; *) if [ -z "$repo" ]; then repo=$1; elif [ -z "$feature" ]; then feature=$1; fi; shift;; esac; done
+  [ -n "$agent" ] || agent="$DEFAULT_AGENT"; _is_agent "$agent" || die "unknown agent '$agent'"
+  if [ -z "$repo" ]; then if [ -t 0 ] && [ -t 1 ]; then repo=$(_choose "which repo?" $(_bx repos)) || return 0; else die "usage: wt new <repo> [feature] [--agent X]"; fi; fi
+  [ -n "$repo" ] || return 0
+  local all; all=$(_bx repos); if ! printf '%s\n' "$all" | grep -qx "$repo"; then local m; m=$(printf '%s\n' "$all" | grep -i "$repo" | head -1); [ -n "$m" ] && repo=$m || die "no repo matching '$repo'"; fi
+  [ -n "$feature" ] && feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+  _spin_run "creating $agent/${feature:-worktree}" _bx new "$agent" "$repo" "$feature" || exit 1; local out="$SPIN_OUT"
+  local boxpath branch macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); branch=$(printf '%s' "$out" | sed -n 's/^branch: //p'); macpath=$(_tomac "$boxpath")
+  mac_localdeps "$macpath"; ok "created ${GRN}$branch${N}  ${DIM}$macpath${N}"
+  if [ -t 1 ] && command -v "$EDITOR_CMD" >/dev/null 2>&1 && _confirm "open in $EDITOR_CMD?"; then "$EDITOR_CMD" "$macpath" >/dev/null 2>&1 & fi; }
+mac_rename(){ local sel="${1:-}" feature="${2:-}" wt
+  if [ -n "$sel" ]; then wt=$(_resolve_worktree "$sel") || return 1
+  else wt=$(_pick_worktree "rename which worktree?") || return 0; fi
+  [ -z "$feature" ] && feature=$(_input "new feature name" "dark-mode"); [ -n "$feature" ] || { warn "cancelled"; return 0; }
+  _bx rename "$wt" "$feature" && printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"; }
+mac_open(){ local wt="${1:-}"
+  if [ -z "$wt" ]; then wt=$(_pick_worktree "open in $EDITOR_CMD") || return 0
+  else wt=$(_resolve_worktree "$wt") || return 1; fi
+  wt=$(_tomac "$wt")
+  command -v "$EDITOR_CMD" >/dev/null 2>&1 && { "$EDITOR_CMD" "$wt"; ok "opened $wt"; } || die "editor '$EDITOR_CMD' not found"; }
+mac_cdpath(){ local wt="${1:-}"
+  if [ -z "$wt" ]; then wt=$(_pick_worktree "jump to") || return 1
+  else wt=$(_resolve_worktree "$wt") || return 1; fi
+  _tomac "$wt"; }
+mac_archive(){ local wt; wt=$(_pick_worktree "archive which worktree?") || return 0
+  _confirm "archive $(basename "$wt")? (keeps the branch — restorable)" || { warn "cancelled"; return 0; }
+  local out rc; out=$(_bx archive "$wt"); rc=$?
+  if [ "$rc" = 3 ]; then printf '  %s%s%s\n' "$YEL" "$out" "$N"; _confirm "discard uncommitted changes and archive anyway?" && _bx archive "$wt" --yes >/dev/null && ok "archived (uncommitted discarded)" || warn "cancelled"
+  elif [ "$rc" = 0 ]; then ok "archived ${GRN}${out#archived: }${N}  ${DIM}— restore with: wt restore${N}"; else printf '%s\n' "$out"; fi; }
+mac_archived(){ banner "archived"; local rows; rows=$(_bx archived)
+  [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N"; return; }
+  printf '  %s%-8s %-12s %-24s %s%s\n' "$W" AGENT REPO BRANCH WHEN "$N"
+  printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
+    printf '  %s%-8s%s %-12s %s%-24s%s %s%s%s\n' "$GRN" "$ag" "$N" "$repo" "$W" "${br#*/}" "$N" "$DIM" "$when" "$N"; done; }
+_pick_archived(){ local rows; rows=$(_bx archived); [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N" >&2; return 1; }
+  A_LABELS=(); A_REPOS=(); A_BRANCHES=(); local ag repo br when
+  while IFS=$'\t' read -r ag repo br when; do [ -n "$br" ] || continue; A_LABELS+=("$repo / ${br#*/}   ·   $ag   ${DIM}$when${N}"); A_REPOS+=("$repo"); A_BRANCHES+=("$br"); done <<< "$rows"
+  local sel; sel=$(_choose "${1:-archived worktree}" "${A_LABELS[@]}") || return 1
+  local i; for i in "${!A_LABELS[@]}"; do [ "${A_LABELS[i]}" = "$sel" ] && { A_IDX=$i; return 0; }; done; return 1; }
+mac_restore(){ _pick_archived "restore which?" || return 0
+  _spin_run "restoring ${A_BRANCHES[A_IDX]}" _bx restore "${A_REPOS[A_IDX]}" "${A_BRANCHES[A_IDX]}" || return 1; local out="$SPIN_OUT"
+  local boxpath macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); macpath=$(_tomac "$boxpath")
+  mac_localdeps "$macpath"; ok "restored ${GRN}${A_BRANCHES[A_IDX]}${N}  ${DIM}$macpath${N}"; }
+mac_remove(){ local what; what=$(_choose "permanently remove what?" "an archived worktree (deletes its branch)" "a whole repo (deletes everything)") || return 0
+  case "$what" in
+    an\ archived*) _pick_archived "delete which archived branch?" || return 0
+      _confirm "permanently delete branch ${A_BRANCHES[A_IDX]}? cannot be undone" && _bx rmbranch "${A_REPOS[A_IDX]}" "${A_BRANCHES[A_IDX]}" >/dev/null && ok "deleted ${A_BRANCHES[A_IDX]}" || warn "cancelled";;
+    a\ whole*) mac_delrepo;;
+  esac; }
+mac_delrepo(){ local repos; repos=$(_bx repos); [ -z "$repos" ] && { warn "no repos"; return 0; }
+  local repo; repo=$(_choose "delete which repo?" $repos) || return 0
+  _confirm "delete repo '$repo' and ALL its worktrees? cannot be undone" || { warn "cancelled"; return 0; }
+  local out rc; out=$(_bx delrepo "$repo"); rc=$?
+  if [ "$rc" = 3 ]; then printf '%s\n' "$out"; _confirm "force delete anyway (loses that work)?" && _bx delrepo "$repo" --force >/dev/null && ok "repo deleted: $repo" || warn "cancelled"
+  elif [ "$rc" = 0 ]; then ok "repo deleted: $repo"; else printf '%s\n' "$out"; fi; }
+mac_clone(){ local spec="${1:-}"; [ -n "$spec" ] || spec=$(_input "repo to clone" "owner/repo"); [ -n "$spec" ] || return 0
+  local name; name=$(basename "${spec%.git}"); banner "clone $name"
+  _bx clone "$spec" 2>&1 | tr '\r' '\n' | while IFS= read -r line; do case "$line" in
+    cloned:*) printf '\r\e[2K'; ok "${line#cloned: }";;
+    REFUSED*|*"already have"*|*"clone failed"*|*fatal:*) printf '\r\e[2K'; err "${line#*✗ }";;
+    *%*) p=$(printf '%s' "$line" | grep -oE '[0-9]+%' | tail -1 | tr -d '%'); [ -n "$p" ] && _bar "cloning $name" "$p";; esac; done; }
+mac_status(){ banner "status"; mount | grep -q " on $MAC_ROOT " && ok "mount up  ${DIM}$MAC_ROOT${N}" || err "mount DOWN — run ~/.local/bin/mount-agents.sh"
+  /usr/bin/nc -z -G 2 100.65.233.79 22 2>/dev/null && ok "box reachable" || warn "box not reachable"; _bx status; }
+mac_doctor(){ banner "doctor"; mount | grep -q " on $MAC_ROOT " && ok "mount up" || err "mount DOWN"; /usr/bin/nc -z -G 2 100.65.233.79 22 2>/dev/null && ok "box reachable" || err "box unreachable"
+  command -v gum >/dev/null 2>&1 && ok "gum (pretty UI) installed" || warn "gum missing — run: wt update"; _bx doctor; }
+mac_config(){ banner "settings"
+  printf '  %sYour personal defaults. Press Enter on any line to keep the %s(current)%s value.%s\n\n' "$DIM" "$DIM" "$DIM" "$N"
+  local conf="$MAC_ROOT/system/config/wt.conf"
+  printf '  %sWhich agent are you?%s  %sused as the folder + branch prefix when you don'\''t pass --agent%s\n' "$W" "$N" "$DIM" "$N"
+  local a; a=$(_input "agent — one of: $VALID_AGENTS" "$DEFAULT_AGENT"); a=${a:-$DEFAULT_AGENT}
+  echo; printf '  %sWhich editor should '\''wt open'\'' launch?%s\n' "$W" "$N"
+  local e; e=$(_input "editor command, e.g. cursor or code" "$EDITOR_CMD"); e=${e:-$EDITOR_CMD}
+  echo; printf '  %sDefault GitHub org?%s  %sso '\''wt clone site'\'' means '\''org/site'\'' without typing the owner%s\n' "$W" "$N" "$DIM" "$N"
+  local o; o=$(_input "github org" "$DEFAULT_ORG"); o=${o:-$DEFAULT_ORG}
+  printf 'DEFAULT_AGENT=%s\nEDITOR_CMD=%s\nDEFAULT_ORG=%s\n' "$a" "$e" "$o" > "$conf" \
+    && { echo; ok "saved — agent ${GRN}$a${N}, editor ${GRN}$e${N}, org ${GRN}$o${N}"; }
+  local zrc="$HOME/.zshrc"
+  if ! grep -q 'wt cd shell integration' "$zrc" 2>/dev/null; then
+    echo; printf '  %s'\''wt cd'\'' can drop your terminal straight into a worktree, but that needs a\n  one-line helper added to your ~/.zshrc.%s\n' "$DIM" "$N"
+    if _confirm "add the 'wt cd' shortcut to ~/.zshrc?"; then
+      cat >> "$zrc" <<'ZF'
+
+# wt cd shell integration
+wt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }
+ZF
+      ok "added — restart your shell or run: source ~/.zshrc"; fi
+  fi; }
+mac_update(){ banner "update"; mount | grep -q " on $MAC_ROOT " || ~/.local/bin/mount-agents.sh >/dev/null 2>&1
+  mount | grep -q " on $MAC_ROOT " || { err "mount is down — could not bring it up"; return 1; }; ok "mount up"
+  local S="$MAC_ROOT/system/setup"; if [ -d "$S" ]; then mkdir -p ~/.local/bin ~/.local/state ~/Library/LaunchAgents
+    [ -f "$S/mount-agents.sh" ] && install -m 0755 "$S/mount-agents.sh" ~/.local/bin/mount-agents.sh && ok "mount script refreshed"
+    [ -f "$S/wt-wrapper" ] && install -m 0755 "$S/wt-wrapper" ~/.local/bin/wt && ok "wt wrapper refreshed"
+    [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum (pretty UI) installed"
+    [ -f "$S/agents-mount.plist" ] && install -m 0644 "$S/agents-mount.plist" ~/Library/LaunchAgents/com.fschrhunt.agents-mount.plist && ok "auto-mount refreshed"
+  else warn "no system/setup on the mount"; fi
+  local zrc="$HOME/.zshrc"; grep -q WATCHPACK_POLLING "$zrc" 2>/dev/null || printf '\n# hot-reload over SMB\nexport WATCHPACK_POLLING=true\nexport CHOKIDAR_USEPOLLING=true\n' >> "$zrc"
+  grep -q 'wt cd shell integration' "$zrc" 2>/dev/null || printf '\n# wt cd shell integration\nwt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }\n' >> "$zrc"
+  launchctl bootout gui/$(id -u)/com.fschrhunt.agents-mount 2>/dev/null; launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.fschrhunt.agents-mount.plist 2>/dev/null && ok "auto-mount reloaded"
+  echo; _bx sync --all; echo; mac_doctor; }
+
+# ---- wizard: the logo landing + an arrow-key menu (bare `wt`) ----
+wizard(){ clear 2>/dev/null
+  _header
+  local c; c=$(_choose "what would you like to do?" \
+    "new       start a new worktree" \
+    "open      open a worktree in $EDITOR_CMD" \
+    "rename    rename a worktree's branch" \
+    "archive   put a worktree away (keeps the branch)" \
+    "restore   bring an archived worktree back" \
+    "list      list active worktrees" \
+    "archived  list archived worktrees" \
+    "clone     add a repo from GitHub" \
+    "sync      pull the latest for every repo" \
+    "clean     remove safe remote-deleted worktrees" \
+    "remove    permanently delete an archived worktree or repo" \
+    "config    settings & guided setup" \
+    "update    update this Mac" \
+    "doctor    check everything works") || { echo; return 0; }
+  case "${c%% *}" in
+    new)      mac_new;;
+    open)     mac_open;;
+    rename)   mac_rename;;
+    archive)  mac_archive;;
+    restore)  mac_restore;;
+    list)     banner "worktrees"; _bx list;;
+    archived) mac_archived;;
+    clone)    mac_clone;;
+    sync)     banner "sync"; _bx sync --all;;
+    clean)    banner "clean"; _bx clean;;
+    remove)   mac_remove;;
+    config)   mac_config;;
+    update)   mac_update;;
+    doctor)   mac_doctor;;
+  esac; }
+
+# ============================================================================
+#  DISPATCH
+# ============================================================================
+cmd="${1:-}"; [ $# -gt 0 ] && shift || true
+if [ "$ON_MAC" = 1 ]; then
+  case "$cmd" in
+    "")               if [ -t 0 ] && [ -t 1 ]; then wizard; else _help; fi;;
+    new)              mac_new "$@";;
+    rename|mv)        mac_rename "$@";;
+    open)             mac_open "$@";;
+    cd)               p=$(mac_cdpath "$@") && printf '__WT_CD__ %s\n' "$p";;
+    __cdpath)         mac_cdpath "$@";;
+    archive|rm)       mac_archive "$@";;
+    restore)          mac_restore "$@";;
+    archived)         mac_archived "$@";;
+    remove)           mac_remove "$@";;
+    delete|delrepo|rmrepo) mac_delrepo "$@";;
+    status)           mac_status "$@";;
+    doctor|check)     mac_doctor "$@";;
+    config|setup)     mac_config "$@";;
+    update)           mac_update "$@";;
+    localdeps)        mac_localdeps "$@";;
+    list|ls)          banner "worktrees"; _bx list "$@";;
+    clone|add)        mac_clone "$@";;
+    sync|refresh)     banner "sync"; _bx sync "$@";;
+    clean|tidy)       banner "clean"; _bx clean "$@";;
+    repos|worktrees)  _bx "$cmd" "$@";;
+    help|-h|--help)   _help;;
+    *)                die "unknown command: $cmd (try: wt help)";;
+  esac
+else
+  case "$cmd" in
+    new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
+    list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
+    archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
+    status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
+    *) die "unknown box command: $cmd";;
+  esac
+fi
