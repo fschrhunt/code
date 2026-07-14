@@ -4,34 +4,41 @@
 piece of work gets its own folder (a stable random city name) on its own branch
 (`<agent>/<feature>`), sharing one canonical clone per repo.
 
+You choose the agent on every `wt new`. Manage identities with `wt agents`.
+There is no silent default agent.
+
 ```
-wt new <repo> <feature>   # start an isolated worktree
-wt list                   # see active worktrees
-wt open                   # open one in your editor
-wt archive                # put it away (folder gone, branch kept — restorable)
-wt restore                # bring an archived worktree back
+wt init                   # local ~/.wt (or: wt init --shared)
+wt agents add cursor
+wt new <repo> <feature>   # picks agent interactively
+wt list                   # active worktrees
+wt list archived          # archived branches
+wt ide                    # new IDE window
+wt archive / wt restore
+wt config                 # editor, org, local|shared stack
 ```
 
-## Status
+## Profiles
 
-This is the **M0 foundation**: the tool has been brought into version control and
-split from a single 425-line script into `bin/wt` + `lib/*.sh`, with tests and
-CI, behavior-identical to the deployed v1. See `WT-PLAN.md` (Agents store) for the
-roadmap.
+- **Local** (default after `wt init`): everything under `~/.wt`, no SSH/mount.
+- **Shared**: repos on a box (`box_root`), mounted locally (`mount_path`), git over SSH.
+  Configure with `wt init --shared` or `wt config` → shared.
 
-Today `wt` runs in **shared mode**: a Mac frontend forwards git operations over
-SSH to a box where the store lives. **Local mode** — everything on your own
-computer under `~/.wt`, no mount/SSH/box — is the next milestones (M1 profiles,
-M2 local mode) and will become the default.
+All shared-stack hosts and paths live in `~/.wt/config` (`mount_path`, `box_root`,
+`share_name`, `box_host`, …). The repo ships no fleet-specific defaults.
+
+Optional: [contrib/mount-wt.sh](contrib/mount-wt.sh) mounts the SMB share using
+those same config values (or `WT_*` env overrides).
 
 ## Develop
 
 ```
-make check   # shellcheck + bats — run before every PR
+make check   # shellcheck + bats
 bin/wt help
 ```
 
-See [AGENTS.md](AGENTS.md) for the contributor/agent contract.
+See [AGENTS.md](AGENTS.md) for the contributor contract. Docs:
+[docs/README.md](docs/README.md) — customize prefs · extend the product.
 
 ## Install (dev)
 

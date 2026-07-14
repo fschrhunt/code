@@ -1,43 +1,169 @@
 #!/usr/bin/env bash
-# wt configuration: defaults, optional overrides, and role + path resolution.
+# wt configuration: defaults, user-owned config under ~/.wt (or $WT_HOME), and
+# role + path resolution.
 #
-# Values only. wt.conf currently contains KEY=value lines and is *sourced*; M1
-# replaces this with a non-executable parser and per-user profiles under ~/.wt.
+# Values only. User config is parsed (never sourced). Known keys only; values
+# with shell metacharacters are rejected.
+#
+# Product defaults are neutral. Shared-stack hosts/paths/org live in ~/.wt/config
+# (filled by `wt init --shared` / `wt config`), not in this file.
 
-# ---- defaults (overridable via wt.conf) ----
-BOX_HOST=server; BOX_USER=agents; BOX_ROOT=/mnt/agents; BOX_HOME=/mnt/agents/.home; MAC_ROOT=/Volumes/Agents
-VALID_AGENTS="claude codex cursor grok devin opencode"
-DEFAULT_ORG=intuitumxyz; DEFAULT_AGENT=codex; EDITOR_CMD=cursor
+# ---- built-in defaults (neutral product) ----
+BOX_HOST=""
+BOX_ADDR=""
+BOX_USER=""
+BOX_ROOT=""
+BOX_HOME=""
+MAC_ROOT=""
+SHARE_NAME=""
+SUGGESTED_AGENTS="claude codex cursor grok devin opencode"
+VALID_AGENTS=""
+DEFAULT_ORG=""
+EDITOR_CMD=cursor
 CACHE_DIRS="node_modules .next .turbo dist build"
 CITIES="accra amman athens austin bali berlin bogota cairo dakar denver dublin geneva hanoi havana kyoto lagos lima lisbon luanda lusaka madrid manila maputo nairobi osaka oslo porto prague quito rabat reno riga rome seoul sofia taipei tokyo toledo tunis turin vienna warsaw zagreb"
-for c in "$MAC_ROOT/system/config/wt.conf" "$BOX_ROOT/system/config/wt.conf"; do
-  # shellcheck disable=SC1090
-  [ -f "$c" ] && . "$c" 2>/dev/null && break
+# Local until the user opts into shared via init/config (or an existing ~/.wt/config).
+WT_PROFILE_TYPE=local
+
+# User/data directory: $WT_HOME for tests/local override, else ~/.wt
+if [ -n "${WT_HOME:-}" ]; then
+  WT_USER_DIR="$WT_HOME"
+else
+  WT_USER_DIR="${HOME}/.wt"
+fi
+WT_USER_CONFIG="$WT_USER_DIR/config"
+
+_config_safe_val(){
+  case "$1" in *[\`\$\(\)\;\|\&\<\>\\\'\"]*) return 1;; esac
+  return 0
+}
+
+_sync_box_home(){
+  [ -n "$BOX_ROOT" ] && BOX_HOME="${BOX_ROOT%/}/.home" || BOX_HOME=""
+}
+
+_load_user_config(){
+  local file="${1:-$WT_USER_CONFIG}"
+  [ -f "$file" ] || return 0
+  local line key val
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%%#*}
+    line=${line#"${line%%[![:space:]]*}"}
+    line=${line%"${line##*[![:space:]]}"}
+    [ -z "$line" ] && continue
+    case "$line" in *=*) ;; *) continue;; esac
+    key=${line%%=*}
+    val=${line#*=}
+    key=${key%"${key##*[![:space:]]}"}
+    key=${key#"${key%%[![:space:]]*}"}
+    val=${val#"${val%%[![:space:]]*}"}
+    val=${val%"${val##*[![:space:]]}"}
+    _config_safe_val "$val" || continue
+    case "$key" in
+      type|profile_type) WT_PROFILE_TYPE=$val;;
+      editor|EDITOR_CMD) EDITOR_CMD=$val;;
+      default_org|DEFAULT_ORG) DEFAULT_ORG=$val;;
+      agents|VALID_AGENTS)
+        VALID_AGENTS=$(printf '%s' "$val" | tr ',;' '  ' | tr -s ' ')
+        VALID_AGENTS=${VALID_AGENTS# }
+        VALID_AGENTS=${VALID_AGENTS% }
+        ;;
+      box_host|BOX_HOST) BOX_HOST=$val;;
+      box_addr|BOX_ADDR) BOX_ADDR=$val;;
+      box_user|BOX_USER) BOX_USER=$val;;
+      box_root|BOX_ROOT) BOX_ROOT=$val; _sync_box_home;;
+      mount_path|MAC_ROOT) MAC_ROOT=$val;;
+      share_name|SHARE_NAME) SHARE_NAME=$val;;
+    esac
+  done < "$file"
+}
+
+_save_user_config(){
+  mkdir -p "$WT_USER_DIR"
+  local agents_csv
+  agents_csv=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
+  _sync_box_home
+  {
+    printf '# wt user config — values only (parsed, never sourced)\n'
+    printf 'type = %s\n' "$WT_PROFILE_TYPE"
+    printf 'editor = %s\n' "$EDITOR_CMD"
+    printf 'default_org = %s\n' "$DEFAULT_ORG"
+    printf 'agents = %s\n' "$agents_csv"
+  } > "$WT_USER_CONFIG"
+  if [ "$WT_PROFILE_TYPE" = shared ]; then
+    {
+      printf 'box_host = %s\n' "$BOX_HOST"
+      printf 'box_addr = %s\n' "$BOX_ADDR"
+      printf 'box_user = %s\n' "$BOX_USER"
+      printf 'box_root = %s\n' "$BOX_ROOT"
+      printf 'mount_path = %s\n' "$MAC_ROOT"
+      printf 'share_name = %s\n' "$SHARE_NAME"
+    } >> "$WT_USER_CONFIG"
+  fi
+}
+
+_load_user_config
+
+# Optional overlay from the active store's wt.conf (values only), after user config
+# has established MAC_ROOT / BOX_ROOT.
+for c in \
+  ${MAC_ROOT:+"$MAC_ROOT/system/config/wt.conf"} \
+  ${BOX_ROOT:+"$BOX_ROOT/system/config/wt.conf"}; do
+  [ -n "$c" ] && [ -f "$c" ] || continue
+  local_line=""
+  while IFS= read -r local_line || [ -n "$local_line" ]; do
+    case "$local_line" in
+      EDITOR_CMD=*|DEFAULT_ORG=*|BOX_HOST=*|BOX_USER=*|BOX_ROOT=*|MAC_ROOT=*|BOX_ADDR=*|SHARE_NAME=*)
+        key=${local_line%%=*}; val=${local_line#*=}
+        _config_safe_val "$val" || continue
+        case "$key" in
+          EDITOR_CMD) EDITOR_CMD=$val;;
+          DEFAULT_ORG) DEFAULT_ORG=$val;;
+          BOX_HOST) BOX_HOST=$val;;
+          BOX_ADDR) BOX_ADDR=$val;;
+          BOX_USER) BOX_USER=$val;;
+          BOX_ROOT) BOX_ROOT=$val; _sync_box_home;;
+          MAC_ROOT) MAC_ROOT=$val;;
+          SHARE_NAME) SHARE_NAME=$val;;
+        esac
+        ;;
+    esac
+  done < "$c"
+  break
 done
 
 # ---- role ----
-# WT_BACKEND=1 forces the backend path (used by tests today, and by local mode
-# in M2). Otherwise macOS is the frontend; everything else is the backend.
 if [ "${WT_BACKEND:-0}" = 1 ]; then ON_MAC=0
 elif [ "$(uname)" = "Darwin" ]; then ON_MAC=1
 else ON_MAC=0
 fi
 
 # ---- data root + paths ----
-# WT_HOME overrides the data root (tests, and the M2 local root ~/.wt). When it
-# is unset behavior is identical to the pre-split monolith.
-if [ "$ON_MAC" = 1 ]; then
-  ROOT="${WT_HOME:-$MAC_ROOT}"
+if [ -n "${WT_HOME:-}" ]; then
+  ROOT="$WT_HOME"
+elif [ "$WT_PROFILE_TYPE" = local ]; then
+  ROOT="$WT_USER_DIR"
+elif [ "$ON_MAC" = 1 ]; then
+  ROOT="${MAC_ROOT:-$WT_USER_DIR}"
 else
-  ROOT="${WT_HOME:-$BOX_ROOT}"
-  # On the real box, point HOME at the box home so git finds the PAT credential
-  # store. Tests set WT_HOME and keep their own HOME.
-  [ -n "${WT_HOME:-}" ] || export HOME="$BOX_HOME"
+  ROOT="${BOX_ROOT:-$WT_USER_DIR}"
+  [ -n "$BOX_HOME" ] && export HOME="$BOX_HOME"
   export GIT_TERMINAL_PROMPT=0
 fi
-# Canonicalize so our path checks match git's resolved worktree paths on hosts
-# where the root is reached through a symlink (macOS /tmp and /var, a symlinked
-# ~/.wt). A no-op on the production mounts (/Volumes/Agents, /mnt/agents), which
-# are not symlinks — so behavior there is unchanged.
 [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
 REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+
+_is_local_store(){
+  [ "${WT_PROFILE_TYPE}" = local ]
+}
+
+_require_shared_stack(){
+  [ -n "$BOX_HOST" ] && [ -n "$BOX_USER" ] && [ -n "$BOX_ROOT" ] && [ -n "$MAC_ROOT" ] || \
+    die "shared profile incomplete — run: wt config  (need box_host, box_user, box_root, mount_path)"
+}
+
+_box_reachable(){
+  local host="${BOX_ADDR:-$BOX_HOST}"
+  [ -n "$host" ] || return 1
+  /usr/bin/nc -z -G 2 "$host" 22 2>/dev/null
+}
