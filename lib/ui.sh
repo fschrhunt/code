@@ -17,37 +17,45 @@ LOGO=(
 )
 _header(){
   local -a T=()
-  T[4]="${W}wt${N} ${DIM}(agent worktrees)${N} ${DIM}v1.0${N}"
-  T[6]="${W}Shared git worktrees from your terminal.${N}"
-  T[7]="${DIM}Store on server:/mnt/agents  ·  mounted at $MAC_ROOT${N}"
+  local ver="${WT_VERSION:-0.0.0}"
+  local status
+  if [ "${WT_PROFILE_TYPE:-local}" = local ]; then
+    status="Local profile · editor ${EDITOR_CMD:-cursor}"
+  else
+    status="Shared profile · editor ${EDITOR_CMD:-cursor}"
+  fi
+  T[4]="${GRN}wt${N} ${DIM}v${ver}${N}"
+  T[6]="${W}Isolated git worktrees from your terminal.${N}"
+  T[7]="${DIM}${status}${N}"
   echo; local i; for i in "${!LOGO[@]}"; do printf '  %s%-28s%s  %s\n' "$GRN" "${LOGO[i]}" "$N" "${T[i]:-}"; done; echo
 }
+
+# Action-scoped help (same groupings as the wizard): WORK / SETTINGS / MORE.
 _help(){
   _header
-  printf '  %sEXAMPLES%s\n' "$W" "$N"
-  ex(){ printf '  %s%-26s%s %s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
-  ex "wt new <repo>" "Start a worktree in any repo (or just 'wt new' to pick)."
-  ex "wt archive" "Put a worktree away — keeps the branch, restorable."
-  ex "wt restore" "Bring an archived worktree back."
-  ex "wt open" "Pick a worktree and open it in $EDITOR_CMD."
+  local col=32
+  cm(){ printf "  %s%-${col}s%s%s\n" "$CYN" "$1" "$N" "$2"; }
+  printf '  %sWORK%s\n\n' "$W" "$N"
+  cm new      "Start a new worktree to work in."
+  cm ide      "Open a worktree in $EDITOR_CMD (new IDE window)."
+  cm cd       "Jump into a worktree in the terminal."
+  cm list     "List active worktrees (or: wt list archived)."
+  cm archive  "Put a worktree away — keeps the branch."
+  cm restore  "Bring an archived worktree back."
+  cm clone    "Add a repo from GitHub to the store."
   echo
-  printf '  %sCOMMANDS%s\n' "$W" "$N"
-  cm(){ printf '  %s%-9s%s %s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
-  cm new     "Start a new worktree to work in."
-  cm open    "Open a worktree in $EDITOR_CMD."
-  cm cd      "Jump into a worktree in the terminal."
-  cm rename  "Rename a worktree's branch."
-  cm archive "Put a worktree away — removes the folder, keeps the branch."
-  cm restore "Recreate a worktree from an archived branch."
-  cm list    "List your active worktrees."
-  cm archived "List archived worktrees (folder gone, branch kept)."
-  cm clone   "Add a repo from GitHub to the store."
-  cm sync    "Pull the latest for every repo."
-  cm clean   "Remove safe worktrees whose remote branch is gone."
-  cm remove  "Permanently delete an archived worktree, or a repo."
-  cm config  "Set your defaults, or run guided setup."
-  cm update  "Catch this Mac up (re-mount + latest tools)."
-  cm doctor  "Check that everything's working."
+  printf '  %sSETTINGS%s\n\n' "$W" "$N"
+  cm agents   "List, add, or remove configured agents."
+  cm config   "Editor, org, profile, and shared stack."
+  cm init     "Create a local or shared profile."
+  cm doctor   "Check that everything's working."
+  echo
+  printf '  %sMORE%s\n\n' "$W" "$N"
+  cm rename   "Rename a worktree's branch."
+  cm sync     "Pull the latest for every repo."
+  cm clean    "Remove safe remote-deleted worktrees."
+  cm remove   "Permanently delete an archived worktree or repo."
+  cm update   "Refresh install / sync."
   echo
 }
 

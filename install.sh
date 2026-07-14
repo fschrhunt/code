@@ -14,6 +14,7 @@ BINDIR="${1:-$HOME/.local/bin}"
 mkdir -p "$BINDIR"
 ln -sf "$PREFIX/bin/wt" "$BINDIR/wt"
 echo "linked $BINDIR/wt -> $PREFIX/bin/wt"
+echo "docs:   $PREFIX/docs/   (start: docs/README.md)"
 
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
