@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# Agent registry + editor launch helpers (shared by frontend and backend).
+
+_is_agent(){ [ -n "$1" ] && echo " $VALID_AGENTS " | grep -q " $1 "; }
+
+_agent_name_ok(){
+  case "$1" in ''|*[!a-z0-9._-]*) return 1;; esac
+  return 0
+}
+
+_agents_configured(){
+  [ -n "$(printf '%s' "$VALID_AGENTS" | tr -d '[:space:]')" ]
+}
+
+_agents_array(){
+  # shellcheck disable=SC2206
+  AGENTS_ARR=($VALID_AGENTS)
+}
+
+agents_list(){
+  if ! _agents_configured; then
+    printf '  %sno agents configured%s\n' "$DIM" "$N"
+    printf '  %sadd one with:%s %swt agents add <name>%s\n' "$DIM" "$N" "$GRN" "$N"
+    printf '  %ssuggested:%s %s\n' "$DIM" "$N" "$SUGGESTED_AGENTS"
+    return 0
+  fi
+  banner "agents"
+  local a
+  for a in $VALID_AGENTS; do
+    printf '  %s%s%s\n' "$GRN" "$a" "$N"
+  done
+}
+
+agents_add(){
+  local name="${1:-}"
+  [ -n "$name" ] || die "usage: wt agents add <name>"
+  name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+  _agent_name_ok "$name" || die "invalid agent name '$name' (use [a-z0-9._-]+)"
+  _is_agent "$name" && { ok "already configured: $name"; return 0; }
+  VALID_AGENTS=$(printf '%s %s' "$VALID_AGENTS" "$name" | tr -s ' ')
+  VALID_AGENTS=${VALID_AGENTS# }
+  _save_user_config
+  ok "added agent ${GRN}$name${N}"
+}
+
+agents_remove(){
+  local name="${1:-}" force="${2:-}"
+  [ -n "$name" ] || die "usage: wt agents remove <name> [--force]"
+  name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+  _is_agent "$name" || die "agent not configured: $name"
+  local rows hit=0
+  rows=$(cmd_worktrees 2>/dev/null || true)
+  if printf '%s\n' "$rows" | grep -q "^${name}	"; then
+    hit=1
+  fi
+  if [ "$hit" = 1 ] && [ "$force" != "--force" ]; then
+    die "agent '$name' still has active worktrees — archive them first, or pass --force"
+  fi
+  local a next=""
+  for a in $VALID_AGENTS; do
+    [ "$a" = "$name" ] && continue
+    next=$(printf '%s %s' "$next" "$a")
+  done
+  VALID_AGENTS=$(printf '%s' "$next" | tr -s ' ')
+  VALID_AGENTS=${VALID_AGENTS# }
+  _save_user_config
+  ok "removed agent ${GRN}$name${N}"
+}
+
+# Resolve agent for `wt new`: --agent / WT_AGENT, else TTY picker, else usage error.
+# Never falls back to a silent default.
+_resolve_agent(){
+  local agent="${1:-}"
+  if [ -n "$agent" ]; then
+    _is_agent "$agent" || die "unknown agent '$agent' — configure with: wt agents add $agent"
+    printf '%s' "$agent"
+    return 0
+  fi
+  if [ -n "${WT_AGENT:-}" ]; then
+    _is_agent "$WT_AGENT" || die "unknown agent '$WT_AGENT' — configure with: wt agents add $WT_AGENT"
+    printf '%s' "$WT_AGENT"
+    return 0
+  fi
+  if ! _agents_configured; then
+    die "no agents configured — run: wt agents add <name>  (suggested: $SUGGESTED_AGENTS)"
+  fi
+  if [ -t 0 ] && [ -t 1 ]; then
+    _agents_array
+    local sel
+    sel=$(_choose "which agent?" "${AGENTS_ARR[@]}") || return 1
+    [ -n "$sel" ] || return 1
+    printf '%s' "$sel"
+    return 0
+  fi
+  die "usage: wt new <repo> [feature] --agent <name>  (agents: $VALID_AGENTS)"
+}
+
+# Open path in a real IDE window. cursor/code get -n (new window); never --chat.
+_editor_open(){
+  local path="$1"
+  command -v "$EDITOR_CMD" >/dev/null 2>&1 || die "editor '$EDITOR_CMD' not found"
+  case "$EDITOR_CMD" in
+    cursor|code|cursor.app|code-insiders)
+      "$EDITOR_CMD" -n -- "$path" >/dev/null 2>&1 &
+      ;;
+    *)
+      "$EDITOR_CMD" "$path" >/dev/null 2>&1 &
+      ;;
+  esac
+}

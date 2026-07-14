@@ -7,7 +7,6 @@ _canon(){ printf '%s' "$REPOS/$1"; }
 _default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
 _repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
 _ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
-_is_agent(){ echo " $VALID_AGENTS " | grep -q " $1 "; }
 _pick_city(){ local dir="$WORK/$1/$2" arr n c t=0; arr=($CITIES); n=${#arr[@]}
   while [ $t -lt 300 ]; do c=${arr[$((RANDOM % n))]}; [ -e "$dir/$c" ] || { printf '%s' "$c"; return 0; }; t=$((t+1)); done
   printf '%s%s' "${arr[$((RANDOM % n))]}" "$RANDOM"; }
@@ -21,6 +20,7 @@ cmd_worktrees(){ local r d
     done; done; }
 cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   [ -n "$agent" ] && [ -n "$repo" ] || die "usage: new <agent> <repo> [feature]"
+  _is_agent "$agent" || die "unknown agent '$agent' — configure with: wt agents add $agent"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _ensure_relpaths "$repo"
   local city; city=$(_pick_city "$agent" "$repo"); local feat="${feature:-$city}" branch="$agent/${feature:-$city}" wtdir="$WORK/$agent/$repo/$city"
   # New feature branches should not track the default branch. Tracking is set
@@ -119,8 +119,20 @@ cmd_list(){ local rows; rows=$(cmd_worktrees)
 cmd_status(){ local n; n=$(cmd_worktrees | wc -l | tr -d ' '); printf 'worktrees: %s\ncanonicals:\n' "$n"
   local r; for r in $(_repos_all); do printf '  %-14s %s\n' "$r" "$(git -C "$(_canon "$r")" log -1 --format='%h %cr' 2>/dev/null)"; done
   printf 'disk: %s\n' "$(df -h "$ROOT" 2>/dev/null | awk 'NR==2{print $3" used / "$2}')"; }
-cmd_doctor(){ local r first missing=0; first=$(_repos_all | head -1)
-  if [ -n "$first" ] && git -C "$(_canon "$first")" ls-remote origin >/dev/null 2>&1; then ok "GitHub auth (PAT) valid"; else err "GitHub auth failing — re-run: sudo /usr/local/sbin/set-agents-token"; fi
-  local t; for t in wt-sync wt-clean; do systemctl is-active "$t.timer" >/dev/null 2>&1 && ok "$t.timer active" || err "$t.timer inactive"; done
+cmd_doctor(){
+  local r missing=0
+  ok "store root  ${DIM}$ROOT${N}"
+  if _agents_configured; then ok "agents  ${DIM}$VALID_AGENTS${N}"; else warn "no agents configured — wt agents add <name>"; fi
+  if [ "${WT_PROFILE_TYPE:-shared}" = local ] || [ -n "${WT_HOME:-}" ]; then
+    command -v git >/dev/null 2>&1 && ok "git available" || err "git missing"
+    if command -v gh >/dev/null 2>&1; then ok "gh available"; else warn "gh not installed (optional)"; fi
+  else
+    local first; first=$(_repos_all | head -1)
+    if [ -n "$first" ] && git -C "$(_canon "$first")" ls-remote origin >/dev/null 2>&1; then ok "GitHub auth (PAT) valid"; else err "GitHub auth failing — re-run: sudo /usr/local/sbin/set-agents-token"; fi
+    local t; for t in wt-sync wt-clean; do systemctl is-active "$t.timer" >/dev/null 2>&1 && ok "$t.timer active" || err "$t.timer inactive"; done
+  fi
   for r in $(_repos_all); do [ "$(git -C "$(_canon "$r")" config --get worktree.useRelativePaths 2>/dev/null)" = true ] || { err "relpaths off: $r"; missing=1; }; done
-  [ "$missing" = 0 ] && ok "relative worktrees set on all canonicals"; }
+  [ -z "$(_repos_all)" ] && ok "no canonicals yet — wt clone <repo>"
+  [ "$missing" = 0 ] && [ -n "$(_repos_all)" ] && ok "relative worktrees set on all canonicals"
+  return 0
+}

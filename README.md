@@ -4,25 +4,24 @@
 piece of work gets its own folder (a stable random city name) on its own branch
 (`<agent>/<feature>`), sharing one canonical clone per repo.
 
+You choose the agent on every `wt new` (interactive picker, or `--agent`). There
+is no silent default agent. Manage identities with `wt agents`.
+
 ```
-wt new <repo> <feature>   # start an isolated worktree
+wt init                   # first run: local ~/.wt profile
+wt agents add cursor      # configure agent identities
+wt new <repo> <feature>   # start an isolated worktree (picks agent)
 wt list                   # see active worktrees
-wt open                   # open one in your editor
+wt open                   # open one in a new editor window
 wt archive                # put it away (folder gone, branch kept — restorable)
 wt restore                # bring an archived worktree back
 ```
 
 ## Status
 
-This is the **M0 foundation**: the tool has been brought into version control and
-split from a single 425-line script into `bin/wt` + `lib/*.sh`, with tests and
-CI, behavior-identical to the deployed v1. See `WT-PLAN.md` (Agents store) for the
-roadmap.
-
-Today `wt` runs in **shared mode**: a Mac frontend forwards git operations over
-SSH to a box where the store lives. **Local mode** — everything on your own
-computer under `~/.wt`, no mount/SSH/box — is the next milestones (M1 profiles,
-M2 local mode) and will become the default.
+Local-first simplify: `wt init` creates `~/.wt`, calm Greptile-style help, managed
+agents (no `DEFAULT_AGENT`), and `wt open` launches a **new IDE window** (`cursor -n`).
+Shared Mac→SSH→box remains available as a shared profile. See `WT-PLAN.md` (Agents store).
 
 ## Develop
 

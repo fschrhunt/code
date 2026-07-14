@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Behavior-preserving proof: `wt help` output must byte-match the golden captured
-# from the v1 monolith before the module split. Also covers `wt version`.
+# Help golden lock: `wt help` output must byte-match test/golden/help.txt.
+# Intentional UX changes update the golden in the same commit. Also covers `wt version`.
 
 load helper
 
-@test "help output byte-matches the v1 golden" {
+@test "help output byte-matches the golden" {
   WT_COLOR=0 "$WT" help > "$BATS_TEST_TMPDIR/help.out"
   run diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$BATS_TEST_TMPDIR/help.out"
   [ "$status" -eq 0 ] || { echo "$output"; false; }

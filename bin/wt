@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # wt — agent worktree control plane.
 #
-# Canonical repos live in a store (shared: on the box at /mnt/agents, over ssh;
-# local mode arrives in M2). Agents get isolated worktrees at
+# Canonical repos live in a store (local: ~/.wt by default after `wt init`;
+# shared: box + mount via SSH). Agents get isolated worktrees at
 # workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>. Folder = stable
-# random city; branch = mutable label.
+# random city; branch = mutable label. Agent is chosen per `wt new` — never a
+# silent default.
 #
 # This entry point resolves its lib/ dir, sources the modules, then dispatches.
-# Behavior mirrors the pre-split single-file monolith.
 set -uo pipefail
 
 # ---- resolve our real location (follow symlinks, e.g. ~/.local/bin/wt) ----
@@ -26,6 +26,8 @@ WT_VERSION=$(cat "$WT_PREFIX/VERSION" 2>/dev/null || echo "0.0.0")
 . "$WT_LIB/palette.sh"
 # shellcheck source=../lib/ui.sh
 . "$WT_LIB/ui.sh"
+# shellcheck source=../lib/agents.sh
+. "$WT_LIB/agents.sh"
 # shellcheck source=../lib/backend.sh
 . "$WT_LIB/backend.sh"
 # shellcheck source=../lib/frontend.sh
@@ -45,6 +47,7 @@ esac
 if [ "$ON_MAC" = 1 ]; then
   case "$cmd" in
     "")               if [ -t 0 ] && [ -t 1 ]; then wizard; else _help; fi;;
+    init)             mac_init "$@";;
     new)              mac_new "$@";;
     rename|mv)        mac_rename "$@";;
     open)             mac_open "$@";;
@@ -58,6 +61,7 @@ if [ "$ON_MAC" = 1 ]; then
     status)           mac_status "$@";;
     doctor|check)     mac_doctor "$@";;
     config|setup)     mac_config "$@";;
+    agents|agent)     mac_agents "$@";;
     update)           mac_update "$@";;
     localdeps)        mac_localdeps "$@";;
     list|ls)          banner "worktrees"; _bx list "$@";;
@@ -73,6 +77,26 @@ else
     list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
     archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
     status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
+    agents|agent)
+      sub="${1:-list}"; shift || true
+      case "$sub" in
+        ""|list|ls) agents_list;;
+        add) agents_add "$@";;
+        remove|rm) agents_remove "$@";;
+        *) die "usage: wt agents [list|add <name>|remove <name>]";;
+      esac
+      ;;
+    init)
+      # Backend/local init: create store layout + optional first agent via args.
+      WT_PROFILE_TYPE=local
+      mkdir -p "$WT_USER_DIR/repos" "$WT_USER_DIR/workspaces" "$WT_USER_DIR/system/logs"
+      if [ -n "${1:-}" ]; then
+        agents_add "$1"
+      else
+        _save_user_config
+        ok "local store ready  ${DIM}$WT_USER_DIR${N}"
+      fi
+      ;;
     *) die "unknown box command: $cmd";;
   esac
 fi
