@@ -30,11 +30,15 @@ _pick_worktree(){ local rows; rows=$(_bx worktrees); [ -z "$rows" ] && { printf 
   local -a labels=() paths=(); while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; local f=${br#*/}; [ -n "$f" ] || f=$city; labels+=("$repo / $f   ·   $ag"); paths+=("$path"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
 _resolve_worktree(){ local sel=$1 rows matches count
-  case "$sel" in "$MAC_ROOT"/*)
-    if ! _is_local_store; then sel="$BOX_ROOT${sel#"$MAC_ROOT"}"; fi
-    ;;
-  esac
-  case "$sel" in "$ROOT"/*|"$BOX_ROOT"/*|"$MAC_ROOT"/*) printf '%s' "$sel"; return 0;; esac
+  if [ -n "$MAC_ROOT" ]; then
+    case "$sel" in "$MAC_ROOT"/*)
+      if ! _is_local_store; then sel="$BOX_ROOT${sel#"$MAC_ROOT"}"; fi
+      ;;
+    esac
+  fi
+  case "$sel" in "$ROOT"/*) printf '%s' "$sel"; return 0;; esac
+  [ -n "$BOX_ROOT" ] && case "$sel" in "$BOX_ROOT"/*) printf '%s' "$sel"; return 0;; esac
+  [ -n "$MAC_ROOT" ] && case "$sel" in "$MAC_ROOT"/*) printf '%s' "$sel"; return 0;; esac
   rows=$(_bx worktrees)
   matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo city path br; do
     local feature=${br#*/}
