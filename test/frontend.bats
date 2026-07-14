@@ -3,6 +3,20 @@
 
 load helper
 
+@test "progress_run preserves backend failures and output" {
+  run bash -c '
+    export WT_COLOR=0
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    fail_backend() { printf "backend failed\n"; return 17; }
+    _progress_run "testing" fail_backend
+    rc=$?
+    printf "rc=%s\nout=%s\n" "$rc" "$PROGRESS_OUT"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = $'rc=17\nout=backend failed' ]
+}
+
 @test "resolve_worktree rejects absolute paths outside the store" {
   _use_backend_store
   run bash -c '
