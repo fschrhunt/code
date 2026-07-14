@@ -1,0 +1,13 @@
+# wt shellcheck config.
+#
+# Follow `source`d modules (bin/wt sources lib/*.sh) so the program is analyzed
+# as a whole rather than file-by-file (avoids false "unassigned/unused" across
+# modules).
+external-sources=true
+# Resolve `# shellcheck source=../lib/*.sh` directives relative to bin/wt's dir.
+source-path=SCRIPTDIR
+
+# Intentional word-splitting on space-separated lists (CITIES, and the newline
+# lists of repo/agent names) is pervasive in this list-oriented CLI. Carried
+# verbatim from the v1 monolith; per-line tightening is tracked for M4/M5.
+disable=SC2206,SC2046,SC2086
