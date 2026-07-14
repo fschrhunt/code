@@ -43,13 +43,30 @@ if [ -z "$P" ] && [ -f "$SEED" ]; then
 fi
 [ -z "$P" ] && { echo "$(date): no keychain/seed cred for ${SMBUSER}@${SERVER}"; exit 1; }
 
+_urlencode() {
+  local s=$1 i c
+  for ((i = 0; i < ${#s}; i++)); do
+    c=${s:i:1}
+    case "$c" in
+      [a-zA-Z0-9.~_-]) printf '%s' "$c";;
+      *) printf '%%%02X' "'$c";;
+    esac
+  done
+}
+_applescript_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+ENC_USER=$(_urlencode "$SMBUSER")
+ENC_PASS=$(_urlencode "$P")
+ENC_SHARE=$(_urlencode "$SHARE")
+AS_URL="smb://$(_applescript_escape "$SMBUSER"):$(_applescript_escape "$P")@$(_applescript_escape "$SERVER")/$(_applescript_escape "$SHARE")"
+
 for i in $(seq 1 20); do /usr/bin/nc -z -G 2 "$SERVER" 445 2>/dev/null && break; sleep 1; done
 
 mkdir -p "$MP" 2>/dev/null || true
-if /sbin/mount_smbfs "//${SMBUSER}:${P}@${SERVER}/${SHARE}" "$MP" 2>/dev/null; then
+if /sbin/mount_smbfs "//${ENC_USER}:${ENC_PASS}@${SERVER}/${ENC_SHARE}" "$MP" 2>/dev/null; then
   :
 else
-  /usr/bin/osascript -e "mount volume \"smb://${SMBUSER}:${P}@${SERVER}/${SHARE}\"" >/dev/null 2>&1 || true
+  /usr/bin/osascript -e "mount volume \"${AS_URL}\"" >/dev/null 2>&1 || true
 fi
 
 if /sbin/mount | grep -q " on ${MP} "; then echo "$(date): mounted ${MP}"; exit 0; fi
