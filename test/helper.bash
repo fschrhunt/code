@@ -12,6 +12,13 @@ _use_backend_store() {
   export WT_COLOR=0
   export WT_HOME="$BATS_TEST_TMPDIR/store"
   mkdir -p "$WT_HOME/repos" "$WT_HOME/workspaces" "$WT_HOME/system/logs"
+  # Seed a managed agent list — no silent DEFAULT_AGENT; `new` requires a configured name.
+  cat > "$WT_HOME/config" <<'EOF'
+type = local
+editor = cursor
+default_org = example
+agents = claude, codex, cursor, grok, devin, opencode
+EOF
 }
 
 # Create a canonical repo named $1 (default: demo) with an initial commit on main.

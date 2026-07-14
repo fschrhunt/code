@@ -1,13 +1,33 @@
 #!/usr/bin/env bats
-# Behavior-preserving proof: `wt help` output must byte-match the golden captured
-# from the v1 monolith before the module split. Also covers `wt version`.
+# Help golden lock: `wt help` output must byte-match test/golden/help.txt.
+# Intentional UX changes update the golden in the same commit. Also covers `wt version`.
 
 load helper
 
-@test "help output byte-matches the v1 golden" {
+@test "help output byte-matches the golden" {
+  export WT_HOME="$BATS_TEST_TMPDIR/help-store"
+  mkdir -p "$WT_HOME"
+  cat > "$WT_HOME/config" <<'EOF'
+type = local
+editor = cursor
+default_org = example
+agents = cursor
+EOF
   WT_COLOR=0 "$WT" help > "$BATS_TEST_TMPDIR/help.out"
   run diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$BATS_TEST_TMPDIR/help.out"
   [ "$status" -eq 0 ] || { echo "$output"; false; }
+}
+
+@test "bare wt falls back to help when not a TTY" {
+  export WT_HOME="$BATS_TEST_TMPDIR/help-store"
+  mkdir -p "$WT_HOME"
+  printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WT_HOME/config"
+  run bash -c "WT_COLOR=0 WT_HOME='$WT_HOME' '$WT'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"WORK"* ]]
+  [[ "$output" == *"SETTINGS"* ]]
+  [[ "$output" == *"MORE"* ]]
+  [[ "$output" == *"ide"* ]]
 }
 
 @test "help works via -h and --help too" {

@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
 # wt — agent worktree control plane.
 #
-# Canonical repos live in a store (shared: on the box at /mnt/agents, over ssh;
-# local mode arrives in M2). Agents get isolated worktrees at
-# workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>. Folder = stable
-# random city; branch = mutable label.
-#
-# This entry point resolves its lib/ dir, sources the modules, then dispatches.
-# Behavior mirrors the pre-split single-file monolith.
+# Canonical repos live in a store (local: ~/.wt after `wt init`; shared: box +
+# mount via SSH). Agents get isolated worktrees at
+# workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
 set -uo pipefail
 
-# ---- resolve our real location (follow symlinks, e.g. ~/.local/bin/wt) ----
 _src=${BASH_SOURCE[0]}
 while [ -L "$_src" ]; do
   _dir=$(cd -P "$(dirname "$_src")" >/dev/null 2>&1 && pwd)
@@ -26,17 +21,15 @@ WT_VERSION=$(cat "$WT_PREFIX/VERSION" 2>/dev/null || echo "0.0.0")
 . "$WT_LIB/palette.sh"
 # shellcheck source=../lib/ui.sh
 . "$WT_LIB/ui.sh"
+# shellcheck source=../lib/agents.sh
+. "$WT_LIB/agents.sh"
 # shellcheck source=../lib/backend.sh
 . "$WT_LIB/backend.sh"
 # shellcheck source=../lib/frontend.sh
 . "$WT_LIB/frontend.sh"
 
-# ============================================================================
-#  DISPATCH
-# ============================================================================
 cmd="${1:-}"; [ $# -gt 0 ] && shift || true
 
-# Role-independent commands (work the same on the frontend and the backend).
 case "$cmd" in
   help|-h|--help)       _help; exit 0;;
   version|--version|-v) printf 'wt %s\n' "$WT_VERSION"; exit 0;;
@@ -45,26 +38,28 @@ esac
 if [ "$ON_MAC" = 1 ]; then
   case "$cmd" in
     "")               if [ -t 0 ] && [ -t 1 ]; then wizard; else _help; fi;;
+    init)             mac_init "$@";;
     new)              mac_new "$@";;
-    rename|mv)        mac_rename "$@";;
-    open)             mac_open "$@";;
+    rename)           mac_rename "$@";;
+    ide|open)         mac_ide "$@";;
+
     cd)               p=$(mac_cdpath "$@") && printf '__WT_CD__ %s\n' "$p";;
     __cdpath)         mac_cdpath "$@";;
-    archive|rm)       mac_archive "$@";;
+    archive)          mac_archive "$@";;
     restore)          mac_restore "$@";;
-    archived)         mac_archived "$@";;
+    list|ls)          mac_list "$@";;
+    archived)         mac_list archived;;   # folded: prefer `wt list archived`
     remove)           mac_remove "$@";;
-    delete|delrepo|rmrepo) mac_delrepo "$@";;
-    status)           mac_status "$@";;
-    doctor|check)     mac_doctor "$@";;
-    config|setup)     mac_config "$@";;
+    doctor)           mac_doctor "$@";;
+    config)           mac_config "$@";;
+    agents|agent)     mac_agents "$@";;
     update)           mac_update "$@";;
-    localdeps)        mac_localdeps "$@";;
-    list|ls)          banner "worktrees"; _bx list "$@";;
-    clone|add)        mac_clone "$@";;
-    sync|refresh)     banner "sync"; _bx sync "$@";;
-    clean|tidy)       banner "clean"; _bx clean "$@";;
+    localdeps)        mac_localdeps "$@";;  # internal; kept for shared SMB
+    clone)            mac_clone "$@";;
+    sync)             banner "sync"; _bx sync "$@";;
+    clean)            banner "clean"; _bx clean "$@";;
     repos|worktrees)  _bx "$cmd" "$@";;
+    status)           mac_doctor "$@";;     # folded into doctor
     *)                die "unknown command: $cmd (try: wt help)";;
   esac
 else
@@ -73,6 +68,25 @@ else
     list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
     archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
     status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
+    agents|agent)
+      sub="${1:-list}"; shift || true
+      case "$sub" in
+        ""|list|ls) agents_list;;
+        add) agents_add "$@";;
+        remove|rm) agents_remove "$@";;
+        *) die "usage: wt agents [list|add <name>|remove <name>]";;
+      esac
+      ;;
+    init)
+      WT_PROFILE_TYPE=local
+      mkdir -p "$WT_USER_DIR/repos" "$WT_USER_DIR/workspaces" "$WT_USER_DIR/system/logs"
+      if [ -n "${1:-}" ]; then
+        agents_add "$1"
+      else
+        _save_user_config
+        ok "local store ready  ${DIM}$WT_USER_DIR${N}"
+      fi
+      ;;
     *) die "unknown box command: $cmd";;
   esac
 fi

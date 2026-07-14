@@ -1,35 +1,33 @@
 # AGENTS.md — contract for any coding agent working on `wt`
 
-This file is the single source of build/test/run truth. Conductor's Codex, Grok
-build, Claude, and humans all follow it so work stays compatible and safe.
+This file is the single source of build/test/run truth. Contributors and coding
+agents follow it so work stays compatible and safe.
 
 ## Golden rules
 
-- **Never edit a deployed copy.** The running fleet tool lives at
-  `/Volumes/Agents/system/bin/wt` (origin `/mnt/agents/...`). All work happens in
-  **this repo**, on a branch, via PR. Editing the mounted/deployed copy directly
-  is how you break every machine at once.
-- **Dev is decoupled from deploy.** Shipping a new version is a deliberate step
-  (`./install.sh`, or a tagged release) — never a live edit. Your in-progress
-  work can never take down the running tool.
+- **Never edit a deployed copy.** If a machine runs `wt` from an installed or
+  mounted path, do not patch that binary in place. All work happens in **this
+  repo**, on a branch, via PR. Shipping is a deliberate install/release step.
+- **Dev is decoupled from deploy.** Ship with `./install.sh` or a tagged release
+  — never a live edit of someone else's running install. In-progress work must
+  not take down a running tool.
 - **Green before proposed.** Every change must pass `make check` (shellcheck with
   zero warnings + all bats tests) locally. CI re-runs it on macOS and Linux. A
   red PR is not done.
-- **Deterministic tests only.** No test may need the network, the box, the SMB
+- **Deterministic tests only.** No test may need the network, a remote box, an SMB
   mount, or an interactive TTY. Use `WT_BACKEND=1` + `WT_HOME=<tmp>` and the
   helpers in `test/helper.bash` (a local bare repo stands in for `origin`).
   Randomness (`RANDOM` city picker) must not affect assertions.
 - **Behavior-preserving refactors stay behavior-preserving.** If you restructure,
   prove it with the golden test (`test/help.bats`) and the backend lifecycle
   tests. Intended output changes get their own visible commit + updated golden.
-- **Follow the plan; honor the locked decisions.** See `WT-PLAN.md` in the Agents
-  store (or the linked issue). Milestones run M0→M1→M2→…; don't implement
-  anti-goals; don't reopen locked decisions. If a decision looks wrong, flag it
-  in the PR — don't silently diverge.
-- **Never run teardown against the live store while developing.** Exercise
+- **Never run teardown against a live shared store while developing.** Exercise
   `archive` / `remove` / `clean` only against test fixtures or your own local
-  `~/.wt`, never `/Volumes/Agents`.
+  `~/.wt`.
 - **Small, reviewable PRs** — one milestone slice each, with its tests.
+- **No fleet secrets in the repo.** Hostnames, Tailscale IPs, org names, and
+  mount paths belong in `~/.wt/config` (or a private deploy), not in shipped
+  defaults.
 
 ## Build / test / run
 
@@ -48,18 +46,21 @@ plain fallback otherwise).
 
 ```
 bin/wt              entry point: resolves lib/, sources modules, dispatches
-lib/config.sh       defaults, wt.conf overrides, role (ON_MAC) + paths (ROOT/REPOS/WORK)
+lib/config.sh       defaults, ~/.wt/config, role (ON_MAC) + paths (ROOT/REPOS/WORK)
 lib/palette.sh      colors + ok/warn/err/die/banner
 lib/ui.sh           logo, help, gum helpers, progress bar/spinner
 lib/backend.sh      cmd_* git verbs — operate on $ROOT via `git -C`
-lib/frontend.sh     mac_* interactive UX + _bx (ssh transport to the box)
+lib/frontend.sh     mac_* interactive UX + _bx (ssh transport for shared)
+lib/agents.sh       managed agent list + editor open
+contrib/            optional helpers (e.g. mount-wt.sh) — not required for local
+docs/               guides (docs/README.md → customize · extending)
 test/               bats tests + golden fixtures
 ```
 
-## Test seams (added in M0, default to legacy behavior)
+## Test seams
 
 - `WT_BACKEND=1` — force the backend role on any OS (frontend is macOS otherwise).
-- `WT_HOME=<dir>` — override the data root (default: the mount / box root).
+- `WT_HOME=<dir>` — override the data root (and read `$WT_HOME/config`).
 - `WT_COLOR=0/1` — force color off/on regardless of TTY.
 
 ## Cursor Cloud specific instructions
