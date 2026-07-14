@@ -58,7 +58,7 @@ _applescript_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 ENC_USER=$(_urlencode "$SMBUSER")
 ENC_PASS=$(_urlencode "$P")
 ENC_SHARE=$(_urlencode "$SHARE")
-AS_URL="smb://$(_applescript_escape "$SMBUSER"):$(_applescript_escape "$P")@$(_applescript_escape "$SERVER")/$(_applescript_escape "$SHARE")"
+AS_URL=$(_applescript_escape "smb://${ENC_USER}:${ENC_PASS}@${SERVER}/${ENC_SHARE}")
 
 for i in $(seq 1 20); do /usr/bin/nc -z -G 2 "$SERVER" 445 2>/dev/null && break; sleep 1; done
 
