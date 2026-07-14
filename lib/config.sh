@@ -4,25 +4,26 @@
 #
 # Values only. User config is parsed (never sourced). Known keys only; values
 # with shell metacharacters are rejected.
+#
+# Product defaults are neutral. Shared-stack hosts/paths/org live in ~/.wt/config
+# (filled by `wt init --shared` / `wt config`), not in this file.
 
-# ---- built-in defaults (product name: wt) ----
-# New shared profiles suggest /Volumes/wt + /mnt/wt. Existing fleets still on
-# /Volumes/Agents are auto-detected below when no user config exists yet.
-BOX_HOST=server
-BOX_ADDR=100.65.233.79   # IP/hostname for reachability probes (SSH Host may differ)
-BOX_USER=agents
-BOX_ROOT=/mnt/wt
-BOX_HOME=/mnt/wt/.home
-MAC_ROOT=/Volumes/wt
-SHARE_NAME=wt            # SMB share name on the box
-# Suggested names for `wt init` / first `agents add` — not a silent default for `new`.
+# ---- built-in defaults (neutral product) ----
+BOX_HOST=""
+BOX_ADDR=""
+BOX_USER=""
+BOX_ROOT=""
+BOX_HOME=""
+MAC_ROOT=""
+SHARE_NAME=""
 SUGGESTED_AGENTS="claude codex cursor grok devin opencode"
 VALID_AGENTS=""
-DEFAULT_ORG=intuitumxyz
+DEFAULT_ORG=""
 EDITOR_CMD=cursor
 CACHE_DIRS="node_modules .next .turbo dist build"
 CITIES="accra amman athens austin bali berlin bogota cairo dakar denver dublin geneva hanoi havana kyoto lagos lima lisbon luanda lusaka madrid manila maputo nairobi osaka oslo porto prague quito rabat reno riga rome seoul sofia taipei tokyo toledo tunis turin vienna warsaw zagreb"
-WT_PROFILE_TYPE=shared   # flipped to local by `wt init` (default product path)
+# Local until the user opts into shared via init/config (or an existing ~/.wt/config).
+WT_PROFILE_TYPE=local
 
 # User/data directory: $WT_HOME for tests/local override, else ~/.wt
 if [ -n "${WT_HOME:-}" ]; then
@@ -37,17 +38,8 @@ _config_safe_val(){
   return 0
 }
 
-_sync_box_home(){ BOX_HOME="${BOX_ROOT%/}/.home"; }
-
-# Prefer legacy Agents mount when present and no user config yet (fleet backcompat).
-_detect_legacy_agents_paths(){
-  [ -f "$WT_USER_CONFIG" ] && return 0
-  if [ -d /Volumes/Agents ] && [ ! -d /Volumes/wt ]; then
-    MAC_ROOT=/Volumes/Agents
-    BOX_ROOT=/mnt/agents
-    SHARE_NAME=Agents
-    _sync_box_home
-  fi
+_sync_box_home(){
+  [ -n "$BOX_ROOT" ] && BOX_HOME="${BOX_ROOT%/}/.home" || BOX_HOME=""
 }
 
 _load_user_config(){
@@ -110,34 +102,34 @@ _save_user_config(){
   fi
 }
 
-_detect_legacy_agents_paths
 _load_user_config
 
-# Legacy shared wt.conf may still set editor/org + box knobs (ignore DEFAULT_AGENT).
-for c in "$MAC_ROOT/system/config/wt.conf" "$BOX_ROOT/system/config/wt.conf" \
-         /Volumes/Agents/system/config/wt.conf /mnt/agents/system/config/wt.conf; do
-  if [ -f "$c" ]; then
-    local_line=""
-    while IFS= read -r local_line || [ -n "$local_line" ]; do
-      case "$local_line" in
-        EDITOR_CMD=*|DEFAULT_ORG=*|BOX_HOST=*|BOX_USER=*|BOX_ROOT=*|MAC_ROOT=*|BOX_ADDR=*|SHARE_NAME=*)
-          key=${local_line%%=*}; val=${local_line#*=}
-          _config_safe_val "$val" || continue
-          case "$key" in
-            EDITOR_CMD) EDITOR_CMD=$val;;
-            DEFAULT_ORG) DEFAULT_ORG=$val;;
-            BOX_HOST) BOX_HOST=$val;;
-            BOX_ADDR) BOX_ADDR=$val;;
-            BOX_USER) BOX_USER=$val;;
-            BOX_ROOT) BOX_ROOT=$val; _sync_box_home;;
-            MAC_ROOT) MAC_ROOT=$val;;
-            SHARE_NAME) SHARE_NAME=$val;;
-          esac
-          ;;
-      esac
-    done < "$c"
-    break
-  fi
+# Optional overlay from the active store's wt.conf (values only), after user config
+# has established MAC_ROOT / BOX_ROOT.
+for c in \
+  ${MAC_ROOT:+"$MAC_ROOT/system/config/wt.conf"} \
+  ${BOX_ROOT:+"$BOX_ROOT/system/config/wt.conf"}; do
+  [ -n "$c" ] && [ -f "$c" ] || continue
+  local_line=""
+  while IFS= read -r local_line || [ -n "$local_line" ]; do
+    case "$local_line" in
+      EDITOR_CMD=*|DEFAULT_ORG=*|BOX_HOST=*|BOX_USER=*|BOX_ROOT=*|MAC_ROOT=*|BOX_ADDR=*|SHARE_NAME=*)
+        key=${local_line%%=*}; val=${local_line#*=}
+        _config_safe_val "$val" || continue
+        case "$key" in
+          EDITOR_CMD) EDITOR_CMD=$val;;
+          DEFAULT_ORG) DEFAULT_ORG=$val;;
+          BOX_HOST) BOX_HOST=$val;;
+          BOX_ADDR) BOX_ADDR=$val;;
+          BOX_USER) BOX_USER=$val;;
+          BOX_ROOT) BOX_ROOT=$val; _sync_box_home;;
+          MAC_ROOT) MAC_ROOT=$val;;
+          SHARE_NAME) SHARE_NAME=$val;;
+        esac
+        ;;
+    esac
+  done < "$c"
+  break
 done
 
 # ---- role ----
@@ -152,20 +144,26 @@ if [ -n "${WT_HOME:-}" ]; then
 elif [ "$WT_PROFILE_TYPE" = local ]; then
   ROOT="$WT_USER_DIR"
 elif [ "$ON_MAC" = 1 ]; then
-  ROOT="$MAC_ROOT"
+  ROOT="${MAC_ROOT:-$WT_USER_DIR}"
 else
-  ROOT="$BOX_ROOT"
-  export HOME="$BOX_HOME"
+  ROOT="${BOX_ROOT:-$WT_USER_DIR}"
+  [ -n "$BOX_HOME" ] && export HOME="$BOX_HOME"
   export GIT_TERMINAL_PROMPT=0
 fi
 [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
 REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
 
 _is_local_store(){
-  [ "${WT_PROFILE_TYPE:-shared}" = local ]
+  [ "${WT_PROFILE_TYPE}" = local ]
+}
+
+_require_shared_stack(){
+  [ -n "$BOX_HOST" ] && [ -n "$BOX_USER" ] && [ -n "$BOX_ROOT" ] && [ -n "$MAC_ROOT" ] || \
+    die "shared profile incomplete — run: wt config  (need box_host, box_user, box_root, mount_path)"
 }
 
 _box_reachable(){
   local host="${BOX_ADDR:-$BOX_HOST}"
+  [ -n "$host" ] || return 1
   /usr/bin/nc -z -G 2 "$host" 22 2>/dev/null
 }

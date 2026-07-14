@@ -14,6 +14,7 @@ _bx(){
     esac
     return $?
   fi
+  _require_shared_stack
   local wc=0; [ -t 1 ] && wc=1
   local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc $BOX_ROOT/system/bin/wt"
   local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
@@ -72,14 +73,17 @@ _ask_agents_and_prefs(){
 }
 
 _ask_shared_stack(){
-  printf '  %sShared store lives on a box and is mounted locally.%s\n\n' "$DIM" "$N"
+  printf '  %sShared store lives on a box and is mounted locally.%s\n' "$DIM" "$N"
+  printf '  %sLeave blank to keep the current value (if any).%s\n\n' "$DIM" "$N"
   local v
-  v=$(_input "SSH host (ssh config Host or hostname)" "$BOX_HOST"); BOX_HOST=${v:-$BOX_HOST}
-  v=$(_input "box address for probes (IP/hostname)" "$BOX_ADDR"); BOX_ADDR=${v:-$BOX_ADDR}
-  v=$(_input "SSH / sudo user on the box" "$BOX_USER"); BOX_USER=${v:-$BOX_USER}
-  v=$(_input "remote store root on the box" "$BOX_ROOT"); BOX_ROOT=${v:-$BOX_ROOT}
-  v=$(_input "local mount path" "$MAC_ROOT"); MAC_ROOT=${v:-$MAC_ROOT}
-  v=$(_input "SMB share name" "$SHARE_NAME"); SHARE_NAME=${v:-$SHARE_NAME}
+  v=$(_input "SSH host (ssh config Host or hostname)" "${BOX_HOST:-my-box}"); [ -n "$v" ] && BOX_HOST=$v
+  v=$(_input "box address for probes (IP/hostname)" "${BOX_ADDR:-${BOX_HOST:-my-box.example}}"); [ -n "$v" ] && BOX_ADDR=$v
+  v=$(_input "SSH / sudo user on the box" "${BOX_USER:-wt}"); [ -n "$v" ] && BOX_USER=$v
+  v=$(_input "remote store root on the box" "${BOX_ROOT:-/mnt/wt}"); [ -n "$v" ] && BOX_ROOT=$v
+  v=$(_input "local mount path" "${MAC_ROOT:-/Volumes/wt}"); [ -n "$v" ] && MAC_ROOT=$v
+  v=$(_input "SMB share name" "${SHARE_NAME:-wt}"); [ -n "$v" ] && SHARE_NAME=$v
+  [ -n "$BOX_HOST" ] && [ -n "$BOX_USER" ] && [ -n "$BOX_ROOT" ] && [ -n "$MAC_ROOT" ] \
+    || die "shared stack needs box_host, box_user, box_root, and mount_path"
   _config_safe_val "$BOX_HOST" && _config_safe_val "$BOX_ADDR" && _config_safe_val "$BOX_USER" \
     && _config_safe_val "$BOX_ROOT" && _config_safe_val "$MAC_ROOT" && _config_safe_val "$SHARE_NAME" \
     || die "unsafe shared-stack value"
@@ -118,21 +122,11 @@ mac_init(){
     [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
     REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
     ok "local profile ready  ${DIM}$WT_USER_DIR${N}"
-    if [ -d /Volumes/Agents ] || [ -d /Volumes/wt ] || [ -d "$MAC_ROOT/repos" ]; then
-      printf '  %shint:%s a shared mount exists — switch later with %swt init --shared%s\n' "$DIM" "$N" "$GRN" "$N"
-    fi
     return 0
   fi
 
-  # shared
+  # shared — all host/path values come from prompts (or existing ~/.wt/config)
   WT_PROFILE_TYPE=shared
-  # Prefer wt naming for greenfield; keep Agents if that mount already exists.
-  if [ -d /Volumes/Agents ] && [ ! -d /Volumes/wt ]; then
-    MAC_ROOT=/Volumes/Agents; BOX_ROOT=/mnt/agents; SHARE_NAME=Agents; _sync_box_home
-    printf '  %sdetected legacy mount %s — keeping those paths (rename to /Volumes/wt is a separate ops migration)%s\n\n' "$DIM" "$MAC_ROOT" "$N"
-  else
-    MAC_ROOT=/Volumes/wt; BOX_ROOT=/mnt/wt; SHARE_NAME=wt; _sync_box_home
-  fi
   mkdir -p "$WT_USER_DIR"
   _ask_shared_stack
   _ask_agents_and_prefs
@@ -179,7 +173,7 @@ mac_rename(){ local sel="${1:-}" feature="${2:-}" wt
   else wt=$(_pick_worktree "rename which worktree?") || return 0; fi
   [ -z "$feature" ] && feature=$(_input "new feature name" "dark-mode"); [ -n "$feature" ] || { warn "cancelled"; return 0; }
   _bx rename "$wt" "$feature" && { _is_local_store || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"; }; }
-mac_open(){ local wt="${1:-}"
+mac_ide(){ local wt="${1:-}"
   if [ -z "$wt" ]; then wt=$(_pick_worktree "open in $EDITOR_CMD") || return 0
   else wt=$(_resolve_worktree "$wt") || return 1; fi
   wt=$(_tomac "$wt")
@@ -298,8 +292,9 @@ mac_update(){ banner "update"
     warn "local profile — re-run ./install.sh from the wt repo to refresh the binary"
     return 0
   fi
+  _require_shared_stack
   local mount_helper=""
-  for mount_helper in "$HOME/.local/bin/mount-wt.sh" "$HOME/.local/bin/mount-agents.sh"; do
+  for mount_helper in "$HOME/.local/bin/mount-wt.sh"; do
     [ -x "$mount_helper" ] && break
     mount_helper=""
   done
@@ -309,51 +304,51 @@ mac_update(){ banner "update"
   if [ -d "$S" ]; then
     mkdir -p ~/.local/bin ~/.local/state ~/Library/LaunchAgents
     [ -f "$S/mount-wt.sh" ] && install -m 0755 "$S/mount-wt.sh" ~/.local/bin/mount-wt.sh && ok "mount-wt.sh refreshed"
-    [ -f "$S/mount-agents.sh" ] && install -m 0755 "$S/mount-agents.sh" ~/.local/bin/mount-agents.sh && ok "mount-agents.sh refreshed"
     [ -f "$S/wt-wrapper" ] && install -m 0755 "$S/wt-wrapper" ~/.local/bin/wt && ok "wt wrapper refreshed"
     [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum installed"
   else warn "no system/setup on the mount"; fi
   echo; _bx sync --all; echo; mac_doctor
 }
 
-_wizard_more(){
-  local c; c=$(_choose "more…" \
-    "rename    rename a worktree's branch" \
-    "sync      pull the latest for every repo" \
-    "clean     remove safe remote-deleted worktrees" \
-    "remove    permanently delete an archived worktree or repo" \
-    "update    refresh install / sync") || return 0
-  case "${c%% *}" in
-    rename) mac_rename;;
-    sync)   banner "sync"; _bx sync --all;;
-    clean)  banner "clean"; _bx clean;;
-    remove) mac_remove;;
-    update) mac_update;;
-  esac
-}
-
+# Sectioned landing (TTY). Headers are not actions — picking one re-opens the menu.
 wizard(){ clear 2>/dev/null
   _header
-  local c; c=$(_choose "what would you like to do?" \
+  local c
+  c=$(_choose "what would you like to do?" \
+    "── WORK ──" \
     "new       start a new worktree" \
-    "open      open a worktree in $EDITOR_CMD" \
+    "ide       open a worktree in $EDITOR_CMD" \
     "list      list active worktrees" \
     "archive   put a worktree away (keeps the branch)" \
     "restore   bring an archived worktree back" \
     "clone     add a repo from GitHub" \
+    "── SETTINGS ──" \
     "agents    list / add / remove agents" \
-    "config    settings & shared stack" \
-    "doctor    check everything works" \
-    "More…     sync, clean, rename, update…") || { echo; return 0; }
-  case "${c%% *}" in
-    new)      mac_new;;
-    open)     mac_open;;
-    list)     mac_list;;
-    archive)  mac_archive;;
-    restore)  mac_restore;;
-    clone)    mac_clone;;
-    agents)   mac_agents;;
-    config)   mac_config;;
-    doctor)   mac_doctor;;
-    More…)    _wizard_more;;
-  esac; }
+    "config    editor, org, profile, shared stack" \
+    "init      create or refresh a profile" \
+    "doctor    check that everything works" \
+    "── MORE ──" \
+    "rename    rename a worktree's branch" \
+    "sync      pull the latest for every repo" \
+    "clean     remove safe remote-deleted worktrees" \
+    "remove    permanently delete archived / repo" \
+    "update    refresh install / sync") || { echo; return 0; }
+  case "$c" in
+    ──*)   wizard; return;;
+    new*)  mac_new;;
+    ide*|open*) mac_ide;;
+    list*) mac_list;;
+    archive*) mac_archive;;
+    restore*) mac_restore;;
+    clone*) mac_clone;;
+    agents*) mac_agents;;
+    config*) mac_config;;
+    init*) mac_init;;
+    doctor*) mac_doctor;;
+    rename*) mac_rename;;
+    sync*) banner "sync"; _bx sync --all;;
+    clean*) banner "clean"; _bx clean;;
+    remove*) mac_remove;;
+    update*) mac_update;;
+  esac
+}

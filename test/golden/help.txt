@@ -6,29 +6,33 @@
     /:/ /:/ _/_       /::\  \   wt v1.2.0
    /:/_/:/ /\__\     /:/\:\__\  
    \:\/:/ /:/  /    /:/  \/__/  Isolated git worktrees from your terminal.
-    \::/_/:/  /    /:/  /       Shared profile — agents choose · editor opens the IDE
+    \::/_/:/  /    /:/  /       Local profile · editor cursor
      \:\/:/  /     \/__/        
       \::/  /                   
        \/__/                    
 
-  EXAMPLES
-  wt init                      First run — local ~/.wt, or wt init --shared.
-  wt new <repo>                Start a worktree (picks agent interactively).
-  wt open                      Open a worktree in a new cursor window.
-  wt archive                   Put a worktree away — keeps the branch, restorable.
+  WORK
 
-  COMMANDS
-  new        Start a new worktree to work in.
-  open       Open a worktree in cursor (new IDE window).
-  cd         Jump into a worktree in the terminal.
-  list       List active worktrees (or: wt list archived).
-  archive    Put a worktree away — keeps the branch.
-  restore    Bring an archived worktree back.
-  clone      Add a repo from GitHub to the store.
-  agents     List, add, or remove configured agents.
-  config     Editor, org, profile, and shared stack.
-  init       Create a local or shared profile.
-  doctor     Check that everything's working.
+  new                             Start a new worktree to work in.
+  ide                             Open a worktree in cursor (new IDE window).
+  cd                              Jump into a worktree in the terminal.
+  list                            List active worktrees (or: wt list archived).
+  archive                         Put a worktree away — keeps the branch.
+  restore                         Bring an archived worktree back.
+  clone                           Add a repo from GitHub to the store.
 
-  More — rename, sync, clean, remove, update
+  SETTINGS
+
+  agents                          List, add, or remove configured agents.
+  config                          Editor, org, profile, and shared stack.
+  init                            Create a local or shared profile.
+  doctor                          Check that everything's working.
+
+  MORE
+
+  rename                          Rename a worktree's branch.
+  sync                            Pull the latest for every repo.
+  clean                           Remove safe remote-deleted worktrees.
+  remove                          Permanently delete an archived worktree or repo.
+  update                          Refresh install / sync.
 

@@ -19,40 +19,43 @@ _header(){
   local -a T=()
   local ver="${WT_VERSION:-0.0.0}"
   local status
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ]; then
-    status="Local store at ${ROOT:-$HOME/.wt}"
+  if [ "${WT_PROFILE_TYPE:-local}" = local ]; then
+    status="Local profile · editor ${EDITOR_CMD:-cursor}"
   else
-    status="Shared profile — agents choose · editor opens the IDE"
+    status="Shared profile · editor ${EDITOR_CMD:-cursor}"
   fi
   T[4]="${GRN}wt${N} ${DIM}v${ver}${N}"
   T[6]="${W}Isolated git worktrees from your terminal.${N}"
   T[7]="${DIM}${status}${N}"
   echo; local i; for i in "${!LOGO[@]}"; do printf '  %s%-28s%s  %s\n' "$GRN" "${LOGO[i]}" "$N" "${T[i]:-}"; done; echo
 }
+
+# Action-scoped help (same groupings as the wizard): WORK / SETTINGS / MORE.
 _help(){
   _header
-  printf '  %sEXAMPLES%s\n' "$W" "$N"
-  ex(){ printf '  %s%-28s%s %s\n' "$GRN" "$1" "$N" "$2"; }
-  ex "wt init" "First run — local ~/.wt, or wt init --shared."
-  ex "wt new <repo>" "Start a worktree (picks agent interactively)."
-  ex "wt open" "Open a worktree in a new $EDITOR_CMD window."
-  ex "wt archive" "Put a worktree away — keeps the branch, restorable."
-  echo
-  printf '  %sCOMMANDS%s\n' "$W" "$N"
-  cm(){ printf '  %s%-10s%s %s\n' "$GRN" "$1" "$N" "$2"; }
+  local col=32
+  cm(){ printf "  %s%-${col}s%s%s\n" "$CYN" "$1" "$N" "$2"; }
+  printf '  %sWORK%s\n\n' "$W" "$N"
   cm new      "Start a new worktree to work in."
-  cm open     "Open a worktree in $EDITOR_CMD (new IDE window)."
+  cm ide      "Open a worktree in $EDITOR_CMD (new IDE window)."
   cm cd       "Jump into a worktree in the terminal."
   cm list     "List active worktrees (or: wt list archived)."
   cm archive  "Put a worktree away — keeps the branch."
   cm restore  "Bring an archived worktree back."
   cm clone    "Add a repo from GitHub to the store."
+  echo
+  printf '  %sSETTINGS%s\n\n' "$W" "$N"
   cm agents   "List, add, or remove configured agents."
   cm config   "Editor, org, profile, and shared stack."
   cm init     "Create a local or shared profile."
   cm doctor   "Check that everything's working."
   echo
-  printf '  %sMore%s %s— rename, sync, clean, remove, update%s\n' "$W" "$N" "$DIM" "$N"
+  printf '  %sMORE%s\n\n' "$W" "$N"
+  cm rename   "Rename a worktree's branch."
+  cm sync     "Pull the latest for every repo."
+  cm clean    "Remove safe remote-deleted worktrees."
+  cm remove   "Permanently delete an archived worktree or repo."
+  cm update   "Refresh install / sync."
   echo
 }
 

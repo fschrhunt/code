@@ -1,31 +1,50 @@
 #!/bin/bash
-# Mount the box-hosted wt share (idempotent).
-SHARE="${WT_SHARE_NAME:-wt}"
-SMBUSER="${WT_BOX_USER:-agents}"
-MP="${WT_MOUNT_PATH:-/Volumes/wt}"
-SERVER="${WT_BOX_ADDR:-100.65.233.79}"
+# Mount a box-hosted wt SMB share (idempotent).
+#
+# Credentials come from the login keychain (or a one-shot seed file). Connection
+# details come from the environment, or from ~/.wt/config when present:
+#   WT_SHARE_NAME / share_name
+#   WT_BOX_USER   / box_user
+#   WT_MOUNT_PATH / mount_path
+#   WT_BOX_ADDR   / box_addr  (or WT_BOX_HOST / box_host)
+#
+# There are no baked-in hosts or fleet IPs — set env vars or run `wt init --shared`.
+
+_cfg="${HOME}/.wt/config"
+_get() {
+  local key="$1" envv="$2" val=""
+  if [ -n "${!envv:-}" ]; then printf '%s' "${!envv}"; return; fi
+  if [ -f "$_cfg" ]; then
+    val=$(sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" "$_cfg" | head -1)
+    val=${val%"${val##*[![:space:]]}"}
+  fi
+  printf '%s' "$val"
+}
+
+SHARE="$(_get share_name WT_SHARE_NAME)"
+SMBUSER="$(_get box_user WT_BOX_USER)"
+MP="$(_get mount_path WT_MOUNT_PATH)"
+SERVER="$(_get box_addr WT_BOX_ADDR)"
+[ -z "$SERVER" ] && SERVER="$(_get box_host WT_BOX_HOST)"
 SEED="${HOME}/.wt-cred.seed"
-LEGACY_SEED="${HOME}/.wt-agents-cred.seed"
+
+if [ -z "$SHARE" ] || [ -z "$SMBUSER" ] || [ -z "$MP" ] || [ -z "$SERVER" ]; then
+  echo "$(date): mount-wt: set WT_SHARE_NAME, WT_BOX_USER, WT_MOUNT_PATH, WT_BOX_ADDR (or fill ~/.wt/config via wt init --shared)"
+  exit 1
+fi
 
 if /sbin/mount | grep -q " on ${MP} "; then exit 0; fi
 
 # Prefer keychain; else seed file (first-run / headless).
 P=$(/usr/bin/security find-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -w 2>/dev/null || true)
-if [ -z "$P" ]; then
-  for s in "$SEED" "$LEGACY_SEED"; do
-    if [ -f "$s" ]; then
-      P=$(cat "$s")
-      # Best-effort: seed login keychain when GUI session is available
-      /usr/bin/security add-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -l "wt SMB (box)" -w "$P" -T /sbin/mount_smbfs -U 2>/dev/null && rm -f "$s" || true
-      break
-    fi
-  done
+if [ -z "$P" ] && [ -f "$SEED" ]; then
+  P=$(cat "$SEED")
+  /usr/bin/security add-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -l "wt SMB" -w "$P" -T /sbin/mount_smbfs -U 2>/dev/null && rm -f "$SEED" || true
 fi
 [ -z "$P" ] && { echo "$(date): no keychain/seed cred for ${SMBUSER}@${SERVER}"; exit 1; }
 
 for i in $(seq 1 20); do /usr/bin/nc -z -G 2 "$SERVER" 445 2>/dev/null && break; sleep 1; done
 
-# osascript mounts into /Volumes/<Share>; mount_smbfs lets us force MP
 mkdir -p "$MP" 2>/dev/null || true
 if /sbin/mount_smbfs "//${SMBUSER}:${P}@${SERVER}/${SHARE}" "$MP" 2>/dev/null; then
   :
@@ -34,6 +53,9 @@ else
 fi
 
 if /sbin/mount | grep -q " on ${MP} "; then echo "$(date): mounted ${MP}"; exit 0; fi
-# osascript may mount as /Volumes/wt from share name already
-if [ -d /Volumes/wt ] && /sbin/mount | grep -q " on /Volumes/wt "; then echo "$(date): mounted /Volumes/wt"; exit 0; fi
+# osascript may mount under /Volumes/<Share> from the share name
+if [ -d "/Volumes/${SHARE}" ] && /sbin/mount | grep -q " on /Volumes/${SHARE} "; then
+  echo "$(date): mounted /Volumes/${SHARE}"
+  exit 0
+fi
 echo "$(date): mount failed"; exit 1

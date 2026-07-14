@@ -16,7 +16,7 @@ _use_backend_store() {
   cat > "$WT_HOME/config" <<'EOF'
 type = local
 editor = cursor
-default_org = intuitumxyz
+default_org = example
 agents = claude, codex, cursor, grok, devin, opencode
 EOF
 }

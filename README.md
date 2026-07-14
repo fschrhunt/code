@@ -13,7 +13,7 @@ wt agents add cursor
 wt new <repo> <feature>   # picks agent interactively
 wt list                   # active worktrees
 wt list archived          # archived branches
-wt open                   # new IDE window
+wt ide                    # new IDE window
 wt archive / wt restore
 wt config                 # editor, org, local|shared stack
 ```
@@ -22,20 +22,13 @@ wt config                 # editor, org, local|shared stack
 
 - **Local** (default after `wt init`): everything under `~/.wt`, no SSH/mount.
 - **Shared**: repos on a box (`box_root`), mounted locally (`mount_path`), git over SSH.
-  Configure with `wt init --shared` or `wt config` → shared. Your server store stays.
+  Configure with `wt init --shared` or `wt config` → shared.
 
-Paths are values in `~/.wt/config` (`mount_path`, `box_root`, `share_name`, …) — not
-hardcoded to one machine’s layout.
+All shared-stack hosts and paths live in `~/.wt/config` (`mount_path`, `box_root`,
+`share_name`, `box_host`, …). The repo ships no fleet-specific defaults.
 
-## Shared store layout
-
-Fleet Macs mount `smb://…/wt` at `/Volumes/wt`. On the box the image lives at
-`/opt/wt-store/wt.img` (filesystem label `wt`), mounted at `/mnt/wt`. Compatibility
-symlinks remain: `/mnt/agents` → `/mnt/wt`, `/opt/agents-store` → `/opt/wt-store`.
-
-Use `~/.local/bin/mount-wt.sh` (LaunchAgent `com.fschrhunt.wt-mount`). Older
-`mount-agents.sh` is a thin wrapper.
-
+Optional: [contrib/mount-wt.sh](contrib/mount-wt.sh) mounts the SMB share using
+those same config values (or `WT_*` env overrides).
 
 ## Develop
 
@@ -44,7 +37,8 @@ make check   # shellcheck + bats
 bin/wt help
 ```
 
-See [AGENTS.md](AGENTS.md) for the contributor contract. Roadmap: `WT-PLAN.md` on the store.
+See [AGENTS.md](AGENTS.md) for the contributor contract. Docs:
+[docs/README.md](docs/README.md) — customize prefs · extend the product.
 
 ## Install (dev)
 

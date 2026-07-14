@@ -41,7 +41,8 @@ if [ "$ON_MAC" = 1 ]; then
     init)             mac_init "$@";;
     new)              mac_new "$@";;
     rename)           mac_rename "$@";;
-    open)             mac_open "$@";;
+    ide|open)         mac_ide "$@";;
+
     cd)               p=$(mac_cdpath "$@") && printf '__WT_CD__ %s\n' "$p";;
     __cdpath)         mac_cdpath "$@";;
     archive)          mac_archive "$@";;
