@@ -27,20 +27,15 @@ wt config                 # editor, org, local|shared stack
 Paths are values in `~/.wt/config` (`mount_path`, `box_root`, `share_name`, …) — not
 hardcoded to one machine’s layout.
 
-## Renaming `Agents` → `wt` (ops migration)
+## Shared store layout
 
-**Code:** new shared profiles suggest `/Volumes/wt`, `/mnt/wt`, share `wt`. Existing
-`/Volumes/Agents` mounts are still auto-detected so today’s fleet keeps working.
+Fleet Macs mount `smb://…/wt` at `/Volumes/wt`. On the box the image lives at
+`/opt/wt-store/wt.img` (filesystem label `wt`), mounted at `/mnt/wt`. Compatibility
+symlinks remain: `/mnt/agents` → `/mnt/wt`, `/opt/agents-store` → `/opt/wt-store`.
 
-**Live rename is medium–hard** — do not do it casually:
+Use `~/.local/bin/mount-wt.sh` (LaunchAgent `com.fschrhunt.wt-mount`). Older
+`mount-agents.sh` is a thin wrapper.
 
-1. Stop agents/editors with cwd under `/Volumes/Agents`.
-2. On the box: rename/export the SMB share `Agents` → `wt`, path `/mnt/agents` → `/mnt/wt`.
-3. Update every Mac: mount script + LaunchAgent (`mount-wt.sh`), remount at `/Volumes/wt`.
-4. Point `~/.wt/config` at the new paths (`wt config` → shared).
-5. Open worktrees / Cursor windows will need reopening under the new path.
-
-Until that migration, keep `share_name = Agents` and `mount_path = /Volumes/Agents`.
 
 ## Develop
 
