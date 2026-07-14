@@ -23,6 +23,7 @@ load helper
   _use_backend_store
   local p="$WT_HOME/workspaces/codex/demo/hanoi"
   mkdir -p "$p"
+  p=$(cd "$p" && pwd -P)
   run bash -c '
     export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
