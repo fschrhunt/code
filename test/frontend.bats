@@ -19,7 +19,7 @@ load helper
   [[ "$output" == *"no worktree matching"* ]]
 }
 
-@test "resolve_worktree rejects store paths that are not worktrees" {
+@test "resolve_worktree rejects store internals that are not worktrees" {
   _use_backend_store
   mkdir -p "$WT_HOME/repos/demo"
   run bash -c '
@@ -36,7 +36,7 @@ load helper
   [[ "$output" == *"no worktree matching"* ]]
 }
 
-@test "resolve_worktree accepts a path under ROOT" {
+@test "resolve_worktree rejects workspace-shaped paths not in the worktree list" {
   _use_backend_store
   local p="$WT_HOME/workspaces/codex/demo/hanoi"
   mkdir -p "$p"
@@ -52,6 +52,6 @@ load helper
     . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
     _resolve_worktree "'"$p"'"
   '
-  [ "$status" -eq 0 ]
-  [ "$output" = "$p" ]
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no worktree matching"* ]]
 }
