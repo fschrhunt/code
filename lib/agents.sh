@@ -48,11 +48,11 @@ agents_remove(){
   [ -n "$name" ] || die "usage: wt agents remove <name> [--force]"
   name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
   _is_agent "$name" || die "agent not configured: $name"
-  local rows hit=0
+  local rows hit=0 ag
   rows=$(cmd_worktrees 2>/dev/null || true)
-  if printf '%s\n' "$rows" | grep -q "^${name}	"; then
-    hit=1
-  fi
+  while IFS=$'\t' read -r ag _; do
+    [ "$ag" = "$name" ] && { hit=1; break; }
+  done <<< "$rows"
   if [ "$hit" = 1 ] && [ "$force" != "--force" ]; then
     die "agent '$name' still has active worktrees — archive them first, or pass --force"
   fi
