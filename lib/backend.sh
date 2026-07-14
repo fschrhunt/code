@@ -4,6 +4,7 @@
 # These operate purely on $ROOT / $REPOS / $WORK with `git -C`.
 
 _canon(){ printf '%s' "$REPOS/$1"; }
+_prog(){ printf 'wt-progress:%s:%s\n' "$1" "$2" >&2; }
 _default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
 _repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
 _ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
@@ -43,18 +44,34 @@ cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/rep
   printf 'cloned: %s (default %s)\n' "$repo" "$(_default_branch "$repo")"; }
 cmd_delrepo(){ local repo="${1:-}" force="${2:-}"; [ -n "$repo" ] || die "usage: delrepo <repo>"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; local risky=0 wt
+  _prog "checking worktrees" 10
   for wt in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
     [ "$wt" = "$d" ] && continue; [ -e "$wt/.git" ] || continue
     local dirty unpushed; dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l | tr -d ' '); unpushed=$(git -C "$wt" log --branches --not --remotes --oneline 2>/dev/null | wc -l | tr -d ' ')
     if [ "$dirty" != 0 ] || [ "$unpushed" != 0 ]; then risky=$((risky+1)); printf '  at-risk: %s (dirty=%s unpushed=%s)\n' "${wt#"$WORK"/}" "$dirty" "$unpushed"; fi; done
+  _prog "checking worktrees" 30
   if [ "$risky" -gt 0 ] && [ "$force" != "--force" ]; then printf 'REFUSED: %s worktree(s) hold uncommitted/unpushed work\n' "$risky"; return 3; fi
-  for wt in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do [ "$wt" = "$d" ] && continue; git -C "$d" worktree remove --force "$wt" 2>/dev/null; rm -rf "$wt" 2>/dev/null; done
-  rm -rf "$d"; printf 'deleted repo: %s\n' "$repo"; }
+  local -a rm_wts=()
+  for wt in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
+    [ "$wt" = "$d" ] && continue; rm_wts+=("$wt"); done
+  local n=${#rm_wts[@]} i=0
+  for wt in "${rm_wts[@]}"; do
+    i=$((i+1)); [ "$n" -gt 0 ] && _prog "removing worktrees" $(( 30 + i * 50 / n )) || _prog "removing worktrees" 50
+    git -C "$d" worktree remove --force "$wt" 2>/dev/null; rm -rf "$wt" 2>/dev/null; done
+  _prog "deleting repo" 90; rm -rf "$d"; _prog "finishing" 100
+  printf 'deleted repo: %s\n' "$repo"; }
 cmd_sync(){ local target="${1:---all}" repos; if [ "$target" = "--all" ]; then repos=$(_repos_all); else repos="$target"; fi
-  for r in $repos; do local d; d=$(_canon "$r"); [ -d "${d}/.git" ] || { warn "skip $r (no canonical)"; continue; }
+  local -a repo_list=(); local r; for r in $repos; do repo_list+=("$r"); done
+  local n=${#repo_list[@]} i=0
+  for r in "${repo_list[@]}"; do i=$((i+1)); local d; d=$(_canon "$r")
+    [ "$n" -gt 0 ] && _prog "syncing repos" $(( i * 100 / n )) || _prog "syncing $r" 50
+    [ -d "${d}/.git" ] || { warn "skip $r (no canonical)"; continue; }
     if git -C "$d" fetch --all --prune --quiet 2>/dev/null; then git -C "$d" remote set-head origin -a >/dev/null 2>&1; git -C "$d" maintenance run --auto --quiet 2>/dev/null; ok "synced $r"; else err "failed $r (auth?)"; fi; done; }
-cmd_clean(){ local force="${1:-}"
-  for r in $(_repos_all); do local d; d=$(_canon "$r"); git -C "$d" fetch --prune --quiet 2>/dev/null || { warn "skip $r (fetch failed)"; continue; }
+cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_repos_all); do repo_list+=("$r"); done
+  local n=${#repo_list[@]} ri=0
+  for r in "${repo_list[@]}"; do ri=$((ri+1)); local d; d=$(_canon "$r")
+    [ "$n" -gt 0 ] && _prog "scanning repos" $(( ri * 100 / n )) || _prog "scanning $r" 50
+    git -C "$d" fetch --prune --quiet 2>/dev/null || { warn "skip $r (fetch failed)"; continue; }
     git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r wt; do
       case "$wt" in "$WORK"/*) ;; *) continue;; esac; local rel=${wt#"$WORK"/}; _is_agent "${rel%%/*}" || continue
       if [ ! -e "$wt/.git" ]; then printf '  %sorphan%s   %s\n' "$YEL" "$N" "$wt"; [ "$force" = "--yes" ] && rm -rf "$wt"; continue; fi
@@ -82,9 +99,12 @@ cmd_clean(){ local force="${1:-}"
 # archive: remove the worktree FOLDER but KEEP the branch (Conductor-style — restorable).
 cmd_archive(){ local wt="${1:-}" force="${2:-}"; [ -n "$wt" ] || die "usage: archive <path>"; case "$wt" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
   local rel=${wt#"$WORK"/}; _is_agent "${rel%%/*}" || die "not a wt-managed worktree"; [ -e "$wt/.git" ] || die "not a worktree: $wt"
+  _prog "checking status" 25
   [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && [ "$force" != "--yes" ] && { printf 'DIRTY: uncommitted changes — commit first, or archive --yes to discard them\n'; return 3; }
   local repo; repo=$(printf '%s' "$rel" | cut -d/ -f2); local br; br=$(git -C "$wt" branch --show-current 2>/dev/null)
-  git -C "$(_canon "$repo")" worktree remove --force "$wt" || die "worktree remove failed"; printf 'archived: %s\n' "$br"; }
+  _prog "archiving worktree" 70
+  git -C "$(_canon "$repo")" worktree remove --force "$wt" || die "worktree remove failed"; _prog "finishing" 100
+  printf 'archived: %s\n' "$br"; }
 # archived: branches with an agent prefix that have NO worktree (the "archive" list).
 cmd_archived(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
@@ -106,8 +126,10 @@ cmd_restore(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$bra
 # rmbranch: permanently delete an ARCHIVED branch (must have no worktree).
 cmd_rmbranch(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$branch" ] || die "usage: rmbranch <repo> <branch>"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _is_agent "${branch%%/*}" || die "not an agent branch: $branch"
+  _prog "checking branch" 30
   git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}' | grep -qxF "$branch" && die "branch is active (worktree exists) — archive it first"
-  git -C "$d" branch -D "$branch" >/dev/null 2>&1 && printf 'removed branch: %s\n' "$branch" || die "branch delete failed"; }
+  _prog "deleting branch" 80
+  git -C "$d" branch -D "$branch" >/dev/null 2>&1 && { _prog "finishing" 100; printf 'removed branch: %s\n' "$branch"; } || die "branch delete failed"; }
 cmd_list(){ local rows; rows=$(cmd_worktrees)
   printf '  %s%-8s %-12s %-22s %-6s %-9s %s%s\n' "$W" AGENT REPO FEATURE DIRTY AHD/BEH CITY "$N"
   [ -z "$rows" ] && { printf '  %sno worktrees yet — try: wt new%s\n' "$DIM" "$N"; return; }

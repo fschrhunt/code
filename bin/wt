@@ -56,8 +56,8 @@ if [ "$ON_MAC" = 1 ]; then
     update)           mac_update "$@";;
     localdeps)        mac_localdeps "$@";;  # internal; kept for shared SMB
     clone)            mac_clone "$@";;
-    sync)             banner "sync"; _bx sync "$@";;
-    clean)            banner "clean"; _bx clean "$@";;
+    sync)             mac_sync "$@";;
+    clean)            mac_clean "$@";;
     repos|worktrees)  _bx "$cmd" "$@";;
     status)           mac_doctor "$@";;     # folded into doctor
     *)                die "unknown command: $cmd (try: wt help)";;
