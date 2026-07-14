@@ -29,16 +29,23 @@ _tomac(){
 _pick_worktree(){ local rows; rows=$(_bx worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
   local -a labels=() paths=(); while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; local f=${br#*/}; [ -n "$f" ] || f=$city; labels+=("$repo / $f   ·   $ag"); paths+=("$path"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
-_resolve_worktree(){ local sel=$1 rows matches count
+_resolve_worktree(){ local sel=$1 rows matches count abs=0
   if [ -n "$MAC_ROOT" ]; then
     case "$sel" in "$MAC_ROOT"/*)
       if ! _is_local_store; then sel="$BOX_ROOT${sel#"$MAC_ROOT"}"; fi
       ;;
     esac
   fi
-  case "$sel" in "$ROOT"/*) printf '%s' "$sel"; return 0;; esac
-  [ -n "$BOX_ROOT" ] && case "$sel" in "$BOX_ROOT"/*) printf '%s' "$sel"; return 0;; esac
-  [ -n "$MAC_ROOT" ] && case "$sel" in "$MAC_ROOT"/*) printf '%s' "$sel"; return 0;; esac
+  case "$sel" in "$ROOT"/*) abs=1;; esac
+  [ -n "$BOX_ROOT" ] && case "$sel" in "$BOX_ROOT"/*) abs=1;; esac
+  [ -n "$MAC_ROOT" ] && case "$sel" in "$MAC_ROOT"/*) abs=1;; esac
+  if [ "$abs" = 1 ]; then
+    case "$sel" in
+      "$WORK"/*/*/*) [ -e "$sel/.git" ] && { printf '%s' "$sel"; return 0; };; 
+      "$BOX_ROOT"/workspaces/*/*/*) [ -n "$BOX_ROOT" ] && [ -e "$sel/.git" ] && { printf '%s' "$sel"; return 0; };; 
+    esac
+    die "no worktree matching '$sel'"
+  fi
   rows=$(_bx worktrees)
   matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo city path br; do
     local feature=${br#*/}
