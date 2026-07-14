@@ -6,7 +6,7 @@ build, Claude, and humans all follow it so work stays compatible and safe.
 ## Golden rules
 
 - **Never edit a deployed copy.** The running fleet tool lives at
-  `/Volumes/Agents/system/bin/wt` (origin `/mnt/agents/...`). All work happens in
+  `/Volumes/wt/system/bin/wt` (origin `/mnt/wt/...`). All work happens in
   **this repo**, on a branch, via PR. Editing the mounted/deployed copy directly
   is how you break every machine at once.
 - **Dev is decoupled from deploy.** Shipping a new version is a deliberate step
@@ -28,7 +28,7 @@ build, Claude, and humans all follow it so work stays compatible and safe.
   in the PR — don't silently diverge.
 - **Never run teardown against the live store while developing.** Exercise
   `archive` / `remove` / `clean` only against test fixtures or your own local
-  `~/.wt`, never `/Volumes/Agents`.
+  `~/.wt`, never `/Volumes/wt`.
 - **Small, reviewable PRs** — one milestone slice each, with its tests.
 
 ## Build / test / run
