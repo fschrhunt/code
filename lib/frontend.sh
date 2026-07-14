@@ -16,7 +16,9 @@ _bx(){
   fi
   _require_shared_stack
   local wc=0; [ -t 1 ] && wc=1
-  local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$BOX_ROOT $BOX_ROOT/system/bin/wt"
+  local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$BOX_ROOT"
+  [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
+  cmd+=" $BOX_ROOT/system/bin/wt"
   local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
   /usr/bin/ssh "$BOX_HOST" "$cmd"
 }
@@ -173,7 +175,9 @@ mac_rename(){ local sel="${1:-}" feature="${2:-}" wt
   if [ -n "$sel" ]; then wt=$(_resolve_worktree "$sel") || return 1
   else wt=$(_pick_worktree "rename which worktree?") || return 0; fi
   [ -z "$feature" ] && feature=$(_input "new feature name" "dark-mode"); [ -n "$feature" ] || { warn "cancelled"; return 0; }
-  _bx rename "$wt" "$feature" && { _is_local_store || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"; }; }
+  _spin_run "renaming branch" _bx rename "$wt" "$feature" || return 1
+  _is_local_store || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"
+  ok "renamed to ${GRN}$feature${N}"; }
 mac_ide(){ local wt="${1:-}"
   if [ -z "$wt" ]; then wt=$(_pick_worktree "open in $EDITOR_CMD") || return 0
   else wt=$(_resolve_worktree "$wt") || return 1; fi
@@ -185,8 +189,11 @@ mac_cdpath(){ local wt="${1:-}"
   _tomac "$wt"; }
 mac_archive(){ local wt; wt=$(_pick_worktree "archive which worktree?") || return 0
   _confirm "archive $(basename "$wt")? (keeps the branch — restorable)" || { warn "cancelled"; return 0; }
-  local out rc; out=$(_bx archive "$wt"); rc=$?
-  if [ "$rc" = 3 ]; then printf '  %s%s%s\n' "$YEL" "$out" "$N"; _confirm "discard uncommitted changes and archive anyway?" && _bx archive "$wt" --yes >/dev/null && ok "archived (uncommitted discarded)" || warn "cancelled"
+  local out rc; banner "archive $(basename "$wt")"
+  _progress_run "archiving worktree" _bx archive "$wt"; rc=$?; out="$PROGRESS_OUT"
+  if [ "$rc" = 3 ]; then printf '  %s%s%s\n' "$YEL" "$out" "$N"; _confirm "discard uncommitted changes and archive anyway?" \
+    && { _progress_run "archiving worktree" _bx archive "$wt" --yes; ok "archived (uncommitted discarded)"; } \
+    || warn "cancelled"
   elif [ "$rc" = 0 ]; then ok "archived ${GRN}${out#archived: }${N}  ${DIM}— restore with: wt restore${N}"; else printf '%s\n' "$out"; fi; }
 mac_archived(){ banner "archived"; local rows; rows=$(_bx archived)
   [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N"; return; }
@@ -205,21 +212,38 @@ mac_restore(){ _pick_archived "restore which?" || return 0
 mac_remove(){ local what; what=$(_choose "permanently remove what?" "an archived worktree (deletes its branch)" "a whole repo (deletes everything)") || return 0
   case "$what" in
     an\ archived*) _pick_archived "delete which archived branch?" || return 0
-      _confirm "permanently delete branch ${A_BRANCHES[A_IDX]}? cannot be undone" && _bx rmbranch "${A_REPOS[A_IDX]}" "${A_BRANCHES[A_IDX]}" >/dev/null && ok "deleted ${A_BRANCHES[A_IDX]}" || warn "cancelled";;
+      _confirm "permanently delete branch ${A_BRANCHES[A_IDX]}? cannot be undone" || { warn "cancelled"; return 0; }
+      banner "delete ${A_BRANCHES[A_IDX]}"
+      _progress_run "deleting branch" _bx rmbranch "${A_REPOS[A_IDX]}" "${A_BRANCHES[A_IDX]}" && ok "deleted ${A_BRANCHES[A_IDX]}" || warn "cancelled";;
     a\ whole*) mac_delrepo;;
   esac; }
 mac_delrepo(){ local repos; repos=$(_bx repos); [ -z "$repos" ] && { warn "no repos"; return 0; }
   local repo; repo=$(_choose "delete which repo?" $repos) || return 0
   _confirm "delete repo '$repo' and ALL its worktrees? cannot be undone" || { warn "cancelled"; return 0; }
-  local out rc; out=$(_bx delrepo "$repo"); rc=$?
-  if [ "$rc" = 3 ]; then printf '%s\n' "$out"; _confirm "force delete anyway (loses that work)?" && _bx delrepo "$repo" --force >/dev/null && ok "repo deleted: $repo" || warn "cancelled"
+  local out rc; banner "delete $repo"
+  _progress_run "deleting $repo" _bx delrepo "$repo"; rc=$?; out="$PROGRESS_OUT"
+  if [ "$rc" = 3 ]; then printf '%s\n' "$out"; _confirm "force delete anyway (loses that work)?" \
+    && { _progress_run "deleting $repo" _bx delrepo "$repo" --force; ok "repo deleted: $repo"; } \
+    || warn "cancelled"
   elif [ "$rc" = 0 ]; then ok "repo deleted: $repo"; else printf '%s\n' "$out"; fi; }
 mac_clone(){ local spec="${1:-}"; [ -n "$spec" ] || spec=$(_input "repo to clone" "owner/repo"); [ -n "$spec" ] || return 0
   local name; name=$(basename "${spec%.git}"); banner "clone $name"
-  _bx clone "$spec" 2>&1 | tr '\r' '\n' | while IFS= read -r line; do case "$line" in
-    cloned:*) printf '\r\e[2K'; ok "${line#cloned: }";;
-    REFUSED*|*"already have"*|*"clone failed"*|*fatal:*) printf '\r\e[2K'; err "${line#*✗ }";;
-    *%*) p=$(printf '%s' "$line" | grep -oE '[0-9]+%' | tail -1 | tr -d '%'); [ -n "$p" ] && _bar "cloning $name" "$p";; esac; done; }
+  local out; out=$(_bx clone "$spec" 2>&1 | tr '\r' '\n' | _progress_filter "cloning $name")
+  case "$out" in
+    *cloned:*) ok "$(printf '%s' "$out" | sed -n 's/.*cloned: //p' | head -1)";;
+    *REFUSED*|*"already have"*|*"clone failed"*|*fatal:*) err "$out";;
+    *) [ -n "$out" ] && printf '%s\n' "$out";;
+  esac; }
+
+mac_sync(){ local target="${1:---all}"; banner "sync"
+  _progress_run "syncing repos" _bx sync "$target"; printf '%s' "$PROGRESS_OUT"; }
+
+mac_clean(){ local force="${1:-}"; banner "clean"
+  if [ "$force" = "--yes" ]; then
+    _progress_run "cleaning worktrees" _bx clean --yes; printf '%s' "$PROGRESS_OUT"
+  else
+    _progress_run "scanning repos" _bx clean; printf '%s' "$PROGRESS_OUT"
+  fi; }
 
 mac_doctor(){ banner "doctor"
   if _is_local_store; then
@@ -308,48 +332,52 @@ mac_update(){ banner "update"
     [ -f "$S/wt-wrapper" ] && install -m 0755 "$S/wt-wrapper" ~/.local/bin/wt && ok "wt wrapper refreshed"
     [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum installed"
   else warn "no system/setup on the mount"; fi
-  echo; _bx sync --all; echo; mac_doctor
+  echo; mac_sync; echo; mac_doctor
 }
 
-# Sectioned landing (TTY). Headers are not actions — picking one re-opens the menu.
+# Greptile-style sectioned landing: WORK / SETTINGS / MORE (truecolor menu in ui.sh).
 wizard(){ clear 2>/dev/null
   _header
   local c
-  c=$(_choose "what would you like to do?" \
-    "── WORK ──" \
-    "new       start a new worktree" \
-    "ide       open a worktree in $EDITOR_CMD" \
-    "list      list active worktrees" \
-    "archive   put a worktree away (keeps the branch)" \
-    "restore   bring an archived worktree back" \
-    "clone     add a repo from GitHub" \
-    "── SETTINGS ──" \
-    "agents    list / add / remove agents" \
-    "config    editor, org, profile, shared stack" \
-    "init      create or refresh a profile" \
-    "doctor    check that everything works" \
-    "── MORE ──" \
-    "rename    rename a worktree's branch" \
-    "sync      pull the latest for every repo" \
-    "clean     remove safe remote-deleted worktrees" \
-    "remove    permanently delete archived / repo" \
-    "update    refresh install / sync") || { echo; return 0; }
+  c=$(
+    {
+      _wiz_section "WORK"
+      _wiz_item new      "start a new worktree"
+      _wiz_item ide      "open a worktree in $EDITOR_CMD"
+      _wiz_item list     "list active worktrees"
+      _wiz_item archive  "put a worktree away (keeps the branch)"
+      _wiz_item restore  "bring an archived worktree back"
+      _wiz_item clone    "add a repo from GitHub"
+      _wiz_section "SETTINGS"
+      _wiz_item agents   "list / add / remove agents"
+      _wiz_item config   "editor, org, profile, shared stack"
+      _wiz_item init     "create or refresh a profile"
+      _wiz_item doctor   "check that everything works"
+      _wiz_section "MORE"
+      _wiz_item rename   "rename a worktree's branch"
+      _wiz_item sync     "pull the latest for every repo"
+      _wiz_item clean    "remove safe remote-deleted worktrees"
+      _wiz_item remove   "permanently delete archived / repo"
+      _wiz_item update   "refresh install / sync"
+    } | _wizard_pick "what would you like to do?"
+  ) || { echo; return 0; }
   case "$c" in
-    ──*)   wizard; return;;
-    new*)  mac_new;;
-    ide*|open*) mac_ide;;
-    list*) mac_list;;
-    archive*) mac_archive;;
-    restore*) mac_restore;;
-    clone*) mac_clone;;
-    agents*) mac_agents;;
-    config*) mac_config;;
-    init*) mac_init;;
-    doctor*) mac_doctor;;
-    rename*) mac_rename;;
-    sync*) banner "sync"; _bx sync --all;;
-    clean*) banner "clean"; _bx clean;;
-    remove*) mac_remove;;
-    update*) mac_update;;
+    ""|__hdr__) wizard; return;;
+    new)     mac_new;;
+    ide|open) mac_ide;;
+    list)    mac_list;;
+    archive) mac_archive;;
+    restore) mac_restore;;
+    clone)   mac_clone;;
+    agents)  mac_agents;;
+    config)  mac_config;;
+    init)    mac_init;;
+    doctor)  mac_doctor;;
+    rename)  mac_rename;;
+    sync)    mac_sync;;
+    clean)   mac_clean;;
+    remove)  mac_remove;;
+    update)  mac_update;;
+    *)       wizard; return;;
   esac
 }
