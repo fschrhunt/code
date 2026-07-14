@@ -16,7 +16,7 @@ _bx(){
   fi
   _require_shared_stack
   local wc=0; [ -t 1 ] && wc=1
-  local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc $BOX_ROOT/system/bin/wt"
+  local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$BOX_ROOT $BOX_ROOT/system/bin/wt"
   local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
   /usr/bin/ssh "$BOX_HOST" "$cmd"
 }
