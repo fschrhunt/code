@@ -260,8 +260,9 @@ _progress_run(){
   local label=$1; shift
   local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
   { "$@" 2>&1 | tr '\r' '\n' | _progress_filter "$label"; } >"$tmp"
+  local rc=${PIPESTATUS[0]}
   PROGRESS_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
-  return "${PIPESTATUS[0]}"
+  return "$rc"
 }
 
 _spin_run(){ local msg=$1; shift; local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
