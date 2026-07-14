@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
 # wt — agent worktree control plane.
 #
-# Canonical repos live in a store (local: ~/.wt by default after `wt init`;
-# shared: box + mount via SSH). Agents get isolated worktrees at
-# workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>. Folder = stable
-# random city; branch = mutable label. Agent is chosen per `wt new` — never a
-# silent default.
-#
-# This entry point resolves its lib/ dir, sources the modules, then dispatches.
+# Canonical repos live in a store (local: ~/.wt after `wt init`; shared: box +
+# mount via SSH). Agents get isolated worktrees at
+# workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
 set -uo pipefail
 
-# ---- resolve our real location (follow symlinks, e.g. ~/.local/bin/wt) ----
 _src=${BASH_SOURCE[0]}
 while [ -L "$_src" ]; do
   _dir=$(cd -P "$(dirname "$_src")" >/dev/null 2>&1 && pwd)
@@ -33,12 +28,8 @@ WT_VERSION=$(cat "$WT_PREFIX/VERSION" 2>/dev/null || echo "0.0.0")
 # shellcheck source=../lib/frontend.sh
 . "$WT_LIB/frontend.sh"
 
-# ============================================================================
-#  DISPATCH
-# ============================================================================
 cmd="${1:-}"; [ $# -gt 0 ] && shift || true
 
-# Role-independent commands (work the same on the frontend and the backend).
 case "$cmd" in
   help|-h|--help)       _help; exit 0;;
   version|--version|-v) printf 'wt %s\n' "$WT_VERSION"; exit 0;;
@@ -49,26 +40,25 @@ if [ "$ON_MAC" = 1 ]; then
     "")               if [ -t 0 ] && [ -t 1 ]; then wizard; else _help; fi;;
     init)             mac_init "$@";;
     new)              mac_new "$@";;
-    rename|mv)        mac_rename "$@";;
+    rename)           mac_rename "$@";;
     open)             mac_open "$@";;
     cd)               p=$(mac_cdpath "$@") && printf '__WT_CD__ %s\n' "$p";;
     __cdpath)         mac_cdpath "$@";;
-    archive|rm)       mac_archive "$@";;
+    archive)          mac_archive "$@";;
     restore)          mac_restore "$@";;
-    archived)         mac_archived "$@";;
+    list|ls)          mac_list "$@";;
+    archived)         mac_list archived;;   # folded: prefer `wt list archived`
     remove)           mac_remove "$@";;
-    delete|delrepo|rmrepo) mac_delrepo "$@";;
-    status)           mac_status "$@";;
-    doctor|check)     mac_doctor "$@";;
-    config|setup)     mac_config "$@";;
+    doctor)           mac_doctor "$@";;
+    config)           mac_config "$@";;
     agents|agent)     mac_agents "$@";;
     update)           mac_update "$@";;
-    localdeps)        mac_localdeps "$@";;
-    list|ls)          banner "worktrees"; _bx list "$@";;
-    clone|add)        mac_clone "$@";;
-    sync|refresh)     banner "sync"; _bx sync "$@";;
-    clean|tidy)       banner "clean"; _bx clean "$@";;
+    localdeps)        mac_localdeps "$@";;  # internal; kept for shared SMB
+    clone)            mac_clone "$@";;
+    sync)             banner "sync"; _bx sync "$@";;
+    clean)            banner "clean"; _bx clean "$@";;
     repos|worktrees)  _bx "$cmd" "$@";;
+    status)           mac_doctor "$@";;     # folded into doctor
     *)                die "unknown command: $cmd (try: wt help)";;
   esac
 else
@@ -87,7 +77,6 @@ else
       esac
       ;;
     init)
-      # Backend/local init: create store layout + optional first agent via args.
       WT_PROFILE_TYPE=local
       mkdir -p "$WT_USER_DIR/repos" "$WT_USER_DIR/workspaces" "$WT_USER_DIR/system/logs"
       if [ -n "${1:-}" ]; then

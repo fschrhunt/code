@@ -33,26 +33,26 @@ _help(){
   _header
   printf '  %sEXAMPLES%s\n' "$W" "$N"
   ex(){ printf '  %s%-28s%s %s\n' "$GRN" "$1" "$N" "$2"; }
+  ex "wt init" "First run — local ~/.wt, or wt init --shared."
   ex "wt new <repo>" "Start a worktree (picks agent interactively)."
   ex "wt open" "Open a worktree in a new $EDITOR_CMD window."
   ex "wt archive" "Put a worktree away — keeps the branch, restorable."
-  ex "wt agents add <name>" "Add an agent identity to your config."
   echo
   printf '  %sCOMMANDS%s\n' "$W" "$N"
   cm(){ printf '  %s%-10s%s %s\n' "$GRN" "$1" "$N" "$2"; }
   cm new      "Start a new worktree to work in."
   cm open     "Open a worktree in $EDITOR_CMD (new IDE window)."
   cm cd       "Jump into a worktree in the terminal."
-  cm list     "List your active worktrees."
+  cm list     "List active worktrees (or: wt list archived)."
   cm archive  "Put a worktree away — keeps the branch."
   cm restore  "Bring an archived worktree back."
   cm clone    "Add a repo from GitHub to the store."
   cm agents   "List, add, or remove configured agents."
-  cm config   "Edit editor, org, and related settings."
-  cm init     "Create a local ~/.wt profile (first run)."
+  cm config   "Editor, org, profile, and shared stack."
+  cm init     "Create a local or shared profile."
   cm doctor   "Check that everything's working."
   echo
-  printf '  %sMore%s %s— rename, archived, sync, clean, remove, update%s\n' "$W" "$N" "$DIM" "$N"
+  printf '  %sMore%s %s— rename, sync, clean, remove, update%s\n' "$W" "$N" "$DIM" "$N"
   echo
 }
 

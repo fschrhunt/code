@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Agent registry + editor launch helpers (shared by frontend and backend).
 
-_is_agent(){ [ -n "$1" ] && echo " $VALID_AGENTS " | grep -q " $1 "; }
+_is_agent(){ [ -n "$1" ] && echo " $VALID_AGENTS " | grep -qF " $1 "; }
 
 _agent_name_ok(){
   case "$1" in ''|*[!a-z0-9._-]*) return 1;; esac

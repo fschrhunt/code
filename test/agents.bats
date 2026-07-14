@@ -28,6 +28,19 @@ setup() {
   [ "$status" -ne 0 ]
 }
 
+@test "agents treats dotted names as fixed strings not regex" {
+  run "$WT" agents add co.ex
+  [ "$status" -eq 0 ]
+  run "$WT" agents list
+  [[ "$output" == *codex* ]]
+  [[ "$output" == *co.ex* ]]
+  run "$WT" agents remove co.ex
+  [ "$status" -eq 0 ]
+  run "$WT" agents list
+  [[ "$output" == *codex* ]]
+  [[ "$output" != *co.ex* ]]
+}
+
 @test "new rejects an unknown agent" {
   run "$WT" new mystery demo feat
   [ "$status" -ne 0 ]
@@ -65,4 +78,12 @@ setup() {
   [ -f "$WT_HOME/config" ]
   grep -q 'type = local' "$WT_HOME/config"
   grep -q 'cursor' "$WT_HOME/config"
+}
+
+@test "list archived shows archived branches" {
+  local ws; ws=$("$WT" new codex demo archived-list 2>/dev/null | _workspace_path)
+  "$WT" archive "$ws" >/dev/null
+  run "$WT" archived
+  [ "$status" -eq 0 ]
+  [[ "$output" == *archived-list* ]]
 }

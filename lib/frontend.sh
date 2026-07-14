@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# FRONTEND — the interactive Mac experience. Maps box paths to the local mount
-# (shared), or runs cmd_* in-process (local profile). Drives gum UX.
+# FRONTEND — interactive Mac UX. Local profile runs cmd_* in-process; shared
+# forwards to the box via SSH and maps paths through the mount.
 
-# Dispatch a backend verb: local profile (or WT_HOME) runs in-process; else SSH.
 _bx(){
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ] || [ -n "${WT_HOME:-}" ]; then
+  if _is_local_store; then
     local verb="${1:-}"; shift || true
     case "$verb" in
       new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
@@ -21,7 +20,7 @@ _bx(){
   /usr/bin/ssh "$BOX_HOST" "$cmd"
 }
 _tomac(){
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ] || [ -n "${WT_HOME:-}" ]; then
+  if _is_local_store; then
     printf '%s' "$1"; return 0
   fi
   printf '%s' "$1" | sed "s#^$BOX_ROOT#$MAC_ROOT#"
@@ -31,7 +30,7 @@ _pick_worktree(){ local rows; rows=$(_bx worktrees); [ -z "$rows" ] && { printf 
   local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
 _resolve_worktree(){ local sel=$1 rows matches count
   case "$sel" in "$MAC_ROOT"/*)
-    if [ "${WT_PROFILE_TYPE:-shared}" != local ]; then sel="$BOX_ROOT${sel#"$MAC_ROOT"}"; fi
+    if ! _is_local_store; then sel="$BOX_ROOT${sel#"$MAC_ROOT"}"; fi
     ;;
   esac
   case "$sel" in "$ROOT"/*|"$BOX_ROOT"/*|"$MAC_ROOT"/*) printf '%s' "$sel"; return 0;; esac
@@ -48,20 +47,11 @@ _resolve_worktree(){ local sel=$1 rows matches count
   die "'$sel' matches multiple worktrees — use agent/repo/city"
 }
 mac_localdeps(){
-  # Local SSD store keeps deps in-tree; cache symlinks are shared-SMB only.
-  [ "${WT_PROFILE_TYPE:-shared}" = local ] && return 0
-  [ -n "${WT_HOME:-}" ] && return 0
+  _is_local_store && return 0
   local wt="${1:-$PWD}"; [ -d "$wt" ] || return 0; local key base; key=$(printf '%s' "$wt" | sed -E 's#^.*/workspaces/##; s#/#_#g'); base="$HOME/.wt-cache/$key"
   local d; for d in $CACHE_DIRS; do [ -L "$wt/$d" ] && continue; mkdir -p "$base/$d"; { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "$wt/$d"; }; ln -s "$base/$d" "$wt/$d"; done; }
 
-mac_init(){
-  banner "init"
-  if [ -f "$WT_USER_CONFIG" ] && [ "${WT_PROFILE_TYPE:-}" = local ]; then
-    ok "local profile already at ${GRN}$WT_USER_DIR${N}"
-    return 0
-  fi
-  WT_PROFILE_TYPE=local
-  mkdir -p "$WT_USER_DIR/repos" "$WT_USER_DIR/workspaces" "$WT_USER_DIR/system/logs"
+_ask_agents_and_prefs(){
   if ! _agents_configured; then
     printf '  %sAdd agent identities you will choose from on %swt new%s.%s\n' "$DIM" "$GRN" "$N" "$N"
     printf '  %ssuggested:%s %s\n\n' "$DIM" "$N" "$SUGGESTED_AGENTS"
@@ -74,16 +64,84 @@ mac_init(){
     fi
   fi
   local e o
-  e=$(_input "editor command" "$EDITOR_CMD"); EDITOR_CMD=${e:-$EDITOR_CMD}
-  o=$(_input "default github org" "$DEFAULT_ORG"); DEFAULT_ORG=${o:-$DEFAULT_ORG}
-  _save_user_config
-  ROOT="$WT_USER_DIR"
-  [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
-  REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
-  ok "local profile ready  ${DIM}$WT_USER_DIR${N}"
-  if [ -d "$MAC_ROOT/repos" ] || [ -d "$MAC_ROOT/workspaces" ]; then
-    printf '  %shint:%s shared store detected at %s — keep using a shared profile later via config if needed%s\n' "$DIM" "$N" "$MAC_ROOT" "$N"
+  e=$(_input "editor command" "$EDITOR_CMD"); e=${e:-$EDITOR_CMD}
+  o=$(_input "default github org" "$DEFAULT_ORG"); o=${o:-$DEFAULT_ORG}
+  _config_safe_val "$e" || die "unsafe editor value"
+  _config_safe_val "$o" || die "unsafe org value"
+  EDITOR_CMD=$e; DEFAULT_ORG=$o
+}
+
+_ask_shared_stack(){
+  printf '  %sShared store lives on a box and is mounted locally.%s\n\n' "$DIM" "$N"
+  local v
+  v=$(_input "SSH host (ssh config Host or hostname)" "$BOX_HOST"); BOX_HOST=${v:-$BOX_HOST}
+  v=$(_input "box address for probes (IP/hostname)" "$BOX_ADDR"); BOX_ADDR=${v:-$BOX_ADDR}
+  v=$(_input "SSH / sudo user on the box" "$BOX_USER"); BOX_USER=${v:-$BOX_USER}
+  v=$(_input "remote store root on the box" "$BOX_ROOT"); BOX_ROOT=${v:-$BOX_ROOT}
+  v=$(_input "local mount path" "$MAC_ROOT"); MAC_ROOT=${v:-$MAC_ROOT}
+  v=$(_input "SMB share name" "$SHARE_NAME"); SHARE_NAME=${v:-$SHARE_NAME}
+  _config_safe_val "$BOX_HOST" && _config_safe_val "$BOX_ADDR" && _config_safe_val "$BOX_USER" \
+    && _config_safe_val "$BOX_ROOT" && _config_safe_val "$MAC_ROOT" && _config_safe_val "$SHARE_NAME" \
+    || die "unsafe shared-stack value"
+  _sync_box_home
+}
+
+mac_init(){
+  banner "init"
+  local mode="${1:-}"
+  case "$mode" in
+    --shared|shared) mode=shared; shift || true;;
+    --local|local|"") mode="";;
+    -h|--help) printf 'usage: wt init [--local|--shared]\n'; return 0;;
+  esac
+  if [ -z "$mode" ]; then
+    if [ -t 0 ] && [ -t 1 ]; then
+      mode=$(_choose "where should worktrees live?" \
+        "local    on this machine (~/.wt) — default" \
+        "shared   on a box, mounted locally (fleet)") || return 0
+      case "$mode" in local*) mode=local;; shared*) mode=shared;; esac
+    else
+      mode=local
+    fi
   fi
+
+  if [ "$mode" = local ]; then
+    if [ -f "$WT_USER_CONFIG" ] && [ "${WT_PROFILE_TYPE:-}" = local ]; then
+      ok "local profile already at ${GRN}$WT_USER_DIR${N}"
+      return 0
+    fi
+    WT_PROFILE_TYPE=local
+    mkdir -p "$WT_USER_DIR/repos" "$WT_USER_DIR/workspaces" "$WT_USER_DIR/system/logs"
+    _ask_agents_and_prefs
+    _save_user_config
+    ROOT="$WT_USER_DIR"
+    [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
+    REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+    ok "local profile ready  ${DIM}$WT_USER_DIR${N}"
+    if [ -d /Volumes/Agents ] || [ -d /Volumes/wt ] || [ -d "$MAC_ROOT/repos" ]; then
+      printf '  %shint:%s a shared mount exists — switch later with %swt init --shared%s\n' "$DIM" "$N" "$GRN" "$N"
+    fi
+    return 0
+  fi
+
+  # shared
+  WT_PROFILE_TYPE=shared
+  # Prefer wt naming for greenfield; keep Agents if that mount already exists.
+  if [ -d /Volumes/Agents ] && [ ! -d /Volumes/wt ]; then
+    MAC_ROOT=/Volumes/Agents; BOX_ROOT=/mnt/agents; SHARE_NAME=Agents; _sync_box_home
+    printf '  %sdetected legacy mount %s — keeping those paths (rename to /Volumes/wt is a separate ops migration)%s\n\n' "$DIM" "$MAC_ROOT" "$N"
+  else
+    MAC_ROOT=/Volumes/wt; BOX_ROOT=/mnt/wt; SHARE_NAME=wt; _sync_box_home
+  fi
+  mkdir -p "$WT_USER_DIR"
+  _ask_shared_stack
+  _ask_agents_and_prefs
+  _save_user_config
+  ROOT="$MAC_ROOT"
+  REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+  ok "shared profile saved  ${DIM}$WT_USER_CONFIG${N}"
+  printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
+  printf '  %snext:%s ensure the share is mounted, then %swt doctor%s\n' "$DIM" "$N" "$GRN" "$N"
 }
 
 mac_agents(){
@@ -93,6 +151,15 @@ mac_agents(){
     add) agents_add "$@";;
     remove|rm) agents_remove "$@";;
     *) die "usage: wt agents [list|add <name>|remove <name>]";;
+  esac
+}
+
+mac_list(){
+  local sub="${1:-}"
+  case "$sub" in
+    archived|--archived) mac_archived;;
+    ""|active) banner "worktrees"; _bx list;;
+    *) die "usage: wt list [archived]";;
   esac
 }
 
@@ -111,7 +178,7 @@ mac_rename(){ local sel="${1:-}" feature="${2:-}" wt
   if [ -n "$sel" ]; then wt=$(_resolve_worktree "$sel") || return 1
   else wt=$(_pick_worktree "rename which worktree?") || return 0; fi
   [ -z "$feature" ] && feature=$(_input "new feature name" "dark-mode"); [ -n "$feature" ] || { warn "cancelled"; return 0; }
-  _bx rename "$wt" "$feature" && { [ "${WT_PROFILE_TYPE:-shared}" = local ] || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"; }; }
+  _bx rename "$wt" "$feature" && { _is_local_store || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"; }; }
 mac_open(){ local wt="${1:-}"
   if [ -z "$wt" ]; then wt=$(_pick_worktree "open in $EDITOR_CMD") || return 0
   else wt=$(_resolve_worktree "$wt") || return 1; fi
@@ -158,85 +225,113 @@ mac_clone(){ local spec="${1:-}"; [ -n "$spec" ] || spec=$(_input "repo to clone
     cloned:*) printf '\r\e[2K'; ok "${line#cloned: }";;
     REFUSED*|*"already have"*|*"clone failed"*|*fatal:*) printf '\r\e[2K'; err "${line#*✗ }";;
     *%*) p=$(printf '%s' "$line" | grep -oE '[0-9]+%' | tail -1 | tr -d '%'); [ -n "$p" ] && _bar "cloning $name" "$p";; esac; done; }
-mac_status(){ banner "status"
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ]; then
-    ok "local profile  ${DIM}$ROOT${N}"
-  else
-    mount | grep -q " on $MAC_ROOT " && ok "mount up  ${DIM}$MAC_ROOT${N}" || err "mount DOWN — run ~/.local/bin/mount-agents.sh"
-    /usr/bin/nc -z -G 2 100.65.233.79 22 2>/dev/null && ok "box reachable" || warn "box not reachable"
-  fi
-  _bx status; }
+
 mac_doctor(){ banner "doctor"
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ]; then
-    ok "local profile  ${DIM}$ROOT${N}"
-    command -v gum >/dev/null 2>&1 && ok "gum (pretty UI) installed" || warn "gum missing — optional for prettier menus"
+  if _is_local_store; then
+    ok "profile  ${GRN}local${N}  ${DIM}$ROOT${N}"
+    command -v gum >/dev/null 2>&1 && ok "gum installed" || warn "gum missing — optional"
     _bx doctor
     return
   fi
-  mount | grep -q " on $MAC_ROOT " && ok "mount up" || err "mount DOWN"
-  /usr/bin/nc -z -G 2 100.65.233.79 22 2>/dev/null && ok "box reachable" || err "box unreachable"
-  command -v gum >/dev/null 2>&1 && ok "gum (pretty UI) installed" || warn "gum missing — run: wt update"
-  _bx doctor; }
-mac_config(){ banner "settings"
-  printf '  %sYour personal settings. Agents are managed with %swt agents%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
-  printf '  %sWhich editor should '\''wt open'\'' launch?%s\n' "$W" "$N"
-  local e; e=$(_input "editor command, e.g. cursor or code" "$EDITOR_CMD"); e=${e:-$EDITOR_CMD}
-  echo; printf '  %sDefault GitHub org?%s  %sso '\''wt clone site'\'' means '\''org/site'\'' without typing the owner%s\n' "$W" "$N" "$DIM" "$N"
-  local o; o=$(_input "github org" "$DEFAULT_ORG"); o=${o:-$DEFAULT_ORG}
-  EDITOR_CMD=$e; DEFAULT_ORG=$o
-  _save_user_config
-  echo; ok "saved — editor ${GRN}$e${N}, org ${GRN}$o${N}"
-  printf '  %sagents:%s %s\n' "$DIM" "$N" "${VALID_AGENTS:-none — wt agents add <name>}"
+  ok "profile  ${GRN}shared${N}"
+  printf '  %smount%s %s\n' "$DIM" "$N" "$MAC_ROOT"
+  printf '  %sbox%s   %s %s(%s)%s → %s\n' "$DIM" "$N" "$BOX_HOST" "$DIM" "$BOX_ADDR" "$N" "$BOX_ROOT"
+  mount | grep -q " on $MAC_ROOT " && ok "mount up" || err "mount DOWN — mount the '$SHARE_NAME' share at $MAC_ROOT"
+  _box_reachable && ok "box reachable" || err "box unreachable at ${BOX_ADDR:-$BOX_HOST}:22"
+  command -v gum >/dev/null 2>&1 && ok "gum installed" || warn "gum missing — optional"
+  _bx doctor
+  _bx status
+}
+
+mac_config(){ banner "config"
+  local which
+  if [ -t 0 ] && [ -t 1 ]; then
+    which=$(_choose "what to configure?" \
+      "prefs     editor, github org" \
+      "profile   local vs shared" \
+      "shared    box host, mount, share name" \
+      "agents    (tip: use wt agents)") || return 0
+  else
+    which="prefs"
+  fi
+  case "$which" in
+    prefs*)
+      printf '  %sEditor / org. Agents: %swt agents%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
+      _ask_agents_and_prefs
+      _save_user_config
+      ok "saved — editor ${GRN}$EDITOR_CMD${N}, org ${GRN}$DEFAULT_ORG${N}"
+      ;;
+    profile*)
+      local p; p=$(_choose "active profile type?" "local" "shared") || return 0
+      WT_PROFILE_TYPE=$p
+      if [ "$p" = shared ]; then _ask_shared_stack; fi
+      _save_user_config
+      ok "profile ${GRN}$p${N}"
+      ;;
+    shared*)
+      WT_PROFILE_TYPE=shared
+      _ask_shared_stack
+      _save_user_config
+      ok "shared stack saved"
+      printf '  %s%s @ %s → %s (share %s)%s\n' "$DIM" "$BOX_HOST" "$BOX_ROOT" "$MAC_ROOT" "$SHARE_NAME" "$N"
+      ;;
+    agents*)
+      printf '  %suse:%s wt agents add|remove|list\n' "$DIM" "$N"
+      agents_list
+      ;;
+  esac
   local zrc="$HOME/.zshrc"
   if ! grep -q 'wt cd shell integration' "$zrc" 2>/dev/null; then
-    echo; printf '  %s'\''wt cd'\'' can drop your terminal straight into a worktree, but that needs a\n  one-line helper added to your ~/.zshrc.%s\n' "$DIM" "$N"
+    echo
     if _confirm "add the 'wt cd' shortcut to ~/.zshrc?"; then
       cat >> "$zrc" <<'ZF'
 
 # wt cd shell integration
 wt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }
 ZF
-      ok "added — restart your shell or run: source ~/.zshrc"; fi
-  fi; }
+      ok "added — restart your shell or: source ~/.zshrc"; fi
+  fi
+}
+
 mac_update(){ banner "update"
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ]; then
-    warn "local profile — update via git install / re-run install.sh for now"
+  if _is_local_store; then
+    warn "local profile — re-run ./install.sh from the wt repo to refresh the binary"
     return 0
   fi
-  mount | grep -q " on $MAC_ROOT " || ~/.local/bin/mount-agents.sh >/dev/null 2>&1
-  mount | grep -q " on $MAC_ROOT " || { err "mount is down — could not bring it up"; return 1; }; ok "mount up"
-  local S="$MAC_ROOT/system/setup"; if [ -d "$S" ]; then mkdir -p ~/.local/bin ~/.local/state ~/Library/LaunchAgents
-    [ -f "$S/mount-agents.sh" ] && install -m 0755 "$S/mount-agents.sh" ~/.local/bin/mount-agents.sh && ok "mount script refreshed"
+  local mount_helper=""
+  for mount_helper in "$HOME/.local/bin/mount-wt.sh" "$HOME/.local/bin/mount-agents.sh"; do
+    [ -x "$mount_helper" ] && break
+    mount_helper=""
+  done
+  mount | grep -q " on $MAC_ROOT " || { [ -n "$mount_helper" ] && "$mount_helper" >/dev/null 2>&1; }
+  mount | grep -q " on $MAC_ROOT " || { err "mount is down at $MAC_ROOT"; return 1; }; ok "mount up"
+  local S="$MAC_ROOT/system/setup"
+  if [ -d "$S" ]; then
+    mkdir -p ~/.local/bin ~/.local/state ~/Library/LaunchAgents
+    [ -f "$S/mount-wt.sh" ] && install -m 0755 "$S/mount-wt.sh" ~/.local/bin/mount-wt.sh && ok "mount-wt.sh refreshed"
+    [ -f "$S/mount-agents.sh" ] && install -m 0755 "$S/mount-agents.sh" ~/.local/bin/mount-agents.sh && ok "mount-agents.sh refreshed"
     [ -f "$S/wt-wrapper" ] && install -m 0755 "$S/wt-wrapper" ~/.local/bin/wt && ok "wt wrapper refreshed"
-    [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum (pretty UI) installed"
-    [ -f "$S/agents-mount.plist" ] && install -m 0644 "$S/agents-mount.plist" ~/Library/LaunchAgents/com.fschrhunt.agents-mount.plist && ok "auto-mount refreshed"
+    [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum installed"
   else warn "no system/setup on the mount"; fi
-  local zrc="$HOME/.zshrc"; grep -q WATCHPACK_POLLING "$zrc" 2>/dev/null || printf '\n# hot-reload over SMB\nexport WATCHPACK_POLLING=true\nexport CHOKIDAR_USEPOLLING=true\n' >> "$zrc"
-  grep -q 'wt cd shell integration' "$zrc" 2>/dev/null || printf '\n# wt cd shell integration\nwt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }\n' >> "$zrc"
-  launchctl bootout gui/"$(id -u)"/com.fschrhunt.agents-mount 2>/dev/null; launchctl bootstrap gui/"$(id -u)" ~/Library/LaunchAgents/com.fschrhunt.agents-mount.plist 2>/dev/null && ok "auto-mount reloaded"
-  echo; _bx sync --all; echo; mac_doctor; }
+  echo; _bx sync --all; echo; mac_doctor
+}
 
 _wizard_more(){
   local c; c=$(_choose "more…" \
     "rename    rename a worktree's branch" \
-    "archived  list archived worktrees" \
     "sync      pull the latest for every repo" \
     "clean     remove safe remote-deleted worktrees" \
     "remove    permanently delete an archived worktree or repo" \
-    "update    update this Mac / install" \
-    "status    store status") || return 0
+    "update    refresh install / sync") || return 0
   case "${c%% *}" in
-    rename)   mac_rename;;
-    archived) mac_archived;;
-    sync)     banner "sync"; _bx sync --all;;
-    clean)    banner "clean"; _bx clean;;
-    remove)   mac_remove;;
-    update)   mac_update;;
-    status)   mac_status;;
+    rename) mac_rename;;
+    sync)   banner "sync"; _bx sync --all;;
+    clean)  banner "clean"; _bx clean;;
+    remove) mac_remove;;
+    update) mac_update;;
   esac
 }
 
-# ---- wizard: the logo landing + an arrow-key menu (bare `wt`) ----
 wizard(){ clear 2>/dev/null
   _header
   local c; c=$(_choose "what would you like to do?" \
@@ -247,13 +342,13 @@ wizard(){ clear 2>/dev/null
     "restore   bring an archived worktree back" \
     "clone     add a repo from GitHub" \
     "agents    list / add / remove agents" \
-    "config    settings" \
+    "config    settings & shared stack" \
     "doctor    check everything works" \
     "More…     sync, clean, rename, update…") || { echo; return 0; }
   case "${c%% *}" in
     new)      mac_new;;
     open)     mac_open;;
-    list)     banner "worktrees"; _bx list;;
+    list)     mac_list;;
     archive)  mac_archive;;
     restore)  mac_restore;;
     clone)    mac_clone;;

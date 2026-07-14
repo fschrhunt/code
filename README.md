@@ -4,33 +4,52 @@
 piece of work gets its own folder (a stable random city name) on its own branch
 (`<agent>/<feature>`), sharing one canonical clone per repo.
 
-You choose the agent on every `wt new` (interactive picker, or `--agent`). There
-is no silent default agent. Manage identities with `wt agents`.
+You choose the agent on every `wt new`. Manage identities with `wt agents`.
+There is no silent default agent.
 
 ```
-wt init                   # first run: local ~/.wt profile
-wt agents add cursor      # configure agent identities
-wt new <repo> <feature>   # start an isolated worktree (picks agent)
-wt list                   # see active worktrees
-wt open                   # open one in a new editor window
-wt archive                # put it away (folder gone, branch kept — restorable)
-wt restore                # bring an archived worktree back
+wt init                   # local ~/.wt (or: wt init --shared)
+wt agents add cursor
+wt new <repo> <feature>   # picks agent interactively
+wt list                   # active worktrees
+wt list archived          # archived branches
+wt open                   # new IDE window
+wt archive / wt restore
+wt config                 # editor, org, local|shared stack
 ```
 
-## Status
+## Profiles
 
-Local-first simplify: `wt init` creates `~/.wt`, calm Greptile-style help, managed
-agents (no `DEFAULT_AGENT`), and `wt open` launches a **new IDE window** (`cursor -n`).
-Shared Mac→SSH→box remains available as a shared profile. See `WT-PLAN.md` (Agents store).
+- **Local** (default after `wt init`): everything under `~/.wt`, no SSH/mount.
+- **Shared**: repos on a box (`box_root`), mounted locally (`mount_path`), git over SSH.
+  Configure with `wt init --shared` or `wt config` → shared. Your server store stays.
+
+Paths are values in `~/.wt/config` (`mount_path`, `box_root`, `share_name`, …) — not
+hardcoded to one machine’s layout.
+
+## Renaming `Agents` → `wt` (ops migration)
+
+**Code:** new shared profiles suggest `/Volumes/wt`, `/mnt/wt`, share `wt`. Existing
+`/Volumes/Agents` mounts are still auto-detected so today’s fleet keeps working.
+
+**Live rename is medium–hard** — do not do it casually:
+
+1. Stop agents/editors with cwd under `/Volumes/Agents`.
+2. On the box: rename/export the SMB share `Agents` → `wt`, path `/mnt/agents` → `/mnt/wt`.
+3. Update every Mac: mount script + LaunchAgent (`mount-wt.sh`), remount at `/Volumes/wt`.
+4. Point `~/.wt/config` at the new paths (`wt config` → shared).
+5. Open worktrees / Cursor windows will need reopening under the new path.
+
+Until that migration, keep `share_name = Agents` and `mount_path = /Volumes/Agents`.
 
 ## Develop
 
 ```
-make check   # shellcheck + bats — run before every PR
+make check   # shellcheck + bats
 bin/wt help
 ```
 
-See [AGENTS.md](AGENTS.md) for the contributor/agent contract.
+See [AGENTS.md](AGENTS.md) for the contributor contract. Roadmap: `WT-PLAN.md` on the store.
 
 ## Install (dev)
 
