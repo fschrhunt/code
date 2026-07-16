@@ -108,6 +108,15 @@ setup() {
   [ ! -d "$WT_HOME/repos/demo" ]
 }
 
+@test "remove repo accepts --yes before --force" {
+  "$WT" new codex demo flag-order >/dev/null 2>&1
+  # Greptile P1: positional force parsing broke when --yes preceded --force.
+  run "$WT" remove repo demo --yes --force
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"deleted repo: demo"* ]]
+  [ ! -d "$WT_HOME/repos/demo" ]
+}
+
 @test "clean is a dry run by default" {
   "$WT" new codex demo keep >/dev/null 2>&1
   run "$WT" clean
