@@ -42,7 +42,17 @@ cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/rep
   git clone --progress "$url" "$dest" >&2 || die "clone failed (auth or url?)"
   git -C "$dest" remote set-head origin -a >/dev/null 2>&1; git -C "$dest" config worktree.useRelativePaths true
   printf 'cloned: %s (default %s)\n' "$repo" "$(_default_branch "$repo")"; }
-cmd_delrepo(){ local repo="${1:-}" force="${2:-}"; [ -n "$repo" ] || die "usage: delrepo <repo>"
+cmd_delrepo(){
+  local repo="" force=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f) force=--force; shift;;
+      --yes|-y) shift;; # CLI parity with frontend; no soft confirm on backend
+      -*) die "unknown flag: $1 (usage: delrepo <repo> [--force])";;
+      *) [ -z "$repo" ] || die "usage: delrepo <repo> [--force]"; repo=$1; shift;;
+    esac
+  done
+  [ -n "$repo" ] || die "usage: delrepo <repo> [--force]"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; local risky=0 wt
   _prog "checking worktrees" 10
   for wt in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
@@ -124,7 +134,16 @@ cmd_restore(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$bra
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
   printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$wtdir" "$branch" "$city"; }
 # rmbranch: permanently delete an ARCHIVED branch (must have no worktree).
-cmd_rmbranch(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$branch" ] || die "usage: rmbranch <repo> <branch>"
+cmd_rmbranch(){
+  local repo="" branch=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes|-y) shift;; # CLI parity with frontend confirm skip
+      -*) die "unknown flag: $1 (usage: rmbranch <repo> <branch>)";;
+      *) if [ -z "$repo" ]; then repo=$1; elif [ -z "$branch" ]; then branch=$1; else die "usage: rmbranch <repo> <branch>"; fi; shift;;
+    esac
+  done
+  [ -n "$repo" ] && [ -n "$branch" ] || die "usage: rmbranch <repo> <branch>"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _is_agent "${branch%%/*}" || die "not an agent branch: $branch"
   _prog "checking branch" 30
   git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}' | grep -qxF "$branch" && die "branch is active (worktree exists) — archive it first"

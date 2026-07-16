@@ -32,5 +32,7 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y bats
           fi
+      - name: git default branch
+        run: git config --global init.defaultBranch main
       - name: bats
         run: bats -r test
