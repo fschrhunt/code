@@ -75,7 +75,7 @@ else
         branch|rmbranch) cmd_rmbranch "$@";;
         repo|delrepo) cmd_delrepo "$@";;
         *) die "usage: wt remove branch <repo> <branch>
-       wt remove repo <repo> [--force]";;
+       wt remove repo <repo> [--force] [--yes]";;
       esac
       ;;
     status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
