@@ -86,6 +86,37 @@ setup() {
   [ -z "$output" ]
 }
 
+@test "remove branch is a CLI alias for rmbranch" {
+  local ws; ws=$("$WT" new codex demo alias-rm 2>/dev/null | _workspace_path)
+  "$WT" archive "$ws" >/dev/null
+  run "$WT" remove branch demo codex/alias-rm
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"removed branch: codex/alias-rm"* ]]
+}
+
+@test "remove without subcommand is a usage error" {
+  run "$WT" remove
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"usage: wt remove branch"* ]]
+}
+
+@test "remove repo deletes a canonical clone" {
+  "$WT" new codex demo doomed >/dev/null 2>&1
+  run "$WT" remove repo demo --force
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"deleted repo: demo"* ]]
+  [ ! -d "$WT_HOME/repos/demo" ]
+}
+
+@test "remove repo accepts --yes before --force" {
+  "$WT" new codex demo flag-order >/dev/null 2>&1
+  # Greptile P1: positional force parsing broke when --yes preceded --force.
+  run "$WT" remove repo demo --yes --force
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"deleted repo: demo"* ]]
+  [ ! -d "$WT_HOME/repos/demo" ]
+}
+
 @test "clean is a dry run by default" {
   "$WT" new codex demo keep >/dev/null 2>&1
   run "$WT" clean
