@@ -39,7 +39,7 @@ lib/palette.sh         colors
 lib/ui.sh              logo, help (WORK/SETTINGS/MORE), gum helpers
 lib/agents.sh          agent registry + IDE launch
 lib/backend.sh         git verbs on $ROOT
-lib/frontend.sh        Mac UX, wizard, SSH `_bx` for shared
+lib/frontend.sh        Mac UX + SSH `_bx` for shared (CLI-first; TTY fill-in only)
 contrib/mount-wt.sh    optional SMB mount (config/env driven)
 docs/                  these guides
 test/                  bats + golden/help.txt
@@ -52,17 +52,17 @@ test/                  bats + golden/help.txt
 | Goal | Edit |
 |------|------|
 | Help text / section labels | `lib/ui.sh` → `_help` |
-| Bare-`wt` menu | `lib/frontend.sh` → `wizard` |
 | Neutral defaults, cities list | `lib/config.sh` |
 | IDE launch flags (`-n`, …) | `lib/agents.sh` → `_editor_open` |
 | Agent name rules | `lib/agents.sh` |
 | new / archive / clone / … | `lib/backend.sh` |
-| Prompts, SSH, doctor, init | `lib/frontend.sh` |
-| New subcommand wiring | `bin/wt` (+ help + wizard) |
+| Arg parsing, confirms, SSH, init | `lib/frontend.sh` |
+| New subcommand wiring | `bin/wt` (+ help) |
 | Mount helper | `contrib/mount-wt.sh` |
 | Locked help UX | `test/golden/help.txt` (same change as copy) |
 
 Keep UI sections **action-scoped**: WORK · SETTINGS · MORE. Users scan by job.
+Commands are CLI-first (args + flags). Interactive prompts only fill missing args on a TTY.
 
 ---
 
@@ -72,9 +72,10 @@ Keep UI sections **action-scoped**: WORK · SETTINGS · MORE. Users scan by job.
 
 1. Implement `cmd_*` (backend) and/or `mac_*` (frontend).
 2. Dispatch in `bin/wt`.
-3. Add under the matching section in `_help` **and** `wizard`.
+3. Add under the matching section in `_help`.
 4. Update `test/golden/help.txt` if help lines changed.
-5. `make check`.
+5. Prefer args/flags over menus; TTY pickers only when an arg is missing.
+6. `make check`.
 
 ### Change shipped defaults
 
@@ -106,7 +107,8 @@ wrong hosts.
 ## PR checklist
 
 - [ ] Per-user prefs → config UX or [customize.md](customize.md), not baked defaults
-- [ ] Help and wizard sections still match (WORK / SETTINGS / MORE)
+- [ ] Help sections stay action-scoped (WORK / SETTINGS / MORE)
 - [ ] Golden help updated when copy changed
+- [ ] Destructive commands accept args/flags (`--yes` / `--force`); no required wizard
 - [ ] `make check` green
 - [ ] No edits to a deployed/mounted live binary
