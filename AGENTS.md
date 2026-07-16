@@ -74,9 +74,9 @@ test/               bats tests + golden fixtures
   uses `init.defaultBranch`; if that is `master` the bare origin's HEAD dangles
   and every backend test fails at setup with "remote HEAD refers to nonexistent
   ref". Setup already ran `git config --global init.defaultBranch main`.
-- `make lint` currently reports one pre-existing `SC2015` info finding in
-  `bin/wt` (the `[ $# -gt 0 ] && shift || true` dispatch line); this is a code
-  issue, not an environment problem. Do not "fix" it as part of env setup.
+- `make lint` uses `.shellcheckrc`; `SC2015` on the `[ $# -gt 0 ] && shift || true`
+  dispatch line in `bin/wt` is disabled there (intentional no-arg shift). Do not
+  "fix" that line as part of env setup.
 - To exercise the Linux backend end-to-end without the Mac frontend/SSH/mount,
   run in backend mode: set `WT_BACKEND=1` + `WT_COLOR` + a throwaway `WT_HOME`,
   seed a store the way `test/helper.bash` `_seed_repo` does (bare origin + clone

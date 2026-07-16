@@ -187,14 +187,38 @@ mac_cdpath(){ local wt="${1:-}"
   if [ -z "$wt" ]; then wt=$(_pick_worktree "jump to") || return 1
   else wt=$(_resolve_worktree "$wt") || return 1; fi
   _tomac "$wt"; }
-mac_archive(){ local wt; wt=$(_pick_worktree "archive which worktree?") || return 0
-  _confirm "archive $(basename "$wt")? (keeps the branch — restorable)" || { warn "cancelled"; return 0; }
-  local out rc; banner "archive $(basename "$wt")"
-  _progress_run "archiving worktree" _bx archive "$wt"; rc=$?; out="$PROGRESS_OUT"
-  if [ "$rc" = 3 ]; then printf '  %s%s%s\n' "$YEL" "$out" "$N"; _confirm "discard uncommitted changes and archive anyway?" \
-    && { _progress_run "archiving worktree" _bx archive "$wt" --yes; ok "archived (uncommitted discarded)"; } \
-    || warn "cancelled"
-  elif [ "$rc" = 0 ]; then ok "archived ${GRN}${out#archived: }${N}  ${DIM}— restore with: wt restore${N}"; else printf '%s\n' "$out"; fi; }
+mac_archive(){
+  local sel="" yes=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes|-y) yes=--yes; shift;;
+      -*) die "unknown flag: $1 (usage: wt archive <sel> [--yes])";;
+      *) [ -z "$sel" ] || die "usage: wt archive <worktree|repo/feature|city> [--yes]"; sel=$1; shift;;
+    esac
+  done
+  local wt
+  if [ -n "$sel" ]; then
+    wt=$(_resolve_worktree "$sel") || return 1
+  elif [ -t 0 ] && [ -t 1 ]; then
+    wt=$(_pick_worktree "archive which worktree?") || return 0
+  else
+    die "usage: wt archive <worktree|repo/feature|city> [--yes]"
+  fi
+  _confirm_yes "archive $(basename "$wt")? (keeps the branch — restorable)" "$yes" || { warn "cancelled"; return 0; }
+  local out rc force_arg=""; [ "$yes" = "--yes" ] && force_arg=--yes
+  banner "archive $(basename "$wt")"
+  _progress_run "archiving worktree" _bx archive "$wt" $force_arg; rc=$?; out="$PROGRESS_OUT"
+  if [ "$rc" = 3 ]; then
+    printf '  %s%s%s\n' "$YEL" "$out" "$N"
+    _confirm_yes "discard uncommitted changes and archive anyway?" "$yes" \
+      && { _progress_run "archiving worktree" _bx archive "$wt" --yes && ok "archived (uncommitted discarded)" || { err "${PROGRESS_OUT:-archive failed}"; return 1; }; } \
+      || warn "cancelled"
+  elif [ "$rc" = 0 ]; then
+    ok "archived ${GRN}${out#archived: }${N}  ${DIM}— restore with: wt restore <repo> <branch>${N}"
+  else
+    err "${out:-archive failed}"; return "$rc"
+  fi
+}
 mac_archived(){ banner "archived"; local rows; rows=$(_bx archived)
   [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N"; return; }
   printf '  %s%-8s %-12s %-24s %s%s\n' "$W" AGENT REPO BRANCH WHEN "$N"
@@ -205,27 +229,127 @@ _pick_archived(){ local rows; rows=$(_bx archived); [ -z "$rows" ] && { printf '
   while IFS=$'\t' read -r ag repo br when; do [ -n "$br" ] || continue; A_LABELS+=("$repo / ${br#*/}   ·   $ag   ${DIM}$when${N}"); A_REPOS+=("$repo"); A_BRANCHES+=("$br"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-archived worktree}" "${A_LABELS[@]}") || return 1
   local i; for i in "${!A_LABELS[@]}"; do [ "${A_LABELS[i]}" = "$sel" ] && { A_IDX=$i; return 0; }; done; return 1; }
-mac_restore(){ _pick_archived "restore which?" || return 0
-  _spin_run "restoring ${A_BRANCHES[A_IDX]}" _bx restore "${A_REPOS[A_IDX]}" "${A_BRANCHES[A_IDX]}" || return 1; local out="$SPIN_OUT"
+# Resolve an archived branch from repo + branch, or a single selector (branch / repo/feature).
+_resolve_archived(){
+  local a="${1:-}" b="${2:-}" rows matches count
+  rows=$(_bx archived)
+  [ -z "$rows" ] && die "nothing archived"
+  if [ -n "$a" ] && [ -n "$b" ]; then
+    matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
+      [ "$repo" = "$a" ] && [ "$br" = "$b" ] && printf '%s\t%s\n' "$repo" "$br"
+    done)
+  else
+    matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
+      local feat=${br#*/}
+      if [ "$br" = "$a" ] || [ "$a" = "$repo/$feat" ] || [ "$a" = "$ag/$repo/$feat" ]; then
+        printf '%s\t%s\n' "$repo" "$br"
+      fi
+    done)
+  fi
+  count=$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')
+  [ "$count" = 1 ] || {
+    [ "$count" = 0 ] && die "no archived branch matching '${b:-$a}'"
+    die "'${b:-$a}' matches multiple archived branches"
+  }
+  A_REPO=$(printf '%s\n' "$matches" | head -1 | cut -f1)
+  A_BRANCH=$(printf '%s\n' "$matches" | head -1 | cut -f2)
+}
+mac_restore(){
+  local repo="${1:-}" branch="${2:-}"
+  if [ -n "$repo" ] && [ -n "$branch" ]; then
+    _resolve_archived "$repo" "$branch" || return 1
+  elif [ -n "$repo" ] && [ -z "$branch" ]; then
+    _resolve_archived "$repo" || return 1
+  elif [ -t 0 ] && [ -t 1 ]; then
+    _pick_archived "restore which?" || return 0
+    A_REPO=${A_REPOS[A_IDX]}; A_BRANCH=${A_BRANCHES[A_IDX]}
+  else
+    die "usage: wt restore <repo> <branch>"
+  fi
+  _spin_run "restoring $A_BRANCH" _bx restore "$A_REPO" "$A_BRANCH" || return 1; local out="$SPIN_OUT"
   local boxpath macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); macpath=$(_tomac "$boxpath")
-  mac_localdeps "$macpath"; ok "restored ${GRN}${A_BRANCHES[A_IDX]}${N}  ${DIM}$macpath${N}"; }
-mac_remove(){ local what; what=$(_choose "permanently remove what?" "an archived worktree (deletes its branch)" "a whole repo (deletes everything)") || return 0
-  case "$what" in
-    an\ archived*) _pick_archived "delete which archived branch?" || return 0
-      _confirm "permanently delete branch ${A_BRANCHES[A_IDX]}? cannot be undone" || { warn "cancelled"; return 0; }
-      banner "delete ${A_BRANCHES[A_IDX]}"
-      _progress_run "deleting branch" _bx rmbranch "${A_REPOS[A_IDX]}" "${A_BRANCHES[A_IDX]}" && ok "deleted ${A_BRANCHES[A_IDX]}" || warn "cancelled";;
-    a\ whole*) mac_delrepo;;
-  esac; }
-mac_delrepo(){ local repos; repos=$(_bx repos); [ -z "$repos" ] && { warn "no repos"; return 0; }
-  local repo; repo=$(_choose "delete which repo?" $repos) || return 0
-  _confirm "delete repo '$repo' and ALL its worktrees? cannot be undone" || { warn "cancelled"; return 0; }
+  mac_localdeps "$macpath"; ok "restored ${GRN}$A_BRANCH${N}  ${DIM}$macpath${N}"
+}
+mac_remove(){
+  local sub="${1:-}"
+  case "$sub" in
+    branch|rmbranch) shift || true; mac_rmbranch "$@";;
+    repo|delrepo)    shift || true; mac_delrepo "$@";;
+    *) die "usage: wt remove branch <repo> <branch> [--yes]
+       wt remove repo <repo> [--force] [--yes]";;
+  esac
+}
+mac_rmbranch(){
+  local repo="" branch="" yes=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes|-y) yes=--yes; shift;;
+      -*) die "unknown flag: $1 (usage: wt remove branch <repo> <branch> [--yes])";;
+      *) if [ -z "$repo" ]; then repo=$1; elif [ -z "$branch" ]; then branch=$1; else die "usage: wt remove branch <repo> <branch> [--yes]"; fi; shift;;
+    esac
+  done
+  if [ -n "$repo" ] && [ -n "$branch" ]; then
+    _resolve_archived "$repo" "$branch" || return 1
+    repo=$A_REPO; branch=$A_BRANCH
+  elif [ -n "$repo" ] && [ -z "$branch" ]; then
+    _resolve_archived "$repo" || return 1
+    repo=$A_REPO; branch=$A_BRANCH
+  elif [ -t 0 ] && [ -t 1 ]; then
+    _pick_archived "delete which archived branch?" || return 0
+    repo=${A_REPOS[A_IDX]}; branch=${A_BRANCHES[A_IDX]}
+  else
+    die "usage: wt remove branch <repo> <branch> [--yes]"
+  fi
+  _confirm_yes "permanently delete branch $branch? cannot be undone" "$yes" || { warn "cancelled"; return 0; }
+  banner "delete $branch"
+  if _progress_run "deleting branch" _bx rmbranch "$repo" "$branch"; then
+    ok "deleted $branch"
+  else
+    err "${PROGRESS_OUT:-delete failed}"; return 1
+  fi
+}
+mac_delrepo(){
+  local repo="" force="" yes=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f) force=--force; shift;;
+      --yes|-y) yes=--yes; shift;;
+      -*) die "unknown flag: $1 (usage: wt remove repo <repo> [--force] [--yes])";;
+      *) [ -z "$repo" ] || die "usage: wt remove repo <repo> [--force] [--yes]"; repo=$1; shift;;
+    esac
+  done
+  if [ -z "$repo" ]; then
+    if [ -t 0 ] && [ -t 1 ]; then
+      local repos; repos=$(_bx repos); [ -z "$repos" ] && { warn "no repos"; return 0; }
+      repo=$(_choose "delete which repo?" $repos) || return 0
+    else
+      die "usage: wt remove repo <repo> [--force] [--yes]"
+    fi
+  fi
+  _confirm_yes "delete repo '$repo' and ALL its worktrees? cannot be undone" "$yes" || { warn "cancelled"; return 0; }
   local out rc; banner "delete $repo"
-  _progress_run "deleting $repo" _bx delrepo "$repo"; rc=$?; out="$PROGRESS_OUT"
-  if [ "$rc" = 3 ]; then printf '%s\n' "$out"; _confirm "force delete anyway (loses that work)?" \
-    && { _progress_run "deleting $repo" _bx delrepo "$repo" --force; ok "repo deleted: $repo"; } \
-    || warn "cancelled"
-  elif [ "$rc" = 0 ]; then ok "repo deleted: $repo"; else printf '%s\n' "$out"; fi; }
+  _progress_run "deleting $repo" _bx delrepo "$repo" $force; rc=$?; out="$PROGRESS_OUT"
+  if [ "$rc" = 3 ]; then
+    printf '%s\n' "$out"
+    # --yes only skips the soft confirm; at-risk worktrees still need --force.
+    if [ "$force" = "--force" ]; then
+      :
+    elif [ -t 0 ] && [ -t 1 ]; then
+      _confirm "force delete anyway (loses that work)?" || { warn "cancelled"; return 0; }
+    else
+      err "refusing — pass --force to delete at-risk worktrees"; return 3
+    fi
+    if _progress_run "deleting $repo" _bx delrepo "$repo" --force; then
+      ok "repo deleted: $repo"
+    else
+      err "${PROGRESS_OUT:-delete failed}"; return 1
+    fi
+  elif [ "$rc" = 0 ]; then
+    ok "repo deleted: $repo"
+  else
+    err "${out:-delete failed}"; return "$rc"
+  fi
+}
 mac_clone(){ local spec="${1:-}"; [ -n "$spec" ] || spec=$(_input "repo to clone" "owner/repo"); [ -n "$spec" ] || return 0
   local name; name=$(basename "${spec%.git}"); banner "clone $name"
   local out; out=$(_bx clone "$spec" 2>&1 | tr '\r' '\n' | _progress_filter "cloning $name")
@@ -333,51 +457,4 @@ mac_update(){ banner "update"
     [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum installed"
   else warn "no system/setup on the mount"; fi
   echo; mac_sync; echo; mac_doctor
-}
-
-# Greptile-style sectioned landing: WORK / SETTINGS / MORE (truecolor menu in ui.sh).
-wizard(){ clear 2>/dev/null
-  _header
-  local c
-  c=$(
-    {
-      _wiz_section "WORK"
-      _wiz_item new      "start a new worktree"
-      _wiz_item ide      "open a worktree in $EDITOR_CMD"
-      _wiz_item list     "list active worktrees"
-      _wiz_item archive  "put a worktree away (keeps the branch)"
-      _wiz_item restore  "bring an archived worktree back"
-      _wiz_item clone    "add a repo from GitHub"
-      _wiz_section "SETTINGS"
-      _wiz_item agents   "list / add / remove agents"
-      _wiz_item config   "editor, org, profile, shared stack"
-      _wiz_item init     "create or refresh a profile"
-      _wiz_item doctor   "check that everything works"
-      _wiz_section "MORE"
-      _wiz_item rename   "rename a worktree's branch"
-      _wiz_item sync     "pull the latest for every repo"
-      _wiz_item clean    "remove safe remote-deleted worktrees"
-      _wiz_item remove   "permanently delete archived / repo"
-      _wiz_item update   "refresh install / sync"
-    } | _wizard_pick "what would you like to do?"
-  ) || { echo; return 0; }
-  case "$c" in
-    ""|__hdr__) wizard; return;;
-    new)     mac_new;;
-    ide|open) mac_ide;;
-    list)    mac_list;;
-    archive) mac_archive;;
-    restore) mac_restore;;
-    clone)   mac_clone;;
-    agents)  mac_agents;;
-    config)  mac_config;;
-    init)    mac_init;;
-    doctor)  mac_doctor;;
-    rename)  mac_rename;;
-    sync)    mac_sync;;
-    clean)   mac_clean;;
-    remove)  mac_remove;;
-    update)  mac_update;;
-    *)       wizard; return;;
-  esac
 }

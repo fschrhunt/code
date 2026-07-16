@@ -35,9 +35,11 @@ case "$cmd" in
   version|--version|-v) printf 'wt %s\n' "$WT_VERSION"; exit 0;;
 esac
 
+# No args → help (CLI-first; no interactive landing wizard).
+[ -z "$cmd" ] && { _help; exit 0; }
+
 if [ "$ON_MAC" = 1 ]; then
   case "$cmd" in
-    "")               if [ -t 0 ] && [ -t 1 ]; then wizard; else _help; fi;;
     init)             mac_init "$@";;
     new)              mac_new "$@";;
     rename)           mac_rename "$@";;
@@ -67,6 +69,15 @@ else
     new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
     list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
     archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
+    remove)
+      sub="${1:-}"; shift || true
+      case "$sub" in
+        branch|rmbranch) cmd_rmbranch "$@";;
+        repo|delrepo) cmd_delrepo "$@";;
+        *) die "usage: wt remove branch <repo> <branch>
+       wt remove repo <repo> [--force] [--yes]";;
+      esac
+      ;;
     status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
     agents|agent)
       sub="${1:-list}"; shift || true

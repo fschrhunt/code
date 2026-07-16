@@ -36,6 +36,9 @@ _seed_repo() {
   git -C "$seed" commit -qm "init"
   git -C "$seed" remote add origin "$origin"
   git -C "$seed" push -q -u origin main
+  # Bare `git init` inherits init.defaultBranch (often master on CI). Point HEAD
+  # at main so the subsequent clone does not fail with a dangling remote HEAD.
+  git -C "$origin" symbolic-ref HEAD refs/heads/main
   git clone -q "$origin" "$WT_HOME/repos/$name"
   git -C "$WT_HOME/repos/$name" remote set-head origin -a >/dev/null 2>&1
   git -C "$WT_HOME/repos/$name" config worktree.useRelativePaths true

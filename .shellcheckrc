@@ -11,3 +11,6 @@ source-path=SCRIPTDIR
 # lists of repo/agent names) is pervasive in this list-oriented CLI. Carried
 # verbatim from the v1 monolith; per-line tightening is tracked for M4/M5.
 disable=SC2206,SC2046,SC2086
+# bin/wt dispatch: `[ $# -gt 0 ] && shift || true` — intentional; shift must not
+# fail the script when invoked with no args (see AGENTS.md).
+disable=SC2015

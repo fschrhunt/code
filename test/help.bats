@@ -18,7 +18,7 @@ EOF
   [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "bare wt falls back to help when not a TTY" {
+@test "bare wt prints help (no landing wizard)" {
   export WT_HOME="$BATS_TEST_TMPDIR/help-store"
   mkdir -p "$WT_HOME"
   printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WT_HOME/config"
@@ -28,6 +28,7 @@ EOF
   [[ "$output" == *"SETTINGS"* ]]
   [[ "$output" == *"MORE"* ]]
   [[ "$output" == *"ide"* ]]
+  [[ "$output" == *"wt remove branch|repo"* ]]
 }
 
 @test "help works via -h and --help too" {
