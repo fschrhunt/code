@@ -3,7 +3,7 @@
        /\__\         /\  \      
       /:/ _/_        \:\  \     
      /:/ /\__\        \:\  \    
-    /:/ /:/ _/_       /::\  \   wt v1.2.0
+    /:/ /:/ _/_       /::\  \   wt v1.3.0
    /:/_/:/ /\__\     /:/\:\__\  
    \:\/:/ /:/  /    /:/  \/__/  Isolated git worktrees from your terminal.
     \::/_/:/  /    /:/  /       Local profile · editor cursor
@@ -17,8 +17,8 @@
     ide                           Open a worktree in cursor (new IDE window).
     cd                            Jump into a worktree in the terminal.
     list                          List active worktrees (or: wt list archived).
-    archive                       Put a worktree away — keeps the branch.
-    restore                       Bring an archived worktree back.
+    archive                       Put away: wt archive <sel> [--yes].
+    restore                       Bring back: wt restore <repo> <branch>.
     clone                         Add a repo from GitHub to the store.
 
   SETTINGS
@@ -32,7 +32,7 @@
 
     rename                        Rename a worktree's branch.
     sync                          Pull the latest for every repo.
-    clean                         Remove safe remote-deleted worktrees.
-    remove                        Permanently delete an archived worktree or repo.
+    clean                         Dry-run orphans; wt clean --yes to apply.
+    remove                        Delete: wt remove branch|repo …
     update                        Refresh install / sync.
 
