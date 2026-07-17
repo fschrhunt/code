@@ -7,9 +7,8 @@ external-sources=true
 # Resolve `# shellcheck source=../lib/*.sh` directives relative to bin/wt's dir.
 source-path=SCRIPTDIR
 
-# Intentional word-splitting on space-separated lists (CITIES, and the newline
-# lists of repo/agent names) is pervasive in this list-oriented CLI. Carried
-# verbatim from the v1 monolith; per-line tightening is tracked for M4/M5.
+# Intentional word-splitting on space-separated lists (CACHE_DIRS, agents, and
+# newline lists of repo names) is pervasive in this list-oriented CLI.
 disable=SC2206,SC2046,SC2086
 # bin/wt dispatch: `[ $# -gt 0 ] && shift || true` — intentional; shift must not
 # fail the script when invoked with no args (see AGENTS.md).

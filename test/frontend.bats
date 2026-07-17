@@ -177,3 +177,95 @@ load helper
   [ "$status" -ne 0 ]
   [[ "$output" == *"refusing without --yes"* ]]
 }
+
+@test "mac_archive --yes on dirty worktree refuses without --force" {
+  _use_backend_store
+  _seed_repo
+  local ws; ws=$("$WT" new codex demo cli-dirty 2>/dev/null | _workspace_path)
+  echo change >> "$ws/README.md"
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    mac_archive demo/cli-dirty --yes
+  '
+  [ "$status" -eq 3 ]
+  [[ "$output" == *DIRTY* ]]
+  [ -e "$ws/.git" ]
+}
+
+@test "mac_archive --yes --force discards dirty work without DIRTY scare" {
+  _use_backend_store
+  _seed_repo
+  local ws; ws=$("$WT" new codex demo cli-force 2>/dev/null | _workspace_path)
+  echo change >> "$ws/README.md"
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    mac_archive demo/cli-force --yes --force
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"archived"* ]]
+  [[ "$output" != *DIRTY* ]]
+  [ ! -e "$ws/.git" ]
+}
+
+@test "mac_new -h exits 0 with usage" {
+  _use_backend_store
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    mac_new -h
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"usage: wt new"* ]]
+}
+
+@test "mac_status is a cheap glance (not doctor)" {
+  _use_backend_store
+  _seed_repo
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    mac_status
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"worktrees:"* ]]
+  [[ "$output" == *"canonicals:"* ]]
+  [[ "$output" != *"gum"* ]]
+}
+
+@test "mac_config refuses non-interactive prefs rewrite" {
+  _use_backend_store
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    mac_config
+  '
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"usage: wt config"* ]]
+}

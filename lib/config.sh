@@ -16,12 +16,12 @@ BOX_ROOT=""
 BOX_HOME=""
 MAC_ROOT=""
 SHARE_NAME=""
-SUGGESTED_AGENTS="claude codex cursor grok devin opencode"
 VALID_AGENTS=""
 DEFAULT_ORG=""
+# Cursor-oriented default; override with editor= in ~/.wt/config.
 EDITOR_CMD=cursor
+# Optional localdeps / worktree exclude list (override via cache_dirs= in config).
 CACHE_DIRS="node_modules .next .turbo dist build"
-CITIES="accra amman athens austin bali berlin bogota cairo dakar denver dublin geneva hanoi havana kyoto lagos lima lisbon luanda lusaka madrid manila maputo nairobi osaka oslo porto prague quito rabat reno riga rome seoul sofia taipei tokyo toledo tunis turin vienna warsaw zagreb"
 # Local until the user opts into shared via init/config (or an existing ~/.wt/config).
 WT_PROFILE_TYPE=local
 
@@ -68,6 +68,11 @@ _load_user_config(){
         VALID_AGENTS=${VALID_AGENTS# }
         VALID_AGENTS=${VALID_AGENTS% }
         ;;
+      cache_dirs|CACHE_DIRS)
+        CACHE_DIRS=$(printf '%s' "$val" | tr ',;' '  ' | tr -s ' ')
+        CACHE_DIRS=${CACHE_DIRS# }
+        CACHE_DIRS=${CACHE_DIRS% }
+        ;;
       box_host|BOX_HOST) BOX_HOST=$val;;
       box_addr|BOX_ADDR) BOX_ADDR=$val;;
       box_user|BOX_USER) BOX_USER=$val;;
@@ -80,8 +85,9 @@ _load_user_config(){
 
 _save_user_config(){
   mkdir -p "$WT_USER_DIR"
-  local agents_csv
+  local agents_csv cache_csv
   agents_csv=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
+  cache_csv=$(printf '%s' "$CACHE_DIRS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   _sync_box_home
   {
     printf '# wt user config — values only (parsed, never sourced)\n'
@@ -89,6 +95,7 @@ _save_user_config(){
     printf 'editor = %s\n' "$EDITOR_CMD"
     printf 'default_org = %s\n' "$DEFAULT_ORG"
     printf 'agents = %s\n' "$agents_csv"
+    printf 'cache_dirs = %s\n' "$cache_csv"
   } > "$WT_USER_CONFIG"
   if [ "$WT_PROFILE_TYPE" = shared ]; then
     {
@@ -105,7 +112,8 @@ _save_user_config(){
 _load_user_config
 
 # Optional overlay from the active store's wt.conf (values only), after user config
-# has established MAC_ROOT / BOX_ROOT.
+# has established MAC_ROOT / BOX_ROOT. Never clobber editor/org; only fill empty
+# shared-stack fields so a fleet wt.conf cannot stomp ~/.wt/config prefs.
 for c in \
   ${MAC_ROOT:+"$MAC_ROOT/system/config/wt.conf"} \
   ${BOX_ROOT:+"$BOX_ROOT/system/config/wt.conf"}; do
@@ -113,24 +121,30 @@ for c in \
   local_line=""
   while IFS= read -r local_line || [ -n "$local_line" ]; do
     case "$local_line" in
-      EDITOR_CMD=*|DEFAULT_ORG=*|BOX_HOST=*|BOX_USER=*|BOX_ROOT=*|MAC_ROOT=*|BOX_ADDR=*|SHARE_NAME=*)
+      BOX_HOST=*|BOX_USER=*|BOX_ROOT=*|MAC_ROOT=*|BOX_ADDR=*|SHARE_NAME=*)
         key=${local_line%%=*}; val=${local_line#*=}
         _config_safe_val "$val" || continue
         case "$key" in
-          EDITOR_CMD) EDITOR_CMD=$val;;
-          DEFAULT_ORG) DEFAULT_ORG=$val;;
-          BOX_HOST) BOX_HOST=$val;;
-          BOX_ADDR) BOX_ADDR=$val;;
-          BOX_USER) BOX_USER=$val;;
-          BOX_ROOT) BOX_ROOT=$val; _sync_box_home;;
-          MAC_ROOT) MAC_ROOT=$val;;
-          SHARE_NAME) SHARE_NAME=$val;;
+          BOX_HOST) [ -z "$BOX_HOST" ] && BOX_HOST=$val;;
+          BOX_ADDR) [ -z "$BOX_ADDR" ] && BOX_ADDR=$val;;
+          BOX_USER) [ -z "$BOX_USER" ] && BOX_USER=$val;;
+          BOX_ROOT) [ -z "$BOX_ROOT" ] && { BOX_ROOT=$val; _sync_box_home; };;
+          MAC_ROOT) [ -z "$MAC_ROOT" ] && MAC_ROOT=$val;;
+          SHARE_NAME) [ -z "$SHARE_NAME" ] && SHARE_NAME=$val;;
         esac
         ;;
     esac
   done < "$c"
   break
 done
+
+# Mac shared frontend injects the agent list over SSH (see _bx). Takes precedence
+# for the box process so `wt agents add` on the Mac is authoritative.
+if [ -n "${WT_VALID_AGENTS:-}" ]; then
+  VALID_AGENTS=$(printf '%s' "$WT_VALID_AGENTS" | tr ',;' '  ' | tr -s ' ')
+  VALID_AGENTS=${VALID_AGENTS# }
+  VALID_AGENTS=${VALID_AGENTS% }
+fi
 
 # ---- role ----
 if [ "${WT_BACKEND:-0}" = 1 ]; then ON_MAC=0

@@ -17,11 +17,14 @@ _agents_array(){
   AGENTS_ARR=($VALID_AGENTS)
 }
 
+# Active worktrees for agent lifecycle checks. Frontend overrides this to use
+# `_bx` in shared profile so Mac does not inspect the wrong store.
+_list_agent_worktrees(){ cmd_worktrees 2>/dev/null || true; }
+
 agents_list(){
   if ! _agents_configured; then
     printf '  %sno agents configured%s\n' "$DIM" "$N"
     printf '  %sadd one with:%s %swt agents add <name>%s\n' "$DIM" "$N" "$GRN" "$N"
-    printf '  %ssuggested:%s %s\n' "$DIM" "$N" "$SUGGESTED_AGENTS"
     return 0
   fi
   banner "agents"
@@ -44,17 +47,32 @@ agents_add(){
 }
 
 agents_remove(){
-  local name="${1:-}" force="${2:-}"
-  [ -n "$name" ] || die "usage: wt agents remove <name> [--force]"
+  local name=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f)
+        die "unknown flag: $1 — archive that agent's worktrees first, then: wt agents remove <name>"
+        ;;
+      -*)
+        die "unknown flag: $1 (usage: wt agents remove <name>)"
+        ;;
+      *)
+        [ -z "$name" ] || die "usage: wt agents remove <name>"
+        name=$1
+        shift
+        ;;
+    esac
+  done
+  [ -n "$name" ] || die "usage: wt agents remove <name>"
   name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
   _is_agent "$name" || die "agent not configured: $name"
   local rows hit=0 ag
-  rows=$(cmd_worktrees 2>/dev/null || true)
+  rows=$(_list_agent_worktrees)
   while IFS=$'\t' read -r ag _; do
     [ "$ag" = "$name" ] && { hit=1; break; }
   done <<< "$rows"
-  if [ "$hit" = 1 ] && [ "$force" != "--force" ]; then
-    die "agent '$name' still has active worktrees — archive them first, or pass --force"
+  if [ "$hit" = 1 ]; then
+    die "agent '$name' still has active worktrees — archive them first"
   fi
   local a next=""
   for a in $VALID_AGENTS; do
@@ -82,7 +100,7 @@ _resolve_agent(){
     return 0
   fi
   if ! _agents_configured; then
-    die "no agents configured — run: wt agents add <name>  (suggested: $SUGGESTED_AGENTS)"
+    die "no agents configured — run: wt agents add <name>"
   fi
   if [ -t 0 ] && [ -t 1 ]; then
     _agents_array
@@ -92,7 +110,7 @@ _resolve_agent(){
     printf '%s' "$sel"
     return 0
   fi
-  die "usage: wt new <repo> [feature] --agent <name>  (agents: $VALID_AGENTS)"
+  die "usage: wt new <repo> <feature> --agent <name>  (agents: $VALID_AGENTS)"
 }
 
 # Open path in a real IDE window. cursor/code get -n (new window); never --chat.

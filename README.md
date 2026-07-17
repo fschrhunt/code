@@ -9,17 +9,19 @@ There is no silent default agent.
 
 ```
 wt init                              # local ~/.wt (or: wt init --shared)
-wt agents add cursor
-wt new <repo> <feature> --agent cursor
+wt agents add nova
+wt new <repo> <feature> --agent nova
 wt list                              # active worktrees
 wt list archived                     # archived branches
 wt ide <sel>                         # new IDE window
-wt archive <sel> [--yes]             # put away (keeps branch)
+wt archive <sel> [--yes] [--force]   # put away; --force discards dirty
 wt restore <repo> <branch>           # bring back
 wt remove branch <repo> <branch> [--yes]
 wt remove repo <repo> [--force] [--yes]
 wt clean                             # dry-run; wt clean --yes to apply
+wt status                            # quick glance (doctor is the deep check)
 wt config                            # editor, org, local|shared stack
+cd "$(wt cd …)"                      # or install the shell hook via wt config
 ```
 
 ## Profiles
