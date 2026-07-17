@@ -17,10 +17,40 @@ _bx(){
   _require_shared_stack
   local wc=0; [ -t 1 ] && wc=1
   local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$BOX_ROOT"
+  # Forward Mac agent list so the box honors `wt agents` (see config.sh).
   [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
   cmd+=" $BOX_ROOT/system/bin/wt"
   local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
-  /usr/bin/ssh "$BOX_HOST" "$cmd"
+  # Reuse one SSH connection across resolve+act in the same process.
+  local mux="$WT_USER_DIR/ssh"
+  mkdir -p "$mux" 2>/dev/null || true
+  /usr/bin/ssh \
+    -o ControlMaster=auto \
+    -o "ControlPath=$mux/%C" \
+    -o ControlPersist=120 \
+    "$BOX_HOST" "$cmd"
+}
+
+# Process-local cache for list verbs (one SSH/worktrees fetch per invocation).
+_BX_HAVE_WT=0; _BX_CACHE_WT=""
+_BX_HAVE_REPOS=0; _BX_CACHE_REPOS=""
+_bx_invalidate(){ _BX_HAVE_WT=0; _BX_CACHE_WT=""; _BX_HAVE_REPOS=0; _BX_CACHE_REPOS=""; }
+_bx_list(){
+  case "$1" in
+    worktrees)
+      if [ "$_BX_HAVE_WT" = 1 ]; then printf '%s' "$_BX_CACHE_WT"; return 0; fi
+      _BX_CACHE_WT=$(_bx worktrees) || return $?
+      _BX_HAVE_WT=1
+      printf '%s' "$_BX_CACHE_WT"
+      ;;
+    repos)
+      if [ "$_BX_HAVE_REPOS" = 1 ]; then printf '%s' "$_BX_CACHE_REPOS"; return 0; fi
+      _BX_CACHE_REPOS=$(_bx repos) || return $?
+      _BX_HAVE_REPOS=1
+      printf '%s' "$_BX_CACHE_REPOS"
+      ;;
+    *) die "internal: _bx_list $1";;
+  esac
 }
 _tomac(){
   if _is_local_store; then
@@ -28,7 +58,7 @@ _tomac(){
   fi
   printf '%s' "$1" | sed "s#^$BOX_ROOT#$MAC_ROOT#"
 }
-_pick_worktree(){ local rows; rows=$(_bx worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
+_pick_worktree(){ local rows; rows=$(_bx_list worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
   local -a labels=() paths=(); while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; local f=${br#*/}; [ -n "$f" ] || f=$city; labels+=("$repo / $f   ·   $ag"); paths+=("$path"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
 _resolve_worktree(){ local sel=$1 rows matches count
@@ -38,7 +68,7 @@ _resolve_worktree(){ local sel=$1 rows matches count
       ;;
     esac
   fi
-  rows=$(_bx worktrees)
+  rows=$(_bx_list worktrees)
   matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo city path br; do
     local feature=${br#*/}
     if [ "$path" = "$sel" ] || [ "$sel" = "$city" ] || [ "$sel" = "$br" ] || [ "$sel" = "$ag/$repo/$city" ] || [ "$sel" = "$repo/$feature" ]; then
@@ -57,15 +87,13 @@ mac_localdeps(){
 
 _ask_agents_and_prefs(){
   if ! _agents_configured; then
-    printf '  %sAdd agent identities you will choose from on %swt new%s.%s\n' "$DIM" "$GRN" "$N" "$N"
-    printf '  %ssuggested:%s %s\n\n' "$DIM" "$N" "$SUGGESTED_AGENTS"
+    printf '  %sAdd an agent identity you will choose from on %swt new%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
     local first
-    first=$(_input "first agent name" "cursor")
-    if [ -n "$first" ]; then
-      first=$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')
-      _agent_name_ok "$first" || die "invalid agent name '$first'"
-      VALID_AGENTS="$first"
-    fi
+    first=$(_input "first agent name" "")
+    [ -n "$first" ] || die "need at least one agent name"
+    first=$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')
+    _agent_name_ok "$first" || die "invalid agent name '$first'"
+    VALID_AGENTS="$first"
   fi
   local e o
   e=$(_input "editor command" "$EDITOR_CMD"); e=${e:-$EDITOR_CMD}
@@ -77,14 +105,14 @@ _ask_agents_and_prefs(){
 
 _ask_shared_stack(){
   printf '  %sShared store lives on a box and is mounted locally.%s\n' "$DIM" "$N"
-  printf '  %sLeave blank to keep the current value (if any).%s\n\n' "$DIM" "$N"
+  printf '  %sFill each field (Enter keeps an existing value shown in [brackets]).%s\n\n' "$DIM" "$N"
   local v
-  v=$(_input "SSH host (ssh config Host or hostname)" "${BOX_HOST:-my-box}"); [ -n "$v" ] && BOX_HOST=$v
-  v=$(_input "box address for probes (IP/hostname)" "${BOX_ADDR:-${BOX_HOST:-my-box.example}}"); [ -n "$v" ] && BOX_ADDR=$v
-  v=$(_input "SSH / sudo user on the box" "${BOX_USER:-wt}"); [ -n "$v" ] && BOX_USER=$v
-  v=$(_input "remote store root on the box" "${BOX_ROOT:-/mnt/wt}"); [ -n "$v" ] && BOX_ROOT=$v
-  v=$(_input "local mount path" "${MAC_ROOT:-/Volumes/wt}"); [ -n "$v" ] && MAC_ROOT=$v
-  v=$(_input "SMB share name" "${SHARE_NAME:-wt}"); [ -n "$v" ] && SHARE_NAME=$v
+  v=$(_input "SSH host" "${BOX_HOST:-}"); BOX_HOST=$v
+  v=$(_input "box address for probes (optional)" "${BOX_ADDR:-}"); BOX_ADDR=$v
+  v=$(_input "SSH / sudo user on the box" "${BOX_USER:-}"); BOX_USER=$v
+  v=$(_input "remote store root on the box" "${BOX_ROOT:-}"); BOX_ROOT=$v
+  v=$(_input "local mount path" "${MAC_ROOT:-}"); MAC_ROOT=$v
+  v=$(_input "SMB share name" "${SHARE_NAME:-}"); SHARE_NAME=$v
   [ -n "$BOX_HOST" ] && [ -n "$BOX_USER" ] && [ -n "$BOX_ROOT" ] && [ -n "$MAC_ROOT" ] \
     || die "shared stack needs box_host, box_user, box_root, and mount_path"
   _config_safe_val "$BOX_HOST" && _config_safe_val "$BOX_ADDR" && _config_safe_val "$BOX_USER" \
@@ -105,7 +133,7 @@ mac_init(){
     if [ -t 0 ] && [ -t 1 ]; then
       mode=$(_choose "where should worktrees live?" \
         "local    on this machine (~/.wt) — default" \
-        "shared   on a box, mounted locally (fleet)") || return 0
+        "shared   on a box, mounted locally") || return 0
       case "$mode" in local*) mode=local;; shared*) mode=shared;; esac
     else
       mode=local
@@ -141,6 +169,15 @@ mac_init(){
   printf '  %snext:%s ensure the share is mounted, then %swt doctor%s\n' "$DIM" "$N" "$GRN" "$N"
 }
 
+# Shared profile: inspect box worktrees, not the Mac mount (may be stale/down).
+_list_agent_worktrees(){
+  if [ "${ON_MAC:-0}" = 1 ] && ! _is_local_store; then
+    _bx_list worktrees 2>/dev/null || true
+  else
+    cmd_worktrees 2>/dev/null || true
+  fi
+}
+
 mac_agents(){
   local sub="${1:-list}"; shift || true
   case "$sub" in
@@ -161,21 +198,57 @@ mac_list(){
 }
 
 mac_new(){ local agent="" repo="" feature=""
-  while [ $# -gt 0 ]; do case "$1" in --agent) agent=$2; shift 2;; *) if [ -z "$repo" ]; then repo=$1; elif [ -z "$feature" ]; then feature=$1; fi; shift;; esac; done
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --agent) agent=$2; shift 2;;
+      -h|--help) printf 'usage: wt new <repo> <feature> [--agent <name>]\n'; return 0;;
+      -*) die "unknown flag: $1 (usage: wt new <repo> <feature> [--agent <name>])";;
+      *) if [ -z "$repo" ]; then repo=$1; elif [ -z "$feature" ]; then feature=$1; else die "usage: wt new <repo> <feature> [--agent <name>]"; fi; shift;;
+    esac
+  done
   agent=$(_resolve_agent "$agent") || return 1
-  if [ -z "$repo" ]; then if [ -t 0 ] && [ -t 1 ]; then repo=$(_choose "which repo?" $(_bx repos)) || return 0; else die "usage: wt new <repo> [feature] --agent <name>"; fi; fi
+  local all matches mcount
+  all=$(_bx_list repos)
+  if [ -z "$repo" ]; then
+    if [ -t 0 ] && [ -t 1 ]; then repo=$(_choose "which repo?" $all) || return 0
+    else die "usage: wt new <repo> <feature> --agent <name>"; fi
+  fi
   [ -n "$repo" ] || return 0
-  local all; all=$(_bx repos); if ! printf '%s\n' "$all" | grep -qx "$repo"; then local m; m=$(printf '%s\n' "$all" | grep -i "$repo" | head -1); [ -n "$m" ] && repo=$m || die "no repo matching '$repo'"; fi
-  [ -n "$feature" ] && feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  _spin_run "creating $agent/${feature:-worktree}" _bx new "$agent" "$repo" "$feature" || exit 1; local out="$SPIN_OUT"
+  if ! printf '%s\n' "$all" | grep -qx "$repo"; then
+    matches=$(printf '%s\n' "$all" | grep -i -F "$repo" || true)
+    mcount=$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')
+    if [ "$mcount" = 1 ]; then
+      repo=$(printf '%s\n' "$matches" | sed '/^$/d' | head -1)
+    elif [ "$mcount" = 0 ]; then
+      die "no repo matching '$repo'"
+    else
+      printf '  %sambiguous repo %s — matches:%s\n' "$YEL" "'$repo'" "$N" >&2
+      printf '%s\n' "$matches" | sed '/^$/d' | sed 's/^/    /' >&2
+      die "use an exact repo name"
+    fi
+  fi
+  if [ -z "$feature" ]; then
+    if [ -t 0 ] && [ -t 1 ]; then
+      # No default applied — empty cancels (hint only in the label).
+      feature=$(_input "feature name (e.g. dark-mode)" "")
+      [ -n "$feature" ] || { warn "cancelled"; return 0; }
+    else
+      die "usage: wt new <repo> <feature> --agent <name>"
+    fi
+  fi
+  feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+  _spin_run "creating $agent/$feature" _bx new "$agent" "$repo" "$feature" || exit 1; local out="$SPIN_OUT"
+  _bx_invalidate
   local boxpath branch macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); branch=$(printf '%s' "$out" | sed -n 's/^branch: //p'); macpath=$(_tomac "$boxpath")
   mac_localdeps "$macpath"; ok "created ${GRN}$branch${N}  ${DIM}$macpath${N}"
   if [ -t 1 ] && command -v "$EDITOR_CMD" >/dev/null 2>&1 && _confirm "open in $EDITOR_CMD?"; then _editor_open "$macpath"; fi; }
 mac_rename(){ local sel="${1:-}" feature="${2:-}" wt
   if [ -n "$sel" ]; then wt=$(_resolve_worktree "$sel") || return 1
   else wt=$(_pick_worktree "rename which worktree?") || return 0; fi
-  [ -z "$feature" ] && feature=$(_input "new feature name" "dark-mode"); [ -n "$feature" ] || { warn "cancelled"; return 0; }
+  [ -z "$feature" ] && feature=$(_input "new feature name (e.g. dark-mode)" "")
+  [ -n "$feature" ] || { warn "cancelled"; return 0; }
   _spin_run "renaming branch" _bx rename "$wt" "$feature" || return 1
+  _bx_invalidate
   _is_local_store || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"
   ok "renamed to ${GRN}$feature${N}"; }
 mac_ide(){ local wt="${1:-}"
@@ -188,12 +261,14 @@ mac_cdpath(){ local wt="${1:-}"
   else wt=$(_resolve_worktree "$wt") || return 1; fi
   _tomac "$wt"; }
 mac_archive(){
-  local sel="" yes=""
+  local sel="" yes="" force=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --yes|-y) yes=--yes; shift;;
-      -*) die "unknown flag: $1 (usage: wt archive <sel> [--yes])";;
-      *) [ -z "$sel" ] || die "usage: wt archive <worktree|repo/feature|city> [--yes]"; sel=$1; shift;;
+      --force|-f) force=--force; shift;;
+      -h|--help) printf 'usage: wt archive <worktree|repo/feature|city> [--yes] [--force]\n'; return 0;;
+      -*) die "unknown flag: $1 (usage: wt archive <sel> [--yes] [--force])";;
+      *) [ -z "$sel" ] || die "usage: wt archive <worktree|repo/feature|city> [--yes] [--force]"; sel=$1; shift;;
     esac
   done
   local wt
@@ -202,18 +277,39 @@ mac_archive(){
   elif [ -t 0 ] && [ -t 1 ]; then
     wt=$(_pick_worktree "archive which worktree?") || return 0
   else
-    die "usage: wt archive <worktree|repo/feature|city> [--yes]"
+    die "usage: wt archive <worktree|repo/feature|city> [--yes] [--force]"
   fi
+  # --yes skips soft confirm only. Dirty discard requires --force (never auto via --yes).
   _confirm_yes "archive $(basename "$wt")? (keeps the branch — restorable)" "$yes" || { warn "cancelled"; return 0; }
-  local out rc force_arg=""; [ "$yes" = "--yes" ] && force_arg=--yes
+  local out rc
   banner "archive $(basename "$wt")"
-  _progress_run "archiving worktree" _bx archive "$wt" $force_arg; rc=$?; out="$PROGRESS_OUT"
+  # Pass --force on the first call when set — no scare + second SSH.
+  if [ "$force" = "--force" ]; then
+    _progress_run "archiving worktree" _bx archive "$wt" --force; rc=$?; out="$PROGRESS_OUT"
+    if [ "$rc" = 0 ]; then
+      _bx_invalidate
+      ok "archived ${GRN}${out#archived: }${N}  ${DIM}— restore with: wt restore <repo> <branch>${N}"
+    else
+      err "${out:-archive failed}"; return "$rc"
+    fi
+    return 0
+  fi
+  _progress_run "archiving worktree" _bx archive "$wt"; rc=$?; out="$PROGRESS_OUT"
   if [ "$rc" = 3 ]; then
     printf '  %s%s%s\n' "$YEL" "$out" "$N"
-    _confirm_yes "discard uncommitted changes and archive anyway?" "$yes" \
-      && { _progress_run "archiving worktree" _bx archive "$wt" --yes && ok "archived (uncommitted discarded)" || { err "${PROGRESS_OUT:-archive failed}"; return 1; }; } \
-      || warn "cancelled"
+    if [ -t 0 ] && [ -t 1 ]; then
+      _confirm "discard uncommitted changes and archive anyway?" || { warn "cancelled"; return 0; }
+    else
+      err "refusing — pass --force to discard dirty work"; return 3
+    fi
+    if _progress_run "archiving worktree" _bx archive "$wt" --force; then
+      _bx_invalidate
+      ok "archived (uncommitted discarded)"
+    else
+      err "${PROGRESS_OUT:-archive failed}"; return 1
+    fi
   elif [ "$rc" = 0 ]; then
+    _bx_invalidate
     ok "archived ${GRN}${out#archived: }${N}  ${DIM}— restore with: wt restore <repo> <branch>${N}"
   else
     err "${out:-archive failed}"; return "$rc"
@@ -267,6 +363,7 @@ mac_restore(){
     die "usage: wt restore <repo> <branch>"
   fi
   _spin_run "restoring $A_BRANCH" _bx restore "$A_REPO" "$A_BRANCH" || return 1; local out="$SPIN_OUT"
+  _bx_invalidate
   local boxpath macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); macpath=$(_tomac "$boxpath")
   mac_localdeps "$macpath"; ok "restored ${GRN}$A_BRANCH${N}  ${DIM}$macpath${N}"
 }
@@ -303,6 +400,7 @@ mac_rmbranch(){
   _confirm_yes "permanently delete branch $branch? cannot be undone" "$yes" || { warn "cancelled"; return 0; }
   banner "delete $branch"
   if _progress_run "deleting branch" _bx rmbranch "$repo" "$branch"; then
+    _bx_invalidate
     ok "deleted $branch"
   else
     err "${PROGRESS_OUT:-delete failed}"; return 1
@@ -314,13 +412,14 @@ mac_delrepo(){
     case "$1" in
       --force|-f) force=--force; shift;;
       --yes|-y) yes=--yes; shift;;
+      -h|--help) printf 'usage: wt remove repo <repo> [--force] [--yes]\n'; return 0;;
       -*) die "unknown flag: $1 (usage: wt remove repo <repo> [--force] [--yes])";;
       *) [ -z "$repo" ] || die "usage: wt remove repo <repo> [--force] [--yes]"; repo=$1; shift;;
     esac
   done
   if [ -z "$repo" ]; then
     if [ -t 0 ] && [ -t 1 ]; then
-      local repos; repos=$(_bx repos); [ -z "$repos" ] && { warn "no repos"; return 0; }
+      local repos; repos=$(_bx_list repos); [ -z "$repos" ] && { warn "no repos"; return 0; }
       repo=$(_choose "delete which repo?" $repos) || return 0
     else
       die "usage: wt remove repo <repo> [--force] [--yes]"
@@ -332,42 +431,86 @@ mac_delrepo(){
   if [ "$rc" = 3 ]; then
     printf '%s\n' "$out"
     # --yes only skips the soft confirm; at-risk worktrees still need --force.
-    if [ "$force" = "--force" ]; then
-      :
-    elif [ -t 0 ] && [ -t 1 ]; then
+    # (force already on the first call never returns 3 — this is the confirm path.)
+    if [ -t 0 ] && [ -t 1 ]; then
       _confirm "force delete anyway (loses that work)?" || { warn "cancelled"; return 0; }
     else
       err "refusing — pass --force to delete at-risk worktrees"; return 3
     fi
     if _progress_run "deleting $repo" _bx delrepo "$repo" --force; then
+      _bx_invalidate
       ok "repo deleted: $repo"
     else
       err "${PROGRESS_OUT:-delete failed}"; return 1
     fi
   elif [ "$rc" = 0 ]; then
+    _bx_invalidate
     ok "repo deleted: $repo"
   else
     err "${out:-delete failed}"; return "$rc"
   fi
 }
-mac_clone(){ local spec="${1:-}"; [ -n "$spec" ] || spec=$(_input "repo to clone" "owner/repo"); [ -n "$spec" ] || return 0
-  local name; name=$(basename "${spec%.git}"); banner "clone $name"
+mac_clone(){ local spec="${1:-}"
+  case "$spec" in -h|--help) printf 'usage: wt clone <owner/repo|url>\n'; return 0;; esac
+  [ -n "$spec" ] || spec=$(_input "repo to clone (owner/repo)" "")
+  [ -n "$spec" ] || return 0
+  local name; name=$(_clone_repo_name "$spec"); [ -n "$name" ] || name=$spec
+  banner "clone $name"
   local out; out=$(_bx clone "$spec" 2>&1 | tr '\r' '\n' | _progress_filter "cloning $name")
   case "$out" in
-    *cloned:*) ok "$(printf '%s' "$out" | sed -n 's/.*cloned: //p' | head -1)";;
-    *REFUSED*|*"already have"*|*"clone failed"*|*fatal:*) err "$out";;
+    *cloned:*)
+      _bx_invalidate
+      ok "$(printf '%s' "$out" | sed -n 's/.*cloned: //p' | head -1)"
+      ;;
+    *REFUSED*|*"already have"*|*"clone failed"*|*fatal:*|*"no default org"*|*"invalid repo"*)
+      err "$out"
+      ;;
     *) [ -n "$out" ] && printf '%s\n' "$out";;
   esac; }
 
 mac_sync(){ local target="${1:---all}"; banner "sync"
   _progress_run "syncing repos" _bx sync "$target"; printf '%s' "$PROGRESS_OUT"; }
 
-mac_clean(){ local force="${1:-}"; banner "clean"
-  if [ "$force" = "--yes" ]; then
+mac_clean(){
+  local yes=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes|-y) yes=--yes; shift;;
+      -h|--help) printf 'usage: wt clean [--yes]\n'; return 0;;
+      -*) die "unknown flag: $1 (usage: wt clean [--yes])";;
+      *) die "usage: wt clean [--yes]";;
+    esac
+  done
+  banner "clean"
+  if [ "$yes" = "--yes" ]; then
     _progress_run "cleaning worktrees" _bx clean --yes; printf '%s' "$PROGRESS_OUT"
+    _bx_invalidate
+    return 0
+  fi
+  _progress_run "scanning repos" _bx clean; printf '%s' "$PROGRESS_OUT"
+  if [ -t 0 ] && [ -t 1 ]; then
+    case "$PROGRESS_OUT" in
+      *orphan*|*remote\ gone*)
+        _confirm_yes "apply clean (delete listed orphans / remote-gone worktrees)?" "" || { warn "cancelled"; return 0; }
+        _progress_run "cleaning worktrees" _bx clean --yes; printf '%s' "$PROGRESS_OUT"
+        _bx_invalidate
+        ;;
+    esac
+  fi
+}
+
+# Cheap glance — counts + tip commits. Full probes live under `wt doctor`.
+mac_status(){
+  banner "status"
+  if _is_local_store; then
+    ok "profile  ${GRN}local${N}  ${DIM}$ROOT${N}"
   else
-    _progress_run "scanning repos" _bx clean; printf '%s' "$PROGRESS_OUT"
-  fi; }
+    ok "profile  ${GRN}shared${N}"
+    if mount | grep -q " on $MAC_ROOT "; then ok "mount up"
+    else warn "mount down at $MAC_ROOT — try: wt doctor"; fi
+  fi
+  _bx status
+}
 
 mac_doctor(){ banner "doctor"
   if _is_local_store; then
@@ -395,7 +538,7 @@ mac_config(){ banner "config"
       "shared    box host, mount, share name" \
       "agents    (tip: use wt agents)") || return 0
   else
-    which="prefs"
+    die "usage: wt config   (interactive — editor, org, profile, shared stack)"
   fi
   case "$which" in
     prefs*)
@@ -423,16 +566,21 @@ mac_config(){ banner "config"
       agents_list
       ;;
   esac
-  local zrc="$HOME/.zshrc"
-  if ! grep -q 'wt cd shell integration' "$zrc" 2>/dev/null; then
+  local shell_rc=""
+  case "${SHELL:-}" in
+    */zsh) shell_rc="$HOME/.zshrc";;
+    */bash) shell_rc="$HOME/.bashrc";;
+  esac
+  if [ -n "$shell_rc" ] && ! grep -q 'wt cd shell integration' "$shell_rc" 2>/dev/null; then
     echo
-    if _confirm "add the 'wt cd' shortcut to ~/.zshrc?"; then
-      cat >> "$zrc" <<'ZF'
+    if _confirm "add the 'wt cd' shortcut to $shell_rc?"; then
+      cat >> "$shell_rc" <<'ZF'
 
 # wt cd shell integration
 wt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }
 ZF
-      ok "added — restart your shell or: source ~/.zshrc"; fi
+      ok "added — restart your shell or: source $shell_rc"
+    fi
   fi
 }
 
@@ -443,18 +591,9 @@ mac_update(){ banner "update"
   fi
   _require_shared_stack
   local mount_helper=""
-  for mount_helper in "$HOME/.local/bin/mount-wt.sh"; do
-    [ -x "$mount_helper" ] && break
-    mount_helper=""
-  done
+  [ -x "$HOME/.local/bin/mount-wt.sh" ] && mount_helper="$HOME/.local/bin/mount-wt.sh"
+  [ -z "$mount_helper" ] && [ -x "$WT_PREFIX/contrib/mount-wt.sh" ] && mount_helper="$WT_PREFIX/contrib/mount-wt.sh"
   mount | grep -q " on $MAC_ROOT " || { [ -n "$mount_helper" ] && "$mount_helper" >/dev/null 2>&1; }
   mount | grep -q " on $MAC_ROOT " || { err "mount is down at $MAC_ROOT"; return 1; }; ok "mount up"
-  local S="$MAC_ROOT/system/setup"
-  if [ -d "$S" ]; then
-    mkdir -p ~/.local/bin ~/.local/state ~/Library/LaunchAgents
-    [ -f "$S/mount-wt.sh" ] && install -m 0755 "$S/mount-wt.sh" ~/.local/bin/mount-wt.sh && ok "mount-wt.sh refreshed"
-    [ -f "$S/wt-wrapper" ] && install -m 0755 "$S/wt-wrapper" ~/.local/bin/wt && ok "wt wrapper refreshed"
-    [ -f "$S/gum" ] && install -m 0755 "$S/gum" ~/.local/bin/gum && ok "gum installed"
-  else warn "no system/setup on the mount"; fi
   echo; mac_sync; echo; mac_doctor
 }

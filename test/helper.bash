@@ -17,7 +17,7 @@ _use_backend_store() {
 type = local
 editor = cursor
 default_org = example
-agents = claude, codex, cursor, grok, devin, opencode
+agents = alpha, beta, codex
 EOF
 }
 

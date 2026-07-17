@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# palette — exact Greptile CLI RGB (sampled from screenshot glyph interiors)
+# palette — wt truecolor theme
 
 # Commands / examples teal  #5ecacb = RGB(94,202,203)
 # Descriptions grey         #aaaaaa = RGB(170,170,170)
