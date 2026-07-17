@@ -18,17 +18,16 @@ EOF
   [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "bare wt prints help (no landing wizard)" {
+@test "bare wt prints help" {
   export WT_HOME="$BATS_TEST_TMPDIR/help-store"
   mkdir -p "$WT_HOME"
   printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WT_HOME/config"
   run bash -c "WT_COLOR=0 WT_HOME='$WT_HOME' '$WT'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"WORK"* ]]
-  [[ "$output" == *"SETTINGS"* ]]
-  [[ "$output" == *"MORE"* ]]
+  [[ "$output" == *"EXAMPLES"* ]]
+  [[ "$output" == *"COMMANDS"* ]]
   [[ "$output" == *"ide"* ]]
-  [[ "$output" == *"wt remove branch|repo"* ]]
+  [[ "$output" == *"wt new"* ]]
 }
 
 @test "help works via -h and --help too" {

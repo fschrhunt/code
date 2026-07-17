@@ -35,7 +35,7 @@ case "$cmd" in
   version|--version|-v) printf 'wt %s\n' "$WT_VERSION"; exit 0;;
 esac
 
-# No args → help (CLI-first; no interactive landing wizard).
+# No args → help.
 [ -z "$cmd" ] && { _help; exit 0; }
 
 if [ "$ON_MAC" = 1 ]; then
@@ -45,7 +45,8 @@ if [ "$ON_MAC" = 1 ]; then
     rename)           mac_rename "$@";;
     ide|open)         mac_ide "$@";;
 
-    cd)               p=$(mac_cdpath "$@") && printf '__WT_CD__ %s\n' "$p";;
+    # Print the path (cd "$(wt cd …)"). Shell integration uses __cdpath.
+    cd)               mac_cdpath "$@";;
     __cdpath)         mac_cdpath "$@";;
     archive)          mac_archive "$@";;
     restore)          mac_restore "$@";;
@@ -56,12 +57,11 @@ if [ "$ON_MAC" = 1 ]; then
     config)           mac_config "$@";;
     agents|agent)     mac_agents "$@";;
     update)           mac_update "$@";;
-    localdeps)        mac_localdeps "$@";;  # internal; kept for shared SMB
     clone)            mac_clone "$@";;
     sync)             mac_sync "$@";;
     clean)            mac_clean "$@";;
     repos|worktrees)  _bx "$cmd" "$@";;
-    status)           mac_doctor "$@";;     # folded into doctor
+    status)           mac_status "$@";;
     *)                die "unknown command: $cmd (try: wt help)";;
   esac
 else
@@ -98,6 +98,6 @@ else
         ok "local store ready  ${DIM}$WT_USER_DIR${N}"
       fi
       ;;
-    *) die "unknown box command: $cmd";;
+    *) die "unknown command: $cmd (try: wt help)";;
   esac
 fi

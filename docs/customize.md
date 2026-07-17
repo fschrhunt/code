@@ -13,20 +13,19 @@ Updating `wt` (`./install.sh`, `git pull`) does **not** rewrite this file.
 ```
 ./install.sh                 # put wt on your PATH
 wt init                      # local store under ~/.wt   (or: wt init --shared)
-wt agents add cursor         # at least one identity
+wt agents add nova           # at least one identity
 wt config                    # editor + github org
 ```
 
 Then day to day:
 
 ```
-wt new <repo> [feature]      # pick an agent interactively
+wt new <repo> <feature>      # pick an agent interactively
 wt ide                       # open a worktree in your editor
 wt list / wt archive / …
 ```
 
-Bare `wt` opens a sectioned menu (WORK · SETTINGS · MORE). `wt help` lists the
-same groups as plain text.
+Bare `wt` prints the same help as `wt help` (EXAMPLES · COMMANDS).
 
 ---
 
@@ -49,21 +48,21 @@ How to change the product itself: [extending.md](extending.md).
 
 ## Agents (identities)
 
-An **agent** is a named identity for work (`cursor`, `claude`, `codex`, …). It
-is not “which IDE you use.”
+An **agent** is a named identity for work (`nova`, `alice`, your handle, …). It
+is not “which IDE you use.” Pick any names you like — wt does not ship a vendor
+roster.
 
 There is **no silent default**. Every `wt new` picks from your list
 (interactive) or you pass `--agent <name>` (required when not a TTY).
 
 ```
 wt agents list
-wt agents add cursor
-wt agents add claude
+wt agents add nova
+wt agents add alice
 wt agents remove oldname            # blocked if that agent still has worktrees
-wt agents remove oldname --force
 ```
 
-Config key: `agents = cursor, claude` (comma-separated).
+Config key: `agents = nova, alice` (comma-separated).
 
 Names: lowercase `[a-z0-9._-]+`.
 
@@ -137,11 +136,12 @@ Path: `~/.wt/config` (or `$WT_HOME/config` in tests).
 type = local
 editor = cursor
 default_org = example
-agents = cursor, claude
+agents = nova, alice
+cache_dirs = node_modules, .next, .turbo, dist, build
 
-# only when type = shared:
+# only when type = shared (example values — use yours):
 box_host = my-box
-box_addr = 100.x.x.x
+box_addr = my-box.example
 box_user = wt
 box_root = /mnt/wt
 mount_path = /Volumes/wt
@@ -168,7 +168,8 @@ branch: <agent>/<feature>                  # mutable branch name
 - **Local** `<store>` → `~/.wt`
 - **Shared** `<store>` → `mount_path` on the Mac, `box_root` on the box
 
-City names are random labels so folders stay stable when you rename a feature.
+City names are random folder labels (sampled from a world-cities list, with a
+syllable fallback on collisions) so paths stay stable when you rename a feature.
 
 ---
 
@@ -178,10 +179,11 @@ City names are random labels so folders stay stable when you rename a feature.
 |------|---------|
 | Add a teammate’s agent name | `wt agents add NAME` |
 | Use VS Code instead of Cursor | `editor = code` (or `wt config`) |
-| Stop picking agent every time in scripts | `wt new repo feat --agent cursor` or `WT_AGENT=cursor` |
+| Stop picking agent every time in scripts | `wt new repo feat --agent nova` or `WT_AGENT=nova` |
 | Point at a server store | `wt init --shared` |
+| Quick store glance | `wt status` |
 | See why shared feels broken | `wt doctor` |
-| Jump in the shell | install the `wt cd` zsh snippet from `wt config`, then `wt cd` |
+| Jump in the shell | `cd "$(wt cd …)"`, or install the shell snippet from `wt config` then `wt cd` |
 | Make wt look “new” after an edit | `./install.sh` from the checkout you want; check `readlink ~/.local/bin/wt` |
 
 Still stuck? `wt doctor`, then skim [extending.md](extending.md) if the bug is in

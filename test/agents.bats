@@ -12,7 +12,7 @@ setup() {
   run "$WT" agents list
   [ "$status" -eq 0 ]
   [[ "$output" == *codex* ]]
-  [[ "$output" == *cursor* ]]
+  [[ "$output" == *alpha* ]]
 }
 
 @test "agents add appends a new agent" {
@@ -61,11 +61,20 @@ setup() {
   [[ "$output" == *"active worktrees"* ]]
 }
 
-@test "agents remove --force works even with worktrees" {
+@test "agents remove rejects --force" {
   "$WT" new codex demo live2 >/dev/null 2>&1
   run "$WT" agents remove codex --force
-  [ "$status" -eq 0 ]
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown flag"* ]]
   run "$WT" agents list
+  [[ "$output" == *codex* ]]
+}
+
+@test "WT_VALID_AGENTS overrides agent list for the process" {
+  run env WT_VALID_AGENTS="nova alpha" "$WT" agents list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *nova* ]]
+  [[ "$output" == *alpha* ]]
   [[ "$output" != *codex* ]]
 }
 
@@ -73,11 +82,11 @@ setup() {
   # Fresh store without config overwrite
   export WT_HOME="$BATS_TEST_TMPDIR/fresh"
   mkdir -p "$WT_HOME"
-  run "$WT" init cursor
+  run "$WT" init nova
   [ "$status" -eq 0 ]
   [ -f "$WT_HOME/config" ]
   grep -q 'type = local' "$WT_HOME/config"
-  grep -q 'cursor' "$WT_HOME/config"
+  grep -q 'nova' "$WT_HOME/config"
 }
 
 @test "list archived shows archived branches" {

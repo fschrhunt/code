@@ -46,12 +46,31 @@ setup() {
   [[ "$output" == *feat-x* ]]
 }
 
-@test "archive refuses a dirty worktree without --yes (exit 3)" {
+@test "archive refuses a dirty worktree without --force (exit 3)" {
   local ws; ws=$("$WT" new codex demo dirty 2>/dev/null | _workspace_path)
   echo change >> "$ws/README.md"
   run "$WT" archive "$ws"
   [ "$status" -eq 3 ]
   [[ "$output" == *DIRTY* ]]
+  [[ "$output" == *--force* ]]
+}
+
+@test "archive --yes does not discard dirty work" {
+  local ws; ws=$("$WT" new codex demo dirty-yes 2>/dev/null | _workspace_path)
+  echo change >> "$ws/README.md"
+  run "$WT" archive "$ws" --yes
+  [ "$status" -eq 3 ]
+  [[ "$output" == *DIRTY* ]]
+  [ -e "$ws/.git" ]
+}
+
+@test "archive --force discards dirty work" {
+  local ws; ws=$("$WT" new codex demo dirty-force 2>/dev/null | _workspace_path)
+  echo change >> "$ws/README.md"
+  run "$WT" archive "$ws" --force
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"archived: codex/dirty-force"* ]]
+  [ ! -e "$ws/.git" ]
 }
 
 @test "archive refuses a path outside the workspace root" {
@@ -110,7 +129,7 @@ setup() {
 
 @test "remove repo accepts --yes before --force" {
   "$WT" new codex demo flag-order >/dev/null 2>&1
-  # Greptile P1: positional force parsing broke when --yes preceded --force.
+  # --yes before --force must still discard dirty (flag-order regression).
   run "$WT" remove repo demo --yes --force
   [ "$status" -eq 0 ]
   [[ "$output" == *"deleted repo: demo"* ]]
@@ -124,8 +143,80 @@ setup() {
   [[ "$output" == *"dry run"* ]]
 }
 
+@test "remove repo refuses path-traversal names" {
+  run "$WT" remove repo '../escape' --force --yes
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid repo name"* ]]
+}
+
+@test "remove repo REFUSED when worktree is dirty without --force" {
+  local ws; ws=$("$WT" new codex demo at-risk 2>/dev/null | _workspace_path)
+  echo change >> "$ws/README.md"
+  run "$WT" remove repo demo
+  [ "$status" -eq 3 ]
+  [[ "$output" == *REFUSED* ]]
+  [ -d "$WT_HOME/repos/demo" ]
+}
+
+@test "clone_repo_name parses https and git@ specs" {
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    printf "%s\n" "$(_clone_repo_name https://github.com/acme/widget.git)"
+    printf "%s\n" "$(_clone_repo_name git@github.com:acme/widget.git)"
+    printf "%s\n" "$(_clone_repo_name git@host:solo)"
+    printf "%s\n" "$(_clone_repo_name acme/widget)"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = $'widget\nwidget\nsolo\nwidget' ]
+}
+
+@test "clone without default org refuses bare names" {
+  printf 'type = local\neditor = cursor\nagents = codex\n' > "$WT_HOME/config"
+  run env WT_HOME="$WT_HOME" WT_BACKEND=1 WT_COLOR=0 "$WT" clone lonely
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no default org"* ]]
+}
+
+@test "pick_city samples unique folder labels" {
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    WT_PREFIX="'"$BATS_TEST_DIRNAME/.."'"
+    WT_LIB="$WT_PREFIX/lib"
+    . "$WT_LIB/config.sh"
+    . "$WT_LIB/palette.sh"
+    . "$WT_LIB/ui.sh"
+    . "$WT_LIB/agents.sh"
+    . "$WT_LIB/backend.sh"
+    dir="$WORK/codex/demo"
+    mkdir -p "$dir"
+    a=$(_pick_city codex demo)
+    mkdir -p "$dir/$a"
+    b=$(_pick_city codex demo)
+    [ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ]
+    printf "%s\n%s\n" "$a" "$b"
+  '
+  [ "$status" -eq 0 ]
+  local a b
+  a=$(printf '%s\n' "$output" | sed -n '1p')
+  b=$(printf '%s\n' "$output" | sed -n '2p')
+  [[ "$a" =~ ^[a-z][a-z0-9]+$ ]]
+  [[ "$b" =~ ^[a-z][a-z0-9]+$ ]]
+}
+
+@test "status is a cheap glance" {
+  run "$WT" status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"worktrees:"* ]]
+  [[ "$output" == *"canonicals:"* ]]
+}
+
 @test "unknown backend command errors" {
   run "$WT" frobnicate
   [ "$status" -ne 0 ]
-  [[ "$output" == *"unknown box command"* ]]
+  [[ "$output" == *"unknown command"* ]]
 }
