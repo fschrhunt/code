@@ -8,7 +8,7 @@ folder). They always match that binary — nothing is copied into `~/.wt`.
 | If you want to… | Read |
 |-----------------|------|
 | Change agents, IDE, org, or local/shared store | [customize.md](customize.md) |
-| Change how `wt` itself behaves (menus, commands, defaults) | [extending.md](extending.md) |
+| Change how `wt` itself behaves (commands, defaults, UX) | [extending.md](extending.md) |
 | Install / develop / CI contract | [../README.md](../README.md), [../AGENTS.md](../AGENTS.md) |
 
 **Rule of thumb:** prefs that are *yours* go in `~/.wt/config`. Behavior that

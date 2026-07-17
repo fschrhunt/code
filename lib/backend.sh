@@ -1,16 +1,77 @@
 #!/usr/bin/env bash
 # BACKEND — git verbs (cmd_*) that run where the store lives: on the box over
-# ssh (shared), or in-process (WT_BACKEND=1; tests today, local mode in M2).
+# ssh (shared), or in-process (local profile / WT_BACKEND=1).
 # These operate purely on $ROOT / $REPOS / $WORK with `git -C`.
 
-_canon(){ printf '%s' "$REPOS/$1"; }
+# Repo folder names stay inside $REPOS — no slashes, no "." / "..".
+_repo_name_ok(){
+  case "$1" in
+    ""|"."|".."|*/*|*\\*) return 1;;
+    *[!A-Za-z0-9._-]*) return 1;;
+  esac
+  return 0
+}
+_canon(){
+  _repo_name_ok "$1" || die "invalid repo name '$1'"
+  printf '%s' "$REPOS/$1"
+}
+# Last path segment of a clone URL/spec (https, git@host:owner/repo, owner/repo).
+_clone_repo_name(){
+  local spec=$1 name
+  name=$(printf '%s' "$spec" | sed 's#\.git$##')
+  name=$(printf '%s' "$name" | sed 's#.*[:/]##')
+  printf '%s' "$name"
+}
 _prog(){ printf 'wt-progress:%s:%s\n' "$1" "$2" >&2; }
 _default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
 _repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
 _ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
-_pick_city(){ local dir="$WORK/$1/$2" arr n c t=0; arr=($CITIES); n=${#arr[@]}
-  while [ $t -lt 300 ]; do c=${arr[$((RANDOM % n))]}; [ -e "$dir/$c" ] || { printf '%s' "$c"; return 0; }; t=$((t+1)); done
-  printf '%s%s' "${arr[$((RANDOM % n))]}" "$RANDOM"; }
+
+# Wider than $RANDOM alone (15-bit) so sampling ~1e5 cities stays uniform.
+_city_rand(){ printf '%s' $(( (RANDOM << 15 | RANDOM) & 0x3FFFFFFF )); }
+
+# Procedural place-name fallback when the world list is missing or exhausted.
+_gen_city_name(){
+  local -a pre=(al an ar ba be bi bo bra bri ca chi co da de do el fa fi ga ge go
+    ha he hi ho ka ke ki ko ku la le li lo lu ma me mi mo na ne ni no pa pe
+    pi po ra re ri ro sa se shi so su ta te ti to tu va ve vi wa ya yo za)
+  local -a mid=(ba be bi bo da de di do ga ge gi go ka ke ki ko la le li lo
+    ma me mi mo na ne ni no pa pe pi po ra re ri ro sa se si so ta te ti to
+    va ve vi)
+  local -a suf=(ba city dale don ford grad ham ia in ka ki la land ley
+    lin nia pol porto ra rid ski stan ton town ville ya)
+  local p m s
+  p=${pre[$(( $(_city_rand) % ${#pre[@]} ))]}
+  m=${mid[$(( $(_city_rand) % ${#mid[@]} ))]}
+  s=${suf[$(( $(_city_rand) % ${#suf[@]} ))]}
+  printf '%s%s%s' "$p" "$m" "$s"
+}
+
+# Unique folder label under $WORK/<agent>/<repo>/. Samples lib/cities.txt
+# (world place names); on collision exhaustion, syllable names, then a suffix.
+_pick_city(){
+  local dir="$WORK/$1/$2"
+  local file="${WT_LIB:-}/cities.txt"
+  local n c t=0 idx
+  if [ -f "$file" ]; then
+    n=$(wc -l < "$file" | tr -d '[:space:]')
+    if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+      while [ "$t" -lt 64 ]; do
+        idx=$(( $(_city_rand) % n + 1 ))
+        c=$(sed -n "${idx}p" "$file")
+        [ -n "$c" ] && [ ! -e "$dir/$c" ] && { printf '%s' "$c"; return 0; }
+        t=$((t + 1))
+      done
+    fi
+  fi
+  t=0
+  while [ "$t" -lt 64 ]; do
+    c=$(_gen_city_name)
+    [ ! -e "$dir/$c" ] && { printf '%s' "$c"; return 0; }
+    t=$((t + 1))
+  done
+  printf '%s%s' "$(_gen_city_name)" "$(_city_rand)"
+}
 cmd_repos(){ _repos_all; }
 cmd_worktrees(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
@@ -20,10 +81,11 @@ cmd_worktrees(){ local r d
       printf '%s\t%s\t%s\t%s\t%s\n' "$ag" "$r" "$city" "$wt" "$(git -C "$wt" branch --show-current 2>/dev/null)"
     done; done; }
 cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
-  [ -n "$agent" ] && [ -n "$repo" ] || die "usage: new <agent> <repo> [feature]"
+  [ -n "$agent" ] && [ -n "$repo" ] && [ -n "$feature" ] || die "usage: new <agent> <repo> <feature>"
   _is_agent "$agent" || die "unknown agent '$agent' — configure with: wt agents add $agent"
+  feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _ensure_relpaths "$repo"
-  local city; city=$(_pick_city "$agent" "$repo"); local feat="${feature:-$city}" branch="$agent/${feature:-$city}" wtdir="$WORK/$agent/$repo/$city"
+  local city; city=$(_pick_city "$agent" "$repo"); local branch="$agent/$feature" wtdir="$WORK/$agent/$repo/$city"
   # New feature branches should not track the default branch. Tracking is set
   # when the user first pushes their feature branch with `git push -u`.
   mkdir -p "$(dirname "$wtdir")"; git -C "$d" worktree add -b "$branch" --no-track "$wtdir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
@@ -37,8 +99,16 @@ cmd_rename(){ local wt="${1:-}" feature="${2:-}"; [ -n "$wt" ] && [ -n "$feature
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
   git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
 cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo>"; local url repo
-  case "$spec" in http*|git@*) url=$spec; repo=$(basename "$spec");; */*) url="https://github.com/$spec.git"; repo=$(basename "$spec");; *) url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec;; esac
-  repo=${repo%.git}; local dest="$REPOS/$repo"; [ -e "$dest" ] && die "already have repos/$repo"
+  case "$spec" in
+    http*|git@*) url=$spec; repo=$(_clone_repo_name "$spec");;
+    */*) url="https://github.com/$spec.git"; repo=$(_clone_repo_name "$spec");;
+    *)
+      [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in ~/.wt/config"
+      url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec
+      ;;
+  esac
+  _repo_name_ok "$repo" || die "invalid repo name '$repo'"
+  local dest="$REPOS/$repo"; [ -e "$dest" ] && die "already have repos/$repo"
   git clone --progress "$url" "$dest" >&2 || die "clone failed (auth or url?)"
   git -C "$dest" remote set-head origin -a >/dev/null 2>&1; git -C "$dest" config worktree.useRelativePaths true
   printf 'cloned: %s (default %s)\n' "$repo" "$(_default_branch "$repo")"; }
@@ -107,10 +177,25 @@ cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_r
       fi
     done; done; [ "$force" = "--yes" ] || printf '  %s(dry run — wt clean --yes to remove)%s\n' "$DIM" "$N"; }
 # archive: remove the worktree FOLDER but KEEP the branch (Conductor-style — restorable).
-cmd_archive(){ local wt="${1:-}" force="${2:-}"; [ -n "$wt" ] || die "usage: archive <path>"; case "$wt" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
+# --force discards uncommitted work; --yes is not a discard flag (frontend confirm skip only).
+cmd_archive(){
+  local wt="" force=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f) force=--force; shift;;
+      --yes|-y) shift;; # confirm-skip parity with frontend; does not discard dirty
+      -*) die "unknown flag: $1 (usage: archive <path> [--force])";;
+      *) [ -z "$wt" ] || die "usage: archive <path> [--force]"; wt=$1; shift;;
+    esac
+  done
+  [ -n "$wt" ] || die "usage: archive <path> [--force]"
+  case "$wt" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
   local rel=${wt#"$WORK"/}; _is_agent "${rel%%/*}" || die "not a wt-managed worktree"; [ -e "$wt/.git" ] || die "not a worktree: $wt"
   _prog "checking status" 25
-  [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && [ "$force" != "--yes" ] && { printf 'DIRTY: uncommitted changes — commit first, or archive --yes to discard them\n'; return 3; }
+  [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && [ "$force" != "--force" ] && {
+    printf 'DIRTY: uncommitted changes — commit first, or archive --force to discard them\n'
+    return 3
+  }
   local repo; repo=$(printf '%s' "$rel" | cut -d/ -f2); local br; br=$(git -C "$wt" branch --show-current 2>/dev/null)
   _prog "archiving worktree" 70
   git -C "$(_canon "$repo")" worktree remove --force "$wt" || die "worktree remove failed"; _prog "finishing" 100
@@ -164,13 +249,18 @@ cmd_doctor(){
   local r missing=0
   ok "store root  ${DIM}$ROOT${N}"
   if _agents_configured; then ok "agents  ${DIM}$VALID_AGENTS${N}"; else warn "no agents configured — wt agents add <name>"; fi
-  if [ "${WT_PROFILE_TYPE:-shared}" = local ] || [ -n "${WT_HOME:-}" ]; then
-    command -v git >/dev/null 2>&1 && ok "git available" || err "git missing"
-    if command -v gh >/dev/null 2>&1; then ok "gh available"; else warn "gh not installed (optional)"; fi
-  else
+  command -v git >/dev/null 2>&1 && ok "git available" || err "git missing"
+  if command -v gh >/dev/null 2>&1; then ok "gh available"; else warn "gh not installed (optional)"; fi
+  # Shared/box path: probe remotes when we have canonicals (no fleet-specific remediations).
+  if [ "${WT_PROFILE_TYPE:-local}" != local ] && [ -z "${WT_HOME:-}" ]; then
     local first; first=$(_repos_all | head -1)
-    if [ -n "$first" ] && git -C "$(_canon "$first")" ls-remote origin >/dev/null 2>&1; then ok "GitHub auth (PAT) valid"; else err "GitHub auth failing — re-run: sudo /usr/local/sbin/set-agents-token"; fi
-    local t; for t in wt-sync wt-clean; do systemctl is-active "$t.timer" >/dev/null 2>&1 && ok "$t.timer active" || err "$t.timer inactive"; done
+    if [ -n "$first" ]; then
+      if git -C "$(_canon "$first")" ls-remote origin >/dev/null 2>&1; then
+        ok "origin reachable for ${DIM}$first${N}"
+      else
+        err "cannot reach origin for $first — check git credentials / network"
+      fi
+    fi
   fi
   for r in $(_repos_all); do [ "$(git -C "$(_canon "$r")" config --get worktree.useRelativePaths 2>/dev/null)" = true ] || { err "relpaths off: $r"; missing=1; }; done
   [ -z "$(_repos_all)" ] && ok "no canonicals yet — wt clone <repo>"

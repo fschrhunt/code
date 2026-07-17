@@ -17,7 +17,7 @@ agents follow it so work stays compatible and safe.
 - **Deterministic tests only.** No test may need the network, a remote box, an SMB
   mount, or an interactive TTY. Use `WT_BACKEND=1` + `WT_HOME=<tmp>` and the
   helpers in `test/helper.bash` (a local bare repo stands in for `origin`).
-  Randomness (`RANDOM` city picker) must not affect assertions.
+  Randomness (`_pick_city` / `$RANDOM`) must not affect assertions.
 - **Behavior-preserving refactors stay behavior-preserving.** If you restructure,
   prove it with the golden test (`test/help.bats`) and the backend lifecycle
   tests. Intended output changes get their own visible commit + updated golden.
@@ -47,9 +47,10 @@ plain fallback otherwise).
 ```
 bin/wt              entry point: resolves lib/, sources modules, dispatches
 lib/config.sh       defaults, ~/.wt/config, role (ON_MAC) + paths (ROOT/REPOS/WORK)
+lib/cities.txt      world place-name slugs for worktree folder labels
 lib/palette.sh      colors + ok/warn/err/die/banner
 lib/ui.sh           logo, help, gum helpers, progress bar/spinner
-lib/backend.sh      cmd_* git verbs — operate on $ROOT via `git -C`
+lib/backend.sh      cmd_* git verbs — operate on $ROOT via `git -C` (+ city picker)
 lib/frontend.sh     mac_* interactive UX + _bx (ssh transport for shared)
 lib/agents.sh       managed agent list + editor open
 contrib/            optional helpers (e.g. mount-wt.sh) — not required for local

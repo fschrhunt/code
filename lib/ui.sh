@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # UI: logo, help text, gum helpers (with a plain fallback), progress.
 
-# ---- logo + landing (isometric wt) ----
+# ---- logo (isometric wt) ----
 LOGO=(
 '      ___           ___     '
 '     /\__\         /\  \    '
@@ -24,38 +24,48 @@ _header(){
   else
     status="Shared profile · editor ${EDITOR_CMD:-cursor}"
   fi
+  # Brand block beside the logo: title, tagline, status.
   T[4]="${GRN}wt${N} ${DIM}v${ver}${N}"
   T[6]="${W}Isolated git worktrees from your terminal.${N}"
   T[7]="${DIM}${status}${N}"
   echo; local i; for i in "${!LOGO[@]}"; do printf '  %s%-28s%s  %s\n' "$GRN" "${LOGO[i]}" "$N" "${T[i]:-}"; done; echo
 }
 
-# Action-scoped help (Greptile layout): section titles at margin, commands indented.
+# Help layout: EXAMPLES (full invocations) + COMMANDS (short verbs).
+# Keep left columns tight and descriptions short so narrow panes don't wrap junk.
 _help(){
   _header
-  local col=30
+  # Left columns sized so full lines stay ≤ ~72 cols (narrow IDE panes).
+  local ex_col=32 cmd_col=10
   sec(){ printf '  %s%s%s\n\n' "$W" "$1" "$N"; }
-  cm(){ printf '    %s%-'${col}'s%s%s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
-  sec WORK
-  cm new      "Start a new worktree to work in."
-  cm ide      "Open a worktree in $EDITOR_CMD (new IDE window)."
-  cm cd       "Jump into a worktree in the terminal."
-  cm list     "List active worktrees (or: wt list archived)."
-  cm archive  "Put away: wt archive <sel> [--yes]."
-  cm restore  "Bring back: wt restore <repo> <branch>."
-  cm clone    "Add a repo from GitHub to the store."
+  ex(){ printf '    %s%-'${ex_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
+  cm(){ printf '    %s%-'${cmd_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
+
+  sec EXAMPLES
+  ex "wt new repo feat --agent nova"   "Start a worktree for an agent."
+  ex "wt list"                         "See active worktrees."
+  ex "wt archive <sel> --yes"          "Put a worktree away (keeps branch)."
+  ex "wt restore <repo> <branch>"      "Bring an archived branch back."
+  ex "wt remove branch <repo> <br>"    "Permanently delete an archived branch."
   echo
-  sec SETTINGS
-  cm agents   "List, add, or remove configured agents."
-  cm config   "Editor, org, profile, and shared stack."
+
+  sec COMMANDS
+  cm new      "Start a new worktree."
+  cm ide      "Open a worktree in $EDITOR_CMD."
+  cm cd       "Print a worktree path."
+  cm list     "List active or archived worktrees."
+  cm archive  "Put a worktree away (keeps branch)."
+  cm restore  "Restore an archived branch."
+  cm clone    "Add a GitHub repo to the store."
+  cm agents   "Manage agent identities."
+  cm config   "Editor, org, profile, shared stack."
   cm init     "Create a local or shared profile."
-  cm doctor   "Check that everything's working."
-  echo
-  sec MORE
+  cm status   "Quick store glance."
+  cm doctor   "Deep health check."
   cm rename   "Rename a worktree's branch."
-  cm sync     "Pull the latest for every repo."
-  cm clean    "Dry-run orphans; wt clean --yes to apply."
-  cm remove   "Delete: wt remove branch|repo …"
+  cm sync     "Fetch latest for every repo."
+  cm clean    "Remove orphans (dry-run; --yes applies)."
+  cm remove   "Delete a branch or repo permanently."
   cm update   "Refresh install / sync."
   echo
 }
@@ -72,7 +82,22 @@ _choose(){ local h=$1; shift; local -a o=("$@")
   fi
   { printf '  %s%s%s\n' "$DIM" "$h" "$N"; local i=1 x; for x in "${o[@]}"; do printf '  %s%2d%s %s\n' "$CYN" "$i" "$N" "$x"; i=$((i+1)); done; printf '  %s#%s ' "$DIM" "$N"; } >&2
   local n; read -r n; [ -n "$n" ] && [ "$n" -ge 1 ] 2>/dev/null && printf '%s' "${o[$((n-1))]}"; }
-_input(){ if _has_gum; then _gum_env gum input --header "$1" --placeholder "${2:-}" --prompt "❯ " --prompt.foreground "$GUMC"; else printf '  %s%s%s ' "$B" "$1" "$N" >&2; local v; read -r v; printf '%s' "$v"; fi; }
+# Prompt for a line. DEFAULT is shown as placeholder / [brackets]; Enter keeps it.
+# Pass an empty DEFAULT when empty input should stay empty (e.g. cancelable fields).
+_input(){
+  local header=$1 default=${2:-} v
+  if _has_gum; then
+    v=$(_gum_env gum input --header "$header" --placeholder "${default}" --prompt "❯ " --prompt.foreground "$GUMC") || true
+  else
+    if [ -n "$default" ]; then
+      printf '  %s%s%s %s[%s]%s ' "$B" "$header" "$N" "$DIM" "$default" "$N" >&2
+    else
+      printf '  %s%s%s ' "$B" "$header" "$N" >&2
+    fi
+    read -r v || true
+  fi
+  printf '%s' "${v:-$default}"
+}
 _confirm(){ if _has_gum; then _gum_env gum confirm "$1"; else printf '  %s %s[y/N]%s ' "$1" "$DIM" "$N" >&2; local a; read -r a; case "$a" in y|Y) return 0;; *) return 1;; esac; fi; }
 # Confirm on TTY, or accept --yes. Non-interactive without --yes refuses.
 _confirm_yes(){

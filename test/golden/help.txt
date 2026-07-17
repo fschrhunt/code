@@ -3,7 +3,7 @@
        /\__\         /\  \      
       /:/ _/_        \:\  \     
      /:/ /\__\        \:\  \    
-    /:/ /:/ _/_       /::\  \   wt v1.3.0
+    /:/ /:/ _/_       /::\  \   wt v1.4.1
    /:/_/:/ /\__\     /:/\:\__\  
    \:\/:/ /:/  /    /:/  \/__/  Isolated git worktrees from your terminal.
     \::/_/:/  /    /:/  /       Local profile · editor cursor
@@ -11,28 +11,31 @@
       \::/  /                   
        \/__/                    
 
-  WORK
+  EXAMPLES
 
-    new                           Start a new worktree to work in.
-    ide                           Open a worktree in cursor (new IDE window).
-    cd                            Jump into a worktree in the terminal.
-    list                          List active worktrees (or: wt list archived).
-    archive                       Put away: wt archive <sel> [--yes].
-    restore                       Bring back: wt restore <repo> <branch>.
-    clone                         Add a repo from GitHub to the store.
+    wt new repo feat --agent nova     Start a worktree for an agent.
+    wt list                           See active worktrees.
+    wt archive <sel> --yes            Put a worktree away (keeps branch).
+    wt restore <repo> <branch>        Bring an archived branch back.
+    wt remove branch <repo> <br>      Permanently delete an archived branch.
 
-  SETTINGS
+  COMMANDS
 
-    agents                        List, add, or remove configured agents.
-    config                        Editor, org, profile, and shared stack.
-    init                          Create a local or shared profile.
-    doctor                        Check that everything's working.
-
-  MORE
-
-    rename                        Rename a worktree's branch.
-    sync                          Pull the latest for every repo.
-    clean                         Dry-run orphans; wt clean --yes to apply.
-    remove                        Delete: wt remove branch|repo …
-    update                        Refresh install / sync.
+    new         Start a new worktree.
+    ide         Open a worktree in cursor.
+    cd          Print a worktree path.
+    list        List active or archived worktrees.
+    archive     Put a worktree away (keeps branch).
+    restore     Restore an archived branch.
+    clone       Add a GitHub repo to the store.
+    agents      Manage agent identities.
+    config      Editor, org, profile, shared stack.
+    init        Create a local or shared profile.
+    status      Quick store glance.
+    doctor      Deep health check.
+    rename      Rename a worktree's branch.
+    sync        Fetch latest for every repo.
+    clean       Remove orphans (dry-run; --yes applies).
+    remove      Delete a branch or repo permanently.
+    update      Refresh install / sync.
 

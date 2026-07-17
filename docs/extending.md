@@ -36,7 +36,7 @@ Helpers: `test/helper.bash`. Tests must stay offline, non-interactive, determini
 bin/wt                 dispatch
 lib/config.sh          neutral defaults + ~/.wt/config load/save
 lib/palette.sh         colors
-lib/ui.sh              logo, help (WORK/SETTINGS/MORE), gum helpers
+lib/ui.sh              logo, help (EXAMPLES/COMMANDS), gum helpers
 lib/agents.sh          agent registry + IDE launch
 lib/backend.sh         git verbs on $ROOT
 lib/frontend.sh        Mac UX + SSH `_bx` for shared (CLI-first; TTY fill-in only)
@@ -52,7 +52,8 @@ test/                  bats + golden/help.txt
 | Goal | Edit |
 |------|------|
 | Help text / section labels | `lib/ui.sh` → `_help` |
-| Neutral defaults, cities list | `lib/config.sh` |
+| Neutral defaults | `lib/config.sh` |
+| World cities list / city picker | `lib/cities.txt`, `lib/backend.sh` → `_pick_city` |
 | IDE launch flags (`-n`, …) | `lib/agents.sh` → `_editor_open` |
 | Agent name rules | `lib/agents.sh` |
 | new / archive / clone / … | `lib/backend.sh` |
@@ -61,7 +62,7 @@ test/                  bats + golden/help.txt
 | Mount helper | `contrib/mount-wt.sh` |
 | Locked help UX | `test/golden/help.txt` (same change as copy) |
 
-Keep UI sections **action-scoped**: WORK · SETTINGS · MORE. Users scan by job.
+Keep help as EXAMPLES (full invocations) then COMMANDS (short verbs).
 Commands are CLI-first (args + flags). Interactive prompts only fill missing args on a TTY.
 
 ---
@@ -72,7 +73,7 @@ Commands are CLI-first (args + flags). Interactive prompts only fill missing arg
 
 1. Implement `cmd_*` (backend) and/or `mac_*` (frontend).
 2. Dispatch in `bin/wt`.
-3. Add under the matching section in `_help`.
+3. Add a short COMMANDS line in `_help` (and an EXAMPLES line if it's a common flow).
 4. Update `test/golden/help.txt` if help lines changed.
 5. Prefer args/flags over menus; TTY pickers only when an arg is missing.
 6. `make check`.
@@ -80,7 +81,8 @@ Commands are CLI-first (args + flags). Interactive prompts only fill missing arg
 ### Change shipped defaults
 
 Only in `lib/config.sh`, and keep them **neutral** (empty shared stack, local
-profile, generic `editor = cursor`). Real fleet values stay in user config.
+profile). `editor = cursor` is a Cursor-oriented default — override in user
+config. Real shared-stack hosts/paths stay in `~/.wt/config`.
 
 ### Change how the IDE opens
 
@@ -107,8 +109,8 @@ wrong hosts.
 ## PR checklist
 
 - [ ] Per-user prefs → config UX or [customize.md](customize.md), not baked defaults
-- [ ] Help sections stay action-scoped (WORK / SETTINGS / MORE)
+- [ ] Help stays EXAMPLES + COMMANDS (short lines; golden updated)
 - [ ] Golden help updated when copy changed
-- [ ] Destructive commands accept args/flags (`--yes` / `--force`); no required wizard
+- [ ] Destructive commands accept args/flags (`--yes` / `--force`); TTY prompts only fill missing args
 - [ ] `make check` green
 - [ ] No edits to a deployed/mounted live binary
