@@ -1,0 +1,28 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+setup = """
+for cmd in bash git shellcheck bats; do
+  command -v "$cmd" >/dev/null || { echo "missing required tool: $cmd" >&2; exit 1; }
+done
+bin/wt help >/dev/null
+"""
+archive = "true"
+run_mode = "concurrent"
+
+[scripts.run.check]
+command = "make check"
+default = true
+icon = "test-tube"
+
+[scripts.run.lint]
+command = "make lint"
+icon = "file-code"
+
+[scripts.run.test]
+command = "make test"
+icon = "test-tube"
+
+[scripts.run.help]
+command = "bin/wt help"
+icon = "terminal"
