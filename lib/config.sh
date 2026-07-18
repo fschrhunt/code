@@ -183,7 +183,12 @@ _require_shared_stack(){
 }
 
 _box_reachable(){
-  local host="${BOX_ADDR:-$BOX_HOST}"
+  local host="${BOX_ADDR:-$BOX_HOST}" nc="${NC_BIN:-/usr/bin/nc}"
   [ -n "$host" ] || return 1
-  /usr/bin/nc -z -G 2 "$host" 22 2>/dev/null
+  [ -x "$nc" ] || nc=$(command -v nc 2>/dev/null) || return 1
+  # macOS nc uses -G for connect timeout; Linux/OpenBSD nc uses -w.
+  case "$(uname)" in
+    Darwin) "$nc" -z -G 2 "$host" 22 2>/dev/null;;
+    *) "$nc" -z -w 2 "$host" 22 2>/dev/null;;
+  esac
 }

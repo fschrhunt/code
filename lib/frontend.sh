@@ -287,7 +287,10 @@ mac_new(){ local agent="" repo="" feature=""
     fi
   fi
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  _spin_run "creating $agent/$feature" _bx new "$agent" "$repo" "$feature" || exit 1; local out="$SPIN_OUT"
+  if ! _spin_run "creating $agent/$feature" _bx new "$agent" "$repo" "$feature"; then
+    err "${SPIN_OUT:-create failed}"; return 1
+  fi
+  local out="$SPIN_OUT"
   _bx_invalidate
   local boxpath branch macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); branch=$(printf '%s' "$out" | sed -n 's/^branch: //p'); macpath=$(_tomac "$boxpath")
   mac_localdeps "$macpath"; ok "created ${GRN}$branch${N}  ${DIM}$macpath${N}"

@@ -235,6 +235,50 @@ load helper
   [[ "$output" == *"usage: wt new"* ]]
 }
 
+@test "mac_new after archive surfaces restore hint" {
+  _use_backend_store
+  _seed_repo
+  local ws; ws=$("$WT" new codex demo comeback 2>/dev/null | _workspace_path)
+  "$WT" archive "$ws" >/dev/null
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    mac_new demo comeback --agent codex
+  '
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"archived"* ]]
+  [[ "$output" == *"wt restore demo codex/comeback"* ]]
+}
+
+@test "box_reachable uses -w timeout on Linux" {
+  local fake_nc="$BATS_TEST_TMPDIR/fake-nc"
+  cat > "$fake_nc" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" > "${NC_ARGS_FILE:?}"
+exit 0
+EOF
+  chmod +x "$fake_nc"
+  run env NC_BIN="$fake_nc" NC_ARGS_FILE="$BATS_TEST_TMPDIR/nc-args" bash -c '
+    export WT_COLOR=0 WT_HOME="'"$BATS_TEST_TMPDIR/store"'"
+    mkdir -p "$WT_HOME"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    BOX_HOST=box.example
+    _box_reachable
+    cat "$NC_ARGS_FILE"
+  '
+  [ "$status" -eq 0 ]
+  if [ "$(uname)" = "Darwin" ]; then
+    [[ "$output" == *"-G 2 box.example 22"* ]]
+  else
+    [[ "$output" == *"-w 2 box.example 22"* ]]
+  fi
+}
+
 @test "shared Linux frontend preserves user HOME" {
   local user_home="$BATS_TEST_TMPDIR/user-home"
   local box_root="$BATS_TEST_TMPDIR/box-root"
