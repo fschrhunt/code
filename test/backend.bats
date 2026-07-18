@@ -182,6 +182,28 @@ setup() {
   [[ "$output" == *"no default org"* ]]
 }
 
+@test "new after archive points at restore" {
+  local ws; ws=$("$WT" new codex demo comeback-new 2>/dev/null | _workspace_path)
+  "$WT" archive "$ws" >/dev/null
+  run "$WT" new codex demo comeback-new
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"archived"* ]]
+  [[ "$output" == *"wt restore demo codex/comeback-new"* ]]
+}
+
+@test "new when branch is active says so" {
+  "$WT" new codex demo live-dup >/dev/null 2>&1
+  run "$WT" new codex demo live-dup
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"already active"* ]]
+}
+
+@test "new without a cloned repo points at clone" {
+  run "$WT" new codex missing feat
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"clone first"* ]]
+}
+
 @test "pick_city samples unique folder labels" {
   run bash -c '
     export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"

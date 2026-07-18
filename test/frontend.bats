@@ -235,6 +235,28 @@ load helper
   [[ "$output" == *"usage: wt new"* ]]
 }
 
+@test "mac_localdeps is a no-op when localdeps is off" {
+  _use_backend_store
+  local wt="$WT_HOME/workspaces/codex/demo/fakecity"
+  mkdir -p "$wt/node_modules"
+  echo keep > "$wt/node_modules/x"
+  run bash -c '
+    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    WT_PROFILE_TYPE=shared
+    LOCALDEPS=0
+    mac_localdeps "'"$wt"'"
+    [ -d "'"$wt"'/node_modules" ] && [ ! -L "'"$wt"'/node_modules" ]
+    grep -q keep "'"$wt"'/node_modules/x"
+  '
+  [ "$status" -eq 0 ]
+}
+
 @test "mac_status is a cheap glance (not doctor)" {
   _use_backend_store
   _seed_repo

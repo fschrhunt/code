@@ -58,7 +58,7 @@ _pick_city(){
     if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
       while [ "$t" -lt 64 ]; do
         idx=$(( $(_city_rand) % n + 1 ))
-        c=$(sed -n "${idx}p" "$file")
+        c=$(awk -v n="$idx" 'NR==n{print; exit}' "$file")
         [ -n "$c" ] && [ ! -e "$dir/$c" ] && { printf '%s' "$c"; return 0; }
         t=$((t + 1))
       done
@@ -84,11 +84,26 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   [ -n "$agent" ] && [ -n "$repo" ] && [ -n "$feature" ] || die "usage: new <agent> <repo> <feature>"
   _is_agent "$agent" || die "unknown agent '$agent' — configure with: wt agents add $agent"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _ensure_relpaths "$repo"
-  local city; city=$(_pick_city "$agent" "$repo"); local branch="$agent/$feature" wtdir="$WORK/$agent/$repo/$city"
+  local d; d=$(_canon "$repo")
+  [ -d "${d}/.git" ] || die "no repo '$repo' — clone first: wt clone owner/repo"
+  _ensure_relpaths "$repo"
+  local city branch="$agent/$feature" wtdir existing
+  # Archive keeps the branch; reuse needs restore, not a second -b create.
+  if git -C "$d" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    existing=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk -v want="refs/heads/$branch" '
+      /^worktree /{wt=$2; next}
+      /^branch /{ if ($2==want) { print wt; exit } }
+    ')
+    if [ -n "$existing" ]; then
+      die "branch '$branch' is already active at $existing"
+    fi
+    die "branch '$branch' is archived — restore with: wt restore $repo $branch"
+  fi
+  city=$(_pick_city "$agent" "$repo"); wtdir="$WORK/$agent/$repo/$city"
   # New feature branches should not track the default branch. Tracking is set
   # when the user first pushes their feature branch with `git push -u`.
-  mkdir -p "$(dirname "$wtdir")"; git -C "$d" worktree add -b "$branch" --no-track "$wtdir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
+  mkdir -p "$(dirname "$wtdir")"
+  git -C "$d" worktree add -b "$branch" --no-track "$wtdir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
   local ex; ex=$(git -C "$wtdir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
   printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$wtdir" "$branch" "$city"; }

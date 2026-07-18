@@ -20,8 +20,10 @@ VALID_AGENTS=""
 DEFAULT_ORG=""
 # Cursor-oriented default; override with editor= in ~/.wt/config.
 EDITOR_CMD=cursor
-# Optional localdeps / worktree exclude list (override via cache_dirs= in config).
+# Optional worktree exclude list (override via cache_dirs= in config).
 CACHE_DIRS="node_modules .next .turbo dist build"
+# Shared-only: link CACHE_DIRS into ~/.wt-cache (off by default — opt in).
+LOCALDEPS=0
 # Local until the user opts into shared via init/config (or an existing ~/.wt/config).
 WT_PROFILE_TYPE=local
 
@@ -73,6 +75,12 @@ _load_user_config(){
         CACHE_DIRS=${CACHE_DIRS# }
         CACHE_DIRS=${CACHE_DIRS% }
         ;;
+      localdeps|LOCALDEPS)
+        case "$val" in
+          1|true|yes|on) LOCALDEPS=1;;
+          *) LOCALDEPS=0;;
+        esac
+        ;;
       box_host|BOX_HOST) BOX_HOST=$val;;
       box_addr|BOX_ADDR) BOX_ADDR=$val;;
       box_user|BOX_USER) BOX_USER=$val;;
@@ -96,6 +104,7 @@ _save_user_config(){
     printf 'default_org = %s\n' "$DEFAULT_ORG"
     printf 'agents = %s\n' "$agents_csv"
     printf 'cache_dirs = %s\n' "$cache_csv"
+    printf 'localdeps = %s\n' "$LOCALDEPS"
   } > "$WT_USER_CONFIG"
   if [ "$WT_PROFILE_TYPE" = shared ]; then
     {
