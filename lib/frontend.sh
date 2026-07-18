@@ -501,7 +501,7 @@ mac_delrepo(){
   fi
 }
 mac_clone(){ local spec="${1:-}"
-  case "$spec" in -h|--help) printf 'usage: wt clone <owner/repo|url>\n'; return 0;; esac
+  case "$spec" in -h|--help) printf 'usage: wt clone <owner/repo|url|path>\n'; return 0;; esac
   [ -n "$spec" ] || spec=$(_input "repo to clone (owner/repo)" "")
   [ -n "$spec" ] || return 0
   local name; name=$(_clone_repo_name "$spec"); [ -n "$name" ] || name=$spec

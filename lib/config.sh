@@ -155,23 +155,20 @@ if [ -n "${WT_VALID_AGENTS:-}" ]; then
   VALID_AGENTS=${VALID_AGENTS% }
 fi
 
-# ---- role ----
-if [ "${WT_BACKEND:-0}" = 1 ]; then ON_MAC=0
-elif [ "$(uname)" = "Darwin" ]; then ON_MAC=1
-else ON_MAC=0
-fi
-
 # ---- data root + paths ----
+# Frontend (any OS) keeps the user's HOME and uses the local mount path.
+# Only the WT_BACKEND=1 store process remaps HOME to BOX_HOME and disables
+# Git prompts for the shared box.
 if [ -n "${WT_HOME:-}" ]; then
   ROOT="$WT_HOME"
 elif [ "$WT_PROFILE_TYPE" = local ]; then
   ROOT="$WT_USER_DIR"
-elif [ "$ON_MAC" = 1 ]; then
-  ROOT="${MAC_ROOT:-$WT_USER_DIR}"
-else
+elif [ "${WT_BACKEND:-0}" = 1 ]; then
   ROOT="${BOX_ROOT:-$WT_USER_DIR}"
   [ -n "$BOX_HOME" ] && export HOME="$BOX_HOME"
   export GIT_TERMINAL_PROMPT=0
+else
+  ROOT="${MAC_ROOT:-$WT_USER_DIR}"
 fi
 [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
 REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"

@@ -235,6 +235,59 @@ load helper
   [[ "$output" == *"usage: wt new"* ]]
 }
 
+@test "shared Linux frontend preserves user HOME" {
+  local user_home="$BATS_TEST_TMPDIR/user-home"
+  local box_root="$BATS_TEST_TMPDIR/box-root"
+  local mount_path="$BATS_TEST_TMPDIR/mount"
+  mkdir -p "$user_home/.wt" "$box_root/.home" "$mount_path"
+  cat > "$user_home/.wt/config" <<EOF
+type = shared
+box_host = box.example
+box_user = wt
+box_root = $box_root
+mount_path = $mount_path
+share_name = wt
+agents = codex
+EOF
+  run env -u WT_BACKEND -u WT_HOME HOME="$user_home" bash -c '
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    printf "HOME=%s\n" "$HOME"
+    printf "ROOT=%s\n" "$ROOT"
+    printf "GIT_TERMINAL_PROMPT=%s\n" "${GIT_TERMINAL_PROMPT-}"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"HOME=$user_home"* ]]
+  [[ "$output" == *"ROOT=$mount_path"* ]]
+  [[ "$output" != *"HOME=$box_root"* ]]
+  [[ "$output" != *"GIT_TERMINAL_PROMPT=0"* ]]
+}
+
+@test "shared backend remaps HOME to BOX_HOME" {
+  local user_home="$BATS_TEST_TMPDIR/user-home"
+  local box_root="$BATS_TEST_TMPDIR/box-root"
+  local mount_path="$BATS_TEST_TMPDIR/mount"
+  mkdir -p "$user_home/.wt" "$box_root/.home" "$mount_path"
+  cat > "$user_home/.wt/config" <<EOF
+type = shared
+box_host = box.example
+box_user = wt
+box_root = $box_root
+mount_path = $mount_path
+share_name = wt
+agents = codex
+EOF
+  run env -u WT_HOME WT_BACKEND=1 HOME="$user_home" bash -c '
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    printf "HOME=%s\n" "$HOME"
+    printf "ROOT=%s\n" "$ROOT"
+    printf "GIT_TERMINAL_PROMPT=%s\n" "${GIT_TERMINAL_PROMPT-}"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"HOME=$box_root/.home"* ]]
+  [[ "$output" == *"ROOT=$box_root"* ]]
+  [[ "$output" == *"GIT_TERMINAL_PROMPT=0"* ]]
+}
+
 @test "mac_localdeps is a no-op when localdeps is off" {
   _use_backend_store
   local wt="$WT_HOME/workspaces/codex/demo/fakecity"

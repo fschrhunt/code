@@ -182,6 +182,33 @@ setup() {
   [[ "$output" == *"no default org"* ]]
 }
 
+@test "clone accepts local bare path and file:// URL" {
+  local origin="$BATS_TEST_TMPDIR/origin-demo.git"
+  local seed="$BATS_TEST_TMPDIR/seed-demo"
+  git init -q --bare "$origin"
+  git init -q "$seed"
+  git -C "$seed" config user.email t@example.com
+  git -C "$seed" config user.name tester
+  git -C "$seed" checkout -q -b main
+  printf 'ok\n' > "$seed/README.md"
+  git -C "$seed" add -A
+  git -C "$seed" commit -qm init
+  git -C "$seed" remote add origin "$origin"
+  git -C "$seed" push -q -u origin main
+  git -C "$origin" symbolic-ref HEAD refs/heads/main
+
+  run env WT_HOME="$WT_HOME" WT_BACKEND=1 WT_COLOR=0 "$WT" clone "$origin"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cloned: origin-demo"* ]]
+  [ -d "$WT_HOME/repos/origin-demo/.git" ]
+
+  rm -rf "$WT_HOME/repos/origin-demo"
+  run env WT_HOME="$WT_HOME" WT_BACKEND=1 WT_COLOR=0 "$WT" clone "file://$origin"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cloned: origin-demo"* ]]
+  [ -d "$WT_HOME/repos/origin-demo/.git" ]
+}
+
 @test "new after archive points at restore" {
   local ws; ws=$("$WT" new codex demo comeback-new 2>/dev/null | _workspace_path)
   "$WT" archive "$ws" >/dev/null

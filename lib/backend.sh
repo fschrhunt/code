@@ -113,13 +113,22 @@ cmd_rename(){ local wt="${1:-}" feature="${2:-}"; [ -n "$wt" ] && [ -n "$feature
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]'); local oldbr newbr="$agent/$feature"; oldbr=$(git -C "$wt" branch --show-current 2>/dev/null)
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
   git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
-cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo>"; local url repo
+cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo|url|path>"; local url repo
   case "$spec" in
-    http*|git@*) url=$spec; repo=$(_clone_repo_name "$spec");;
-    */*) url="https://github.com/$spec.git"; repo=$(_clone_repo_name "$spec");;
+    http*|git@*|file://*) url=$spec; repo=$(_clone_repo_name "$spec");;
     *)
-      [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in ~/.wt/config"
-      url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec
+      # Existing local paths (absolute/relative/bare) pass through to git clone.
+      if [ -e "$spec" ]; then
+        url=$spec; repo=$(_clone_repo_name "$spec")
+      else
+        case "$spec" in
+          */*) url="https://github.com/$spec.git"; repo=$(_clone_repo_name "$spec");;
+          *)
+            [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in ~/.wt/config"
+            url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec
+            ;;
+        esac
+      fi
       ;;
   esac
   _repo_name_ok "$repo" || die "invalid repo name '$repo'"
