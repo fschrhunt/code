@@ -9,7 +9,7 @@
 | Path | `builds/libertino/` |
 | Speculative labeling | Yes — banner + footer + README |
 | Official site | None owned (public listings / Instagram only) |
-| Preview URL | https://libertino-cafe-fschrhunt-intuitum.vercel.app/?_vercel_share=q3XSTMG6qWM9024uzhAAgwBTfIoGI3qH |
+| Preview URL | https://libertino-cafe-5wxrbfghb-intuitum.vercel.app/?_vercel_share=0kbBsAkUfjaUeT61RsLSDW2BJE0Kq6Od |
 | Vercel project | https://vercel.com/intuitum/libertino-cafe |
 | Repo note | Staged on `intuitumxyz/wt` branch `cursor/libertino-cafe-website-263f` because `intuitumxyz/websites` was not accessible from this agent environment (404 / GitHub App not installed). Move into `websites` when that repo is available. |
 

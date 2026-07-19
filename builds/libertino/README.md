@@ -48,8 +48,8 @@ python3 -m http.server 4173
 
 Vercel project: [libertino-cafe](https://vercel.com/intuitum/libertino-cafe)
 
-Shareable preview (SSO bypass, ~23h):  
-https://libertino-cafe-fschrhunt-intuitum.vercel.app/?_vercel_share=q3XSTMG6qWM9024uzhAAgwBTfIoGI3qH
+Shareable preview (SSO bypass, ~23h):
+https://libertino-cafe-5wxrbfghb-intuitum.vercel.app/?_vercel_share=0kbBsAkUfjaUeT61RsLSDW2BJE0Kq6Od
 
 > Note: regenerate a share link via Vercel if expired. The deployment may need a refresh with inlined assets for anonymous viewing; full fidelity is always available by serving this folder locally.
 
