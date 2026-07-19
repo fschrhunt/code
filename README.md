@@ -9,7 +9,8 @@ There is no silent default agent.
 
 ```
 wt init                              # local ~/.wt (or: wt init --shared)
-wt agents add nova
+wt agents add nova                   # if init did not already
+wt clone owner/repo                  # add a repo to the store
 wt new <repo> <feature> --agent nova
 wt list                              # active worktrees
 wt list archived                     # archived branches
@@ -21,7 +22,7 @@ wt remove repo <repo> [--force] [--yes]
 wt clean                             # dry-run; wt clean --yes to apply
 wt status                            # quick glance (doctor is the deep check)
 wt config                            # editor, org, local|shared stack
-cd "$(wt cd …)"                      # or install the shell hook via wt config
+cd "$(wt cd …)"                      # or install the shell hook via wt init/config
 ```
 
 ## Profiles

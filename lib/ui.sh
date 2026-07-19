@@ -42,11 +42,11 @@ _help(){
   cm(){ printf '    %s%-'${cmd_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
 
   sec EXAMPLES
+  ex "wt clone owner/repo"             "Add a repo to the store."
   ex "wt new repo feat --agent nova"   "Start a worktree for an agent."
   ex "wt list"                         "See active worktrees."
   ex "wt archive <sel> --yes"          "Put a worktree away (keeps branch)."
   ex "wt restore <repo> <branch>"      "Bring an archived branch back."
-  ex "wt remove branch <repo> <br>"    "Permanently delete an archived branch."
   echo
 
   sec COMMANDS

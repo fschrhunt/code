@@ -58,7 +58,7 @@ _pick_city(){
     if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
       while [ "$t" -lt 64 ]; do
         idx=$(( $(_city_rand) % n + 1 ))
-        c=$(sed -n "${idx}p" "$file")
+        c=$(awk -v n="$idx" 'NR==n{print; exit}' "$file")
         [ -n "$c" ] && [ ! -e "$dir/$c" ] && { printf '%s' "$c"; return 0; }
         t=$((t + 1))
       done
@@ -84,11 +84,26 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   [ -n "$agent" ] && [ -n "$repo" ] && [ -n "$feature" ] || die "usage: new <agent> <repo> <feature>"
   _is_agent "$agent" || die "unknown agent '$agent' — configure with: wt agents add $agent"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _ensure_relpaths "$repo"
-  local city; city=$(_pick_city "$agent" "$repo"); local branch="$agent/$feature" wtdir="$WORK/$agent/$repo/$city"
+  local d; d=$(_canon "$repo")
+  [ -d "${d}/.git" ] || die "no repo '$repo' — clone first: wt clone owner/repo"
+  _ensure_relpaths "$repo"
+  local city branch="$agent/$feature" wtdir existing
+  # Archive keeps the branch; reuse needs restore, not a second -b create.
+  if git -C "$d" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+    existing=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk -v want="refs/heads/$branch" '
+      /^worktree /{wt=$2; next}
+      /^branch /{ if ($2==want) { print wt; exit } }
+    ')
+    if [ -n "$existing" ]; then
+      die "branch '$branch' is already active at $existing"
+    fi
+    die "branch '$branch' is archived — restore with: wt restore $repo $branch"
+  fi
+  city=$(_pick_city "$agent" "$repo"); wtdir="$WORK/$agent/$repo/$city"
   # New feature branches should not track the default branch. Tracking is set
   # when the user first pushes their feature branch with `git push -u`.
-  mkdir -p "$(dirname "$wtdir")"; git -C "$d" worktree add -b "$branch" --no-track "$wtdir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
+  mkdir -p "$(dirname "$wtdir")"
+  git -C "$d" worktree add -b "$branch" --no-track "$wtdir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
   local ex; ex=$(git -C "$wtdir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
   printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$wtdir" "$branch" "$city"; }
@@ -98,13 +113,22 @@ cmd_rename(){ local wt="${1:-}" feature="${2:-}"; [ -n "$wt" ] && [ -n "$feature
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]'); local oldbr newbr="$agent/$feature"; oldbr=$(git -C "$wt" branch --show-current 2>/dev/null)
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
   git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
-cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo>"; local url repo
+cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo|url|path>"; local url repo
   case "$spec" in
-    http*|git@*) url=$spec; repo=$(_clone_repo_name "$spec");;
-    */*) url="https://github.com/$spec.git"; repo=$(_clone_repo_name "$spec");;
+    http*|git@*|file://*) url=$spec; repo=$(_clone_repo_name "$spec");;
     *)
-      [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in ~/.wt/config"
-      url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec
+      # Existing local paths (absolute/relative/bare) pass through to git clone.
+      if [ -e "$spec" ]; then
+        url=$spec; repo=$(_clone_repo_name "$spec")
+      else
+        case "$spec" in
+          */*) url="https://github.com/$spec.git"; repo=$(_clone_repo_name "$spec");;
+          *)
+            [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in ~/.wt/config"
+            url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec
+            ;;
+        esac
+      fi
       ;;
   esac
   _repo_name_ok "$repo" || die "invalid repo name '$repo'"

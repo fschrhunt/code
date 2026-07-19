@@ -20,8 +20,10 @@ VALID_AGENTS=""
 DEFAULT_ORG=""
 # Cursor-oriented default; override with editor= in ~/.wt/config.
 EDITOR_CMD=cursor
-# Optional localdeps / worktree exclude list (override via cache_dirs= in config).
+# Optional worktree exclude list (override via cache_dirs= in config).
 CACHE_DIRS="node_modules .next .turbo dist build"
+# Shared-only: link CACHE_DIRS into ~/.wt-cache (off by default — opt in).
+LOCALDEPS=0
 # Local until the user opts into shared via init/config (or an existing ~/.wt/config).
 WT_PROFILE_TYPE=local
 
@@ -73,6 +75,12 @@ _load_user_config(){
         CACHE_DIRS=${CACHE_DIRS# }
         CACHE_DIRS=${CACHE_DIRS% }
         ;;
+      localdeps|LOCALDEPS)
+        case "$val" in
+          1|true|yes|on) LOCALDEPS=1;;
+          *) LOCALDEPS=0;;
+        esac
+        ;;
       box_host|BOX_HOST) BOX_HOST=$val;;
       box_addr|BOX_ADDR) BOX_ADDR=$val;;
       box_user|BOX_USER) BOX_USER=$val;;
@@ -96,6 +104,7 @@ _save_user_config(){
     printf 'default_org = %s\n' "$DEFAULT_ORG"
     printf 'agents = %s\n' "$agents_csv"
     printf 'cache_dirs = %s\n' "$cache_csv"
+    printf 'localdeps = %s\n' "$LOCALDEPS"
   } > "$WT_USER_CONFIG"
   if [ "$WT_PROFILE_TYPE" = shared ]; then
     {
@@ -146,23 +155,20 @@ if [ -n "${WT_VALID_AGENTS:-}" ]; then
   VALID_AGENTS=${VALID_AGENTS% }
 fi
 
-# ---- role ----
-if [ "${WT_BACKEND:-0}" = 1 ]; then ON_MAC=0
-elif [ "$(uname)" = "Darwin" ]; then ON_MAC=1
-else ON_MAC=0
-fi
-
 # ---- data root + paths ----
+# Frontend (any OS) keeps the user's HOME and uses the local mount path.
+# Only the WT_BACKEND=1 store process remaps HOME to BOX_HOME and disables
+# Git prompts for the shared box.
 if [ -n "${WT_HOME:-}" ]; then
   ROOT="$WT_HOME"
 elif [ "$WT_PROFILE_TYPE" = local ]; then
   ROOT="$WT_USER_DIR"
-elif [ "$ON_MAC" = 1 ]; then
-  ROOT="${MAC_ROOT:-$WT_USER_DIR}"
-else
+elif [ "${WT_BACKEND:-0}" = 1 ]; then
   ROOT="${BOX_ROOT:-$WT_USER_DIR}"
   [ -n "$BOX_HOME" ] && export HOME="$BOX_HOME"
   export GIT_TERMINAL_PROMPT=0
+else
+  ROOT="${MAC_ROOT:-$WT_USER_DIR}"
 fi
 [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
 REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
@@ -177,7 +183,12 @@ _require_shared_stack(){
 }
 
 _box_reachable(){
-  local host="${BOX_ADDR:-$BOX_HOST}"
+  local host="${BOX_ADDR:-$BOX_HOST}" nc="${NC_BIN:-/usr/bin/nc}"
   [ -n "$host" ] || return 1
-  /usr/bin/nc -z -G 2 "$host" 22 2>/dev/null
+  [ -x "$nc" ] || nc=$(command -v nc 2>/dev/null) || return 1
+  # macOS nc uses -G for connect timeout; Linux/OpenBSD nc uses -w.
+  case "$(uname)" in
+    Darwin) "$nc" -z -G 2 "$host" 22 2>/dev/null;;
+    *) "$nc" -z -w 2 "$host" 22 2>/dev/null;;
+  esac
 }

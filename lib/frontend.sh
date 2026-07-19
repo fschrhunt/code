@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# FRONTEND — interactive Mac UX. Local profile runs cmd_* in-process; shared
-# forwards to the box via SSH and maps paths through the mount.
+# FRONTEND — user-facing CLI (any OS). Local profile runs cmd_* in-process;
+# shared forwards to the box via SSH and maps paths through the mount.
+# Store verbs alone run under WT_BACKEND=1 (tests + box).
 
 _bx(){
   if _is_local_store; then
@@ -80,10 +81,52 @@ _resolve_worktree(){ local sel=$1 rows matches count
   [ "$count" = 0 ] && die "no worktree matching '$sel'"
   die "'$sel' matches multiple worktrees — use agent/repo/city"
 }
+_offer_shell_cd_hook(){
+  local shell_rc=""
+  case "${SHELL:-}" in
+    */zsh) shell_rc="$HOME/.zshrc";;
+    */bash) shell_rc="$HOME/.bashrc";;
+  esac
+  [ -n "$shell_rc" ] || return 0
+  grep -q 'wt cd shell integration' "$shell_rc" 2>/dev/null && return 0
+  [ -t 0 ] && [ -t 1 ] || return 0
+  echo
+  if _confirm "add the 'wt cd' shortcut to $shell_rc?"; then
+    cat >> "$shell_rc" <<'ZF'
+
+# wt cd shell integration
+wt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }
+ZF
+    ok "added — restart your shell or: source $shell_rc"
+  fi
+}
+
+_print_next_steps(){
+  printf '\n  %snext:%s\n' "$DIM" "$N"
+  if ! _agents_configured; then
+    printf '    %swt agents add <name>%s\n' "$GRN" "$N"
+  fi
+  printf '    %swt clone owner/repo%s\n' "$GRN" "$N"
+  printf '    %swt new <repo> <feature>%s\n' "$GRN" "$N"
+}
+
+# Shared opt-in: replace CACHE_DIRS with symlinks into ~/.wt-cache (localdeps=1).
 mac_localdeps(){
   _is_local_store && return 0
-  local wt="${1:-$PWD}"; [ -d "$wt" ] || return 0; local key base; key=$(printf '%s' "$wt" | sed -E 's#^.*/workspaces/##; s#/#_#g'); base="$HOME/.wt-cache/$key"
-  local d; for d in $CACHE_DIRS; do [ -L "$wt/$d" ] && continue; mkdir -p "$base/$d"; { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "$wt/$d"; }; ln -s "$base/$d" "$wt/$d"; done; }
+  [ "${LOCALDEPS:-0}" = 1 ] || return 0
+  local wt="${1:-$PWD}"; [ -d "$wt" ] || return 0
+  local key base linked=0 d
+  key=$(printf '%s' "$wt" | sed -E 's#^.*/workspaces/##; s#/#_#g')
+  base="$HOME/.wt-cache/$key"
+  for d in $CACHE_DIRS; do
+    [ -L "$wt/$d" ] && continue
+    mkdir -p "$base/$d"
+    { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "$wt/$d"; }
+    ln -s "$base/$d" "$wt/$d"
+    linked=1
+  done
+  [ "$linked" = 1 ] && printf '  %slinked cache dirs → %s%s\n' "$DIM" "$base" "$N"
+}
 
 _ask_agents_and_prefs(){
   if ! _agents_configured; then
@@ -153,6 +196,8 @@ mac_init(){
     [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
     REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
     ok "local profile ready  ${DIM}$WT_USER_DIR${N}"
+    _print_next_steps
+    _offer_shell_cd_hook
     return 0
   fi
 
@@ -166,12 +211,14 @@ mac_init(){
   REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
   ok "shared profile saved  ${DIM}$WT_USER_CONFIG${N}"
   printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
-  printf '  %snext:%s ensure the share is mounted, then %swt doctor%s\n' "$DIM" "$N" "$GRN" "$N"
+  printf '  %sthen:%s mount the share and run %swt doctor%s\n' "$DIM" "$N" "$GRN" "$N"
+  _print_next_steps
+  _offer_shell_cd_hook
 }
 
-# Shared profile: inspect box worktrees, not the Mac mount (may be stale/down).
+# Shared profile: inspect box worktrees, not the mount (may be stale/down).
 _list_agent_worktrees(){
-  if [ "${ON_MAC:-0}" = 1 ] && ! _is_local_store; then
+  if ! _is_local_store; then
     _bx_list worktrees 2>/dev/null || true
   else
     cmd_worktrees 2>/dev/null || true
@@ -209,6 +256,9 @@ mac_new(){ local agent="" repo="" feature=""
   agent=$(_resolve_agent "$agent") || return 1
   local all matches mcount
   all=$(_bx_list repos)
+  if [ -z "$all" ]; then
+    die "no repos yet — clone first: wt clone owner/repo"
+  fi
   if [ -z "$repo" ]; then
     if [ -t 0 ] && [ -t 1 ]; then repo=$(_choose "which repo?" $all) || return 0
     else die "usage: wt new <repo> <feature> --agent <name>"; fi
@@ -220,7 +270,7 @@ mac_new(){ local agent="" repo="" feature=""
     if [ "$mcount" = 1 ]; then
       repo=$(printf '%s\n' "$matches" | sed '/^$/d' | head -1)
     elif [ "$mcount" = 0 ]; then
-      die "no repo matching '$repo'"
+      die "no repo matching '$repo' — clone first: wt clone owner/repo"
     else
       printf '  %sambiguous repo %s — matches:%s\n' "$YEL" "'$repo'" "$N" >&2
       printf '%s\n' "$matches" | sed '/^$/d' | sed 's/^/    /' >&2
@@ -237,7 +287,10 @@ mac_new(){ local agent="" repo="" feature=""
     fi
   fi
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  _spin_run "creating $agent/$feature" _bx new "$agent" "$repo" "$feature" || exit 1; local out="$SPIN_OUT"
+  if ! _spin_run "creating $agent/$feature" _bx new "$agent" "$repo" "$feature"; then
+    err "${SPIN_OUT:-create failed}"; return 1
+  fi
+  local out="$SPIN_OUT"
   _bx_invalidate
   local boxpath branch macpath; boxpath=$(printf '%s' "$out" | sed -n 's/^workspace: //p'); branch=$(printf '%s' "$out" | sed -n 's/^branch: //p'); macpath=$(_tomac "$boxpath")
   mac_localdeps "$macpath"; ok "created ${GRN}$branch${N}  ${DIM}$macpath${N}"
@@ -451,7 +504,7 @@ mac_delrepo(){
   fi
 }
 mac_clone(){ local spec="${1:-}"
-  case "$spec" in -h|--help) printf 'usage: wt clone <owner/repo|url>\n'; return 0;; esac
+  case "$spec" in -h|--help) printf 'usage: wt clone <owner/repo|url|path>\n'; return 0;; esac
   [ -n "$spec" ] || spec=$(_input "repo to clone (owner/repo)" "")
   [ -n "$spec" ] || return 0
   local name; name=$(_clone_repo_name "$spec"); [ -n "$name" ] || name=$spec
@@ -566,27 +619,12 @@ mac_config(){ banner "config"
       agents_list
       ;;
   esac
-  local shell_rc=""
-  case "${SHELL:-}" in
-    */zsh) shell_rc="$HOME/.zshrc";;
-    */bash) shell_rc="$HOME/.bashrc";;
-  esac
-  if [ -n "$shell_rc" ] && ! grep -q 'wt cd shell integration' "$shell_rc" 2>/dev/null; then
-    echo
-    if _confirm "add the 'wt cd' shortcut to $shell_rc?"; then
-      cat >> "$shell_rc" <<'ZF'
-
-# wt cd shell integration
-wt() { if [ "$1" = "cd" ]; then local d; d="$(command wt __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command wt "$@"; }
-ZF
-      ok "added — restart your shell or: source $shell_rc"
-    fi
-  fi
+  _offer_shell_cd_hook
 }
 
 mac_update(){ banner "update"
   if _is_local_store; then
-    warn "local profile — re-run ./install.sh from the wt repo to refresh the binary"
+    warn "local profile — refresh the install with: ./install.sh  (from your wt checkout)"
     return 0
   fi
   _require_shared_stack
