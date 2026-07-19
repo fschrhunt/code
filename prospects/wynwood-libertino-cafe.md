@@ -9,8 +9,9 @@
 | Path | `builds/libertino/` |
 | Speculative labeling | Yes — banner + footer + README |
 | Official site | None owned (public listings / Instagram only) |
-| Preview URL | _see below after deploy_ |
-| Repo note | Staged on `intuitumxyz/wt` branch `cursor/libertino-cafe-website-263f` because `intuitumxyz/websites` was not accessible from this agent environment (404 / no install). Move into `websites` when that repo is available. |
+| Preview URL | https://libertino-cafe-fschrhunt-intuitum.vercel.app/?_vercel_share=q3XSTMG6qWM9024uzhAAgwBTfIoGI3qH |
+| Vercel project | https://vercel.com/intuitum/libertino-cafe |
+| Repo note | Staged on `intuitumxyz/wt` branch `cursor/libertino-cafe-website-263f` because `intuitumxyz/websites` was not accessible from this agent environment (404 / GitHub App not installed). Move into `websites` when that repo is available. |
 
 ## Business facts
 
@@ -36,7 +37,7 @@ Warm industrial indulgence — foam paper + espresso ink + quiet matcha; Fraunce
 
 ## Next steps
 
-1. Confirm preview URL after Vercel deploy
-2. Relocate into `intuitumxyz/websites` when accessible
-3. Swap placeholders for owner/shop photography
-4. Verify hours with the cafe before any outreach that cites them as fact
+1. Move into `intuitumxyz/websites` when that repo is accessible / created
+2. Swap placeholders for owner/shop photography
+3. Verify hours with the cafe before any outreach that cites them as fact
+4. Refresh Vercel share link or promote a clean static deploy for owner demos
