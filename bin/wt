@@ -4,6 +4,9 @@
 # Canonical repos live in a store (local: ~/.wt after `wt init`; shared: box +
 # mount via SSH). Agents get isolated worktrees at
 # workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
+#
+# User-facing CLI is the frontend (any OS). WT_BACKEND=1 selects the store
+# verbs used by tests and the SSH box process.
 set -uo pipefail
 
 _src=${BASH_SOURCE[0]}
@@ -38,33 +41,7 @@ esac
 # No args → help.
 [ -z "$cmd" ] && { _help; exit 0; }
 
-if [ "$ON_MAC" = 1 ]; then
-  case "$cmd" in
-    init)             mac_init "$@";;
-    new)              mac_new "$@";;
-    rename)           mac_rename "$@";;
-    ide|open)         mac_ide "$@";;
-
-    # Print the path (cd "$(wt cd …)"). Shell integration uses __cdpath.
-    cd)               mac_cdpath "$@";;
-    __cdpath)         mac_cdpath "$@";;
-    archive)          mac_archive "$@";;
-    restore)          mac_restore "$@";;
-    list|ls)          mac_list "$@";;
-    archived)         mac_list archived;;   # folded: prefer `wt list archived`
-    remove)           mac_remove "$@";;
-    doctor)           mac_doctor "$@";;
-    config)           mac_config "$@";;
-    agents|agent)     mac_agents "$@";;
-    update)           mac_update "$@";;
-    clone)            mac_clone "$@";;
-    sync)             mac_sync "$@";;
-    clean)            mac_clean "$@";;
-    repos|worktrees)  _bx "$cmd" "$@";;
-    status)           mac_status "$@";;
-    *)                die "unknown command: $cmd (try: wt help)";;
-  esac
-else
+if [ "${WT_BACKEND:-0}" = 1 ]; then
   case "$cmd" in
     new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
     list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
@@ -99,5 +76,31 @@ else
       fi
       ;;
     *) die "unknown command: $cmd (try: wt help)";;
+  esac
+else
+  case "$cmd" in
+    init)             mac_init "$@";;
+    new)              mac_new "$@";;
+    rename)           mac_rename "$@";;
+    ide|open)         mac_ide "$@";;
+
+    # Print the path (cd "$(wt cd …)"). Shell integration uses __cdpath.
+    cd)               mac_cdpath "$@";;
+    __cdpath)         mac_cdpath "$@";;
+    archive)          mac_archive "$@";;
+    restore)          mac_restore "$@";;
+    list|ls)          mac_list "$@";;
+    archived)         mac_list archived;;   # folded: prefer `wt list archived`
+    remove)           mac_remove "$@";;
+    doctor)           mac_doctor "$@";;
+    config)           mac_config "$@";;
+    agents|agent)     mac_agents "$@";;
+    update)           mac_update "$@";;
+    clone)            mac_clone "$@";;
+    sync)             mac_sync "$@";;
+    clean)            mac_clean "$@";;
+    repos|worktrees)  _bx "$cmd" "$@";;
+    status)           mac_status "$@";;
+    *)                die "unknown command: $cmd (try: wt help)";;
   esac
 fi

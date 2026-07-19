@@ -78,8 +78,10 @@ test/               bats tests + golden fixtures
 - `make lint` uses `.shellcheckrc`; `SC2015` on the `[ $# -gt 0 ] && shift || true`
   dispatch line in `bin/wt` is disabled there (intentional no-arg shift). Do not
   "fix" that line as part of env setup.
-- To exercise the Linux backend end-to-end without the Mac frontend/SSH/mount,
-  run in backend mode: set `WT_BACKEND=1` + `WT_COLOR` + a throwaway `WT_HOME`,
-  seed a store the way `test/helper.bash` `_seed_repo` does (bare origin + clone
-  into `$WT_HOME/repos/<name>`), then use `wt new <agent> <repo> <feature>`,
-  `wt list`, `wt archive <workspace>`, `wt restore <repo> <branch>`.
+- The user-facing CLI is the frontend on any OS. Store verbs (positional
+  `new <agent> <repo> <feature>`, …) require `WT_BACKEND=1` (tests + SSH box).
+  To exercise the backend end-to-end without SSH/mount: set `WT_BACKEND=1` +
+  `WT_COLOR` + a throwaway `WT_HOME`, seed a store the way `test/helper.bash`
+  `_seed_repo` does (bare origin + clone into `$WT_HOME/repos/<name>`), then
+  use `wt new <agent> <repo> <feature>`, `wt list`, `wt archive <workspace>`,
+  `wt restore <repo> <branch>`.

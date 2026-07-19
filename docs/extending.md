@@ -53,7 +53,7 @@ test/                  bats + golden/help.txt
 |------|------|
 | Help text / section labels | `lib/ui.sh` → `_help` |
 | Neutral defaults | `lib/config.sh` |
-| World cities list / city picker | `lib/cities.txt`, `lib/backend.sh` → `_pick_city` |
+| World cities list / city picker | `lib/cities.txt` (~4.5k slugs), `lib/backend.sh` → `_pick_city` |
 | IDE launch flags (`-n`, …) | `lib/agents.sh` → `_editor_open` |
 | Agent name rules | `lib/agents.sh` |
 | new / archive / clone / … | `lib/backend.sh` |

@@ -13,17 +13,11 @@ Updating `wt` (`./install.sh`, `git pull`) does **not** rewrite this file.
 ```
 ./install.sh                 # put wt on your PATH
 wt init                      # local store under ~/.wt   (or: wt init --shared)
-wt agents add nova           # at least one identity
-wt config                    # editor + github org
-```
-
-Then day to day:
-
-```
+wt clone owner/repo          # add a repo
 wt new <repo> <feature>      # pick an agent interactively
-wt ide                       # open a worktree in your editor
-wt list / wt archive / …
 ```
+
+Day to day: `wt ide`, `wt list`, `wt archive`, `wt restore`, …
 
 Bare `wt` prints the same help as `wt help` (EXAMPLES · COMMANDS).
 
@@ -138,6 +132,7 @@ editor = cursor
 default_org = example
 agents = nova, alice
 cache_dirs = node_modules, .next, .turbo, dist, build
+localdeps = 0                # shared only: 1 = link cache dirs into ~/.wt-cache
 
 # only when type = shared (example values — use yours):
 box_host = my-box
@@ -170,6 +165,9 @@ branch: <agent>/<feature>                  # mutable branch name
 
 City names are random folder labels (sampled from a world-cities list, with a
 syllable fallback on collisions) so paths stay stable when you rename a feature.
+
+On a **shared** mount, set `localdeps = 1` if you want `node_modules` / build
+caches symlinked into `~/.wt-cache` (off by default — it replaces those dirs).
 
 ---
 
