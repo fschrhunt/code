@@ -85,3 +85,23 @@ test/               bats tests + golden fixtures
   `_seed_repo` does (bare origin + clone into `$WT_HOME/repos/<name>`), then
   use `wt new <agent> <repo> <feature>`, `wt list`, `wt archive <workspace>`,
   `wt restore <repo> <branch>`.
+
+
+## Linear + multi-agent loop
+
+Workspace: [intuitum](https://linear.app/intuitum) · Team **Engineering** (`DEV-*`).
+
+Source of truth for process:
+- [Agent Contract](https://linear.app/intuitum/document/agent-contract-5cca5188b456)
+- [Triage Ritual](https://linear.app/intuitum/document/triage-ritual-806f09954c6c)
+- [Week-1 Focus](https://linear.app/intuitum/document/week-1-focus-3083713a8662)
+- Repo: [docs/linear.md](docs/linear.md)
+
+Rules for every agent (Cursor, Claude, Codex, Leo):
+
+1. No real implementation without a `DEV-*` (tiny drive-bys / Renovate excepted).
+2. Fischer stays **assignee**; agents are **delegates**.
+3. Issue must have Why + Acceptance before coding.
+4. Branch from Linear; PR body includes `Fixes DEV-XXX` or `Contributes to DEV-XXX`.
+5. Greptile reviews the PR — do not open Linear issues for nits unless follow-up is durable.
+6. One agent per issue; use `wt` when paralleling on the same repo.
