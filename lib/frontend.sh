@@ -17,11 +17,7 @@ _bx(){
   fi
   _require_shared_stack
   local wc=0; [ -t 1 ] && wc=1
-  local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$BOX_ROOT"
-  # Forward Mac agent list so the box honors `wt agents` (see config.sh).
-  [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
-  cmd+=" $BOX_ROOT/system/bin/wt"
-  local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
+  local cmd; cmd=$(_bx_remote_cmd "$wc" "$@")
   # Reuse one SSH connection across resolve+act in the same process.
   local mux="$WT_USER_DIR/ssh"
   mkdir -p "$mux" 2>/dev/null || true
@@ -30,6 +26,24 @@ _bx(){
     -o "ControlPath=$mux/%C" \
     -o ControlPersist=120 \
     "$BOX_HOST" "$cmd"
+}
+
+# Build the command string that runs on the far side of ssh. Split out of _bx so
+# it can be asserted on without a box. $1 is WT_COLOR; the rest are wt args.
+#
+# Every interpolated value is %q-quoted, because a shell on the box re-parses
+# this string and box_user/box_root/box_home come from config, where
+# _config_safe_val permits spaces. Unquoted, a box_root of "/mnt/my wt" splits
+# into two words and the remote command is silently malformed.
+_bx_remote_cmd(){
+  local wc=$1; shift
+  local cmd
+  cmd="sudo -u $(printf '%q' "$BOX_USER") env HOME=$(printf '%q' "$BOX_HOME") WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$(printf '%q' "$BOX_ROOT")"
+  # Forward Mac agent list so the box honors `wt agents` (see config.sh).
+  [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
+  cmd+=" $(printf '%q' "$BOX_ROOT/system/bin/wt")"
+  local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
+  printf '%s' "$cmd"
 }
 
 # Process-local cache for list verbs (one SSH/worktrees fetch per invocation).
