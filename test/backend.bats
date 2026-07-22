@@ -269,3 +269,47 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown command"* ]]
 }
+
+# Land a new commit on the seeded origin so the canonical falls behind.
+_advance_origin() {
+  local seed="$BATS_TEST_TMPDIR/demo-seed"
+  echo upstream > "$seed/upstream.txt"
+  git -C "$seed" add -A
+  git -C "$seed" commit -qm "upstream change"
+  git -C "$seed" push -q origin main
+}
+
+@test "sync fast-forwards a clean canonical that is behind" {
+  _advance_origin
+  run "$WT" sync demo
+  [ "$status" -eq 0 ]
+  # The checkout moved, not just the refs.
+  [ -f "$WT_HOME/repos/demo/upstream.txt" ]
+  run git -C "$WT_HOME/repos/demo" rev-list --count HEAD..origin/main
+  [ "$output" = "0" ]
+}
+
+@test "sync leaves a dirty canonical alone" {
+  _advance_origin
+  echo local-edit >> "$WT_HOME/repos/demo/README.md"
+  run "$WT" sync demo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *dirty* ]]
+  # Refs fetched, but the working tree was left untouched.
+  [ ! -f "$WT_HOME/repos/demo/upstream.txt" ]
+  run git -C "$WT_HOME/repos/demo" rev-list --count HEAD..origin/main
+  [ "$output" = "1" ]
+}
+
+@test "sync leaves a diverged canonical alone" {
+  _advance_origin
+  git -C "$WT_HOME/repos/demo" config user.email t@example.com
+  git -C "$WT_HOME/repos/demo" config user.name tester
+  echo local > "$WT_HOME/repos/demo/local.txt"
+  git -C "$WT_HOME/repos/demo" add -A
+  git -C "$WT_HOME/repos/demo" commit -qm "local commit"
+  run "$WT" sync demo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *diverged* ]]
+  [ ! -f "$WT_HOME/repos/demo/upstream.txt" ]
+}
