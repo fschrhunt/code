@@ -5,12 +5,12 @@ agents follow it so work stays compatible and safe.
 
 ## Golden rules
 
-- **Never edit a deployed copy.** If a machine runs `wt` from an installed or
-  mounted path, do not patch that binary in place. All work happens in **this
-  repo**, on a branch, via PR. Shipping is a deliberate install/release step.
-- **Dev is decoupled from deploy.** Ship with `./install.sh` or a tagged release
-  — never a live edit of someone else's running install. In-progress work must
-  not take down a running tool.
+- **Never edit the live deploy.** Do not patch `/Volumes/Agents/system/bin/wt`
+  (or any mounted `$BOX_ROOT/system/bin/wt`) in place. All work happens in
+  **this repo**, on a branch, via PR. Shipping is a deliberate install/release
+  step (`./install.sh` or a tagged release onto the box).
+- **Dev is decoupled from deploy.** In-progress work must not take down a
+  running fleet tool.
 - **Green before proposed.** Every change must pass `make check` (shellcheck with
   zero warnings + all bats tests) locally. CI re-runs it on macOS and Linux. A
   red PR is not done.
@@ -29,6 +29,17 @@ agents follow it so work stays compatible and safe.
   mount paths belong in `~/.wt/config` (or a private deploy), not in shipped
   defaults.
 
+## Status (milestones)
+
+| Milestone | Linear | Reality |
+|-----------|--------|---------|
+| **M0** foundation | shipped | Shared/SSH mode + CLI in this repo (`bin/wt`, `lib/*`) |
+| **M1** profiles | [DEV-175](https://linear.app/intuitum/issue/DEV-175) | Configurable profiles (schema, selection, multi-profile tests) |
+| **M2** local `~/.wt` | [DEV-181](https://linear.app/intuitum/issue/DEV-181) | Local as documented default + shared→local migration notes |
+
+`type = local|shared` already exists in code; M1/M2 harden and productize it.
+Do not invent scope beyond the active `DEV-*`.
+
 ## Build / test / run
 
 ```
@@ -46,23 +57,24 @@ plain fallback otherwise).
 
 ```
 bin/wt              entry point: resolves lib/, sources modules, dispatches
-lib/config.sh       defaults, ~/.wt/config, role (ON_MAC) + paths (ROOT/REPOS/WORK)
-lib/cities.txt      world place-name slugs for worktree folder labels
+lib/config.sh       defaults, ~/.wt/config, role + paths (ROOT/REPOS/WORK)
+lib/cities.txt      world place-name slugs for worktree folder labels (~4.5k)
 lib/palette.sh      colors + ok/warn/err/die/banner
 lib/ui.sh           logo, help, gum helpers, progress bar/spinner
 lib/backend.sh      cmd_* git verbs — operate on $ROOT via `git -C` (+ city picker)
-lib/frontend.sh     mac_* interactive UX + _bx (ssh transport for shared)
+lib/frontend.sh     mac_* interactive UX + _bx (SSH for shared; in-process for local)
 lib/agents.sh       managed agent list + editor open
 contrib/            optional helpers (e.g. mount-wt.sh) — not required for local
-docs/               guides (docs/README.md → customize · extending)
+docs/               guides — start at docs/README.md
 test/               bats tests + golden fixtures
 ```
 
 ## Test seams
 
-- `WT_BACKEND=1` — force the backend role on any OS (frontend is macOS otherwise).
+- `WT_BACKEND=1` — force the backend role on any OS (frontend is the default CLI).
 - `WT_HOME=<dir>` — override the data root (and read `$WT_HOME/config`).
 - `WT_COLOR=0/1` — force color off/on regardless of TTY.
+- `WT_AGENT=<name>` — non-interactive agent for `wt new` (must be in `agents=`).
 
 ## Cursor Cloud specific instructions
 
@@ -86,22 +98,27 @@ test/               bats tests + golden fixtures
   use `wt new <agent> <repo> <feature>`, `wt list`, `wt archive <workspace>`,
   `wt restore <repo> <branch>`.
 
-
 ## Linear + multi-agent loop
 
-Workspace: [intuitum](https://linear.app/intuitum) · Team **Engineering** (`DEV-*`).
+Workspace: [intuitum](https://linear.app/intuitum) · Team **Engineering** (`DEV-*`) ·
+Project [wt](https://linear.app/intuitum/project/wt-03565bb5855d).
 
 Source of truth for process:
 - [Agent Contract](https://linear.app/intuitum/document/agent-contract-5cca5188b456)
 - [Triage Ritual](https://linear.app/intuitum/document/triage-ritual-806f09954c6c)
 - [Week-1 Focus](https://linear.app/intuitum/document/week-1-focus-3083713a8662)
-- Repo: [docs/linear.md](docs/linear.md)
+- Repo detail: [docs/linear.md](docs/linear.md)
 
-Rules for every agent (Cursor, Claude, Codex, Leo):
+Rules for every agent (Cursor, Claude, Codex, Leo, Devin):
 
 1. No real implementation without a `DEV-*` (tiny drive-bys / Renovate excepted).
-2. Fischer stays **assignee**; agents are **delegates**.
-3. Issue must have Why + Acceptance before coding.
-4. Branch from Linear; PR body includes `Fixes DEV-XXX` or `Contributes to DEV-XXX`.
-5. Greptile reviews the PR — do not open Linear issues for nits unless follow-up is durable.
-6. One agent per issue; use `wt` when paralleling on the same repo.
+2. Fischer stays **assignee**; agents are **delegates** — never silent owners.
+3. Issue must have **Why** + **Acceptance** before coding; if missing, stop and
+   ask (or file Needs/Clarification) instead of inventing scope.
+4. Branch from Linear (`⌘⇧.` / `DEV-XXX` in the name); PR body includes
+   `Fixes DEV-XXX` or `Contributes to DEV-XXX`.
+5. Greptile reviews the PR — do not open Linear issues for nits unless the
+   follow-up is durable (>~30 min).
+6. One agent per issue unless Fischer splits into sub-issues; use `wt` when
+   paralleling on the same repo.
+7. Status: Triage/Backlog = do not start; Todo/In Progress = OK to pick up.
