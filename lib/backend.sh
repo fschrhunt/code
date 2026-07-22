@@ -164,13 +164,27 @@ cmd_delrepo(){
     git -C "$d" worktree remove --force "$wt" 2>/dev/null; rm -rf "$wt" 2>/dev/null; done
   _prog "deleting repo" 90; rm -rf "$d"; _prog "finishing" 100
   printf 'deleted repo: %s\n' "$repo"; }
+# Fast-forward a canonical's checked-out branch to its upstream, but only when it
+# is unambiguously safe: attached HEAD, has an upstream, strictly behind, clean tree.
+# A dirty or diverged canonical is the user's to resolve — we report and move on.
+# Runs backend-side (on the box), so the checkout never goes over the SMB mount,
+# where git's unlink/rename churn is unreliable.
+_ff_canon(){ local d=$1 r=$2 counts ahead behind
+  git -C "$d" symbolic-ref --quiet HEAD >/dev/null 2>&1 || { ok "synced $r (detached)"; return; }
+  git -C "$d" rev-parse --quiet --verify '@{upstream}' >/dev/null 2>&1 || { ok "synced $r"; return; }
+  counts=$(git -C "$d" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null) || { ok "synced $r"; return; }
+  ahead=${counts%%[[:space:]]*}; behind=${counts##*[[:space:]]}
+  [ "$behind" = 0 ] && { ok "synced $r"; return; }
+  [ "$ahead" = 0 ] || { warn "synced $r (diverged +$ahead/-$behind, left alone)"; return; }
+  [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ] && { warn "synced $r (behind $behind, dirty — left alone)"; return; }
+  if git -C "$d" merge --ff-only --quiet '@{upstream}' 2>/dev/null; then ok "synced $r (+$behind)"; else warn "synced $r (ff failed)"; fi; }
 cmd_sync(){ local target="${1:---all}" repos; if [ "$target" = "--all" ]; then repos=$(_repos_all); else repos="$target"; fi
   local -a repo_list=(); local r; for r in $repos; do repo_list+=("$r"); done
   local n=${#repo_list[@]} i=0
   for r in "${repo_list[@]}"; do i=$((i+1)); local d; d=$(_canon "$r")
     [ "$n" -gt 0 ] && _prog "syncing repos" $(( i * 100 / n )) || _prog "syncing $r" 50
     [ -d "${d}/.git" ] || { warn "skip $r (no canonical)"; continue; }
-    if git -C "$d" fetch --all --prune --quiet 2>/dev/null; then git -C "$d" remote set-head origin -a >/dev/null 2>&1; git -C "$d" maintenance run --auto --quiet 2>/dev/null; ok "synced $r"; else err "failed $r (auth?)"; fi; done; }
+    if git -C "$d" fetch --all --prune --quiet 2>/dev/null; then git -C "$d" remote set-head origin -a >/dev/null 2>&1; git -C "$d" maintenance run --auto --quiet 2>/dev/null; _ff_canon "$d" "$r"; else err "failed $r (auth?)"; fi; done; }
 cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_repos_all); do repo_list+=("$r"); done
   local n=${#repo_list[@]} ri=0
   for r in "${repo_list[@]}"; do ri=$((ri+1)); local d; d=$(_canon "$r")
