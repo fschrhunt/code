@@ -119,9 +119,12 @@ mac_localdeps(){
   key=$(printf '%s' "$wt" | sed -E 's#^.*/workspaces/##; s#/#_#g')
   base="$HOME/.wt-cache/$key"
   for d in $CACHE_DIRS; do
+    # Belt and braces: config parsing already filters these, but CACHE_DIRS can
+    # also arrive from the environment, and this loop rm -rf's what it is given.
+    _cache_dir_ok "$d" || continue
     [ -L "$wt/$d" ] && continue
     mkdir -p "$base/$d"
-    { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "$wt/$d"; }
+    { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "${wt:?}/${d:?}"; }
     ln -s "$base/$d" "$wt/$d"
     linked=1
   done

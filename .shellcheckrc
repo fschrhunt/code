@@ -13,3 +13,14 @@ disable=SC2206,SC2046,SC2086
 # bin/wt dispatch: `[ $# -gt 0 ] && shift || true` — intentional; shift must not
 # fail the script when invoked with no args (see AGENTS.md).
 disable=SC2015
+# `make lint` also checks lib/*.sh directly (not only transitively through
+# bin/wt), because issues inside a sourced file are NOT reported when only the
+# sourcing script is named — that blind spot hid a real `rm -rf` finding.
+# Linting a module on its own means shellcheck cannot see the other modules,
+# so these are false by construction:
+#   SC2034/SC2153  vars defined in one module, used in another (REPOS, WORK, palette)
+# And these are deliberate style in this codebase:
+#   SC1007  `B= N= DIM=` — batch empty assignments in the no-color branch
+#   SC1010  city-name arrays contain bare words like `do` and `fi`
+#   SC1003  backslashes in the ASCII-art banner
+disable=SC2034,SC2153,SC1007,SC1010,SC1003
