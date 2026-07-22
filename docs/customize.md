@@ -6,13 +6,16 @@ this guide lives in `~/.wt/config` (or the prompts behind `wt config` /
 
 Updating `wt` (`./install.sh`, `git pull`) does **not** rewrite this file.
 
+**Never edit** the live fleet binary at `/Volumes/Agents/system/bin/wt`. Prefs
+belong here in `~/.wt/config`; product changes belong in a PR against this repo.
+
 ---
 
 ## First run
 
 ```
 ./install.sh                 # put wt on your PATH
-wt init                      # local store under ~/.wt   (or: wt init --shared)
+wt init --shared             # fleet / M0 shared store (or: wt init for local)
 wt clone owner/repo          # add a repo
 wt new <repo> <feature>      # pick an agent interactively
 ```
@@ -20,6 +23,11 @@ wt new <repo> <feature>      # pick an agent interactively
 Day to day: `wt ide`, `wt list`, `wt archive`, `wt restore`, …
 
 Bare `wt` prints the same help as `wt help` (EXAMPLES · COMMANDS).
+
+Roadmap: shared/SSH is the M0 production path. Local under `~/.wt` works in
+this checkout today; [M2 / DEV-181](https://linear.app/intuitum/issue/DEV-181)
+is when local becomes the documented default with migration notes. See
+[README.md](README.md) for milestone status.
 
 ---
 
@@ -48,6 +56,7 @@ roster.
 
 There is **no silent default**. Every `wt new` picks from your list
 (interactive) or you pass `--agent <name>` (required when not a TTY).
+Scripts may also set `WT_AGENT=<name>`.
 
 ```
 wt agents list
@@ -95,11 +104,11 @@ Full `owner/repo` and `https://…` / `git@…` URLs still work as-is.
 
 | Profile | Data lives | Git runs |
 |---------|------------|----------|
-| **local** (default) | `~/.wt` on this machine | In-process |
-| **shared** | box (`box_root`) + Mac mount (`mount_path`) | Over SSH to the box |
+| **local** | `~/.wt` on this machine | In-process (`cmd_*`) |
+| **shared** | box (`box_root`) + Mac mount (`mount_path`) | Over SSH to `$BOX_ROOT/system/bin/wt` |
 
 ```
-wt init                 # local
+wt init                 # local under ~/.wt
 wt init --shared        # prompts for host, user, paths, share name
 wt config               # switch profile or edit the shared stack later
 ```
@@ -111,8 +120,8 @@ Shared keys (only present when `type = shared`):
 | `box_host` | SSH host (config Host or hostname) |
 | `box_addr` | Address for reachability probes (often a Tailscale IP) |
 | `box_user` | Remote user for `sudo -u` / SSH |
-| `box_root` | Store root on the box (e.g. `/mnt/wt`) |
-| `mount_path` | Local mount of that store (e.g. `/Volumes/wt`) |
+| `box_root` | Store root on the box (e.g. `/mnt/wt` or `/Volumes/Agents` on some fleets) |
+| `mount_path` | Local mount of that store (e.g. `/Volumes/Agents`) |
 | `share_name` | SMB share name |
 
 The repo ships **no** fleet hostnames or IPs. Fill these once for your deploy.
@@ -146,7 +155,8 @@ share_name = wt
 - Unknown keys are ignored.
 - Values with `` ` $ ( ) ; | & < > \ ' " `` are rejected.
 - `wt agents` / `wt config` / `wt init` rewrite this file deliberately.
-- Install, pull, and `wt update` do **not**.
+- Install and pull do **not**. `wt update` refreshes mount/sync/doctor on shared;
+  on local it only reminds you to re-run `./install.sh`.
 
 ---
 
@@ -160,10 +170,10 @@ This path scheme is the product — keep it unless you are intentionally forking
 branch: <agent>/<feature>                  # mutable branch name
 ```
 
-- **Local** `<store>` → `~/.wt`
+- **Local** `<store>` → `~/.wt` (or `$WT_HOME`)
 - **Shared** `<store>` → `mount_path` on the Mac, `box_root` on the box
 
-City names are random folder labels (sampled from a world-cities list, with a
+City names are random folder labels (sampled from `lib/cities.txt`, with a
 syllable fallback on collisions) so paths stay stable when you rename a feature.
 
 On a **shared** mount, set `localdeps = 1` if you want `node_modules` / build
