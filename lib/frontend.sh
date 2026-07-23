@@ -17,11 +17,7 @@ _bx(){
   fi
   _require_shared_stack
   local wc=0; [ -t 1 ] && wc=1
-  local cmd="sudo -u $BOX_USER env HOME=$BOX_HOME WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$BOX_ROOT"
-  # Forward Mac agent list so the box honors `wt agents` (see config.sh).
-  [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
-  cmd+=" $BOX_ROOT/system/bin/wt"
-  local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
+  local cmd; cmd=$(_bx_remote_cmd "$wc" "$@")
   # Reuse one SSH connection across resolve+act in the same process.
   local mux="$WT_USER_DIR/ssh"
   mkdir -p "$mux" 2>/dev/null || true
@@ -30,6 +26,26 @@ _bx(){
     -o "ControlPath=$mux/%C" \
     -o ControlPersist=120 \
     "$BOX_HOST" "$cmd"
+}
+
+# Build the command string that runs on the far side of ssh. Split out of _bx so
+# it can be asserted on without a box. $1 is WT_COLOR; the rest are wt args.
+#
+# Every interpolated value is %q-quoted, because a shell on the box re-parses
+# this string and box_user/box_root/box_home come from config, where
+# _config_safe_val permits spaces. Unquoted, a box_root of "/mnt/my wt" splits
+# into two words and the remote command is silently malformed.
+_bx_remote_cmd(){
+  local wc=$1; shift
+  local cmd
+  # BOX_HOME is assigned in config.sh (linted as a separate top-level file).
+  # shellcheck disable=SC2153
+  cmd="sudo -u $(printf '%q' "$BOX_USER") env HOME=$(printf '%q' "$BOX_HOME") WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$(printf '%q' "$BOX_ROOT")"
+  # Forward Mac agent list so the box honors `wt agents` (see config.sh).
+  [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
+  cmd+=" $(printf '%q' "$BOX_ROOT/system/bin/wt")"
+  local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
+  printf '%s' "$cmd"
 }
 
 # Process-local cache for list verbs (one SSH/worktrees fetch per invocation).
@@ -119,9 +135,12 @@ mac_localdeps(){
   key=$(printf '%s' "$wt" | sed -E 's#^.*/workspaces/##; s#/#_#g')
   base="$HOME/.wt-cache/$key"
   for d in $CACHE_DIRS; do
+    # Belt and braces: config parsing already filters these, but CACHE_DIRS can
+    # also arrive from the environment, and this loop rm -rf's what it is given.
+    _cache_dir_ok "$d" || continue
     [ -L "$wt/$d" ] && continue
     mkdir -p "$base/$d"
-    { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "$wt/$d"; }
+    { [ -e "$wt/$d" ] && [ ! -L "$wt/$d" ] && rm -rf "${wt:?}/${d:?}"; }
     ln -s "$base/$d" "$wt/$d"
     linked=1
   done
@@ -208,7 +227,13 @@ mac_init(){
   _ask_agents_and_prefs
   _save_user_config
   ROOT="$MAC_ROOT"
-  REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+  # Used by backend modules after init (linted separately from this file).
+  # shellcheck disable=SC2034
+  REPOS="$ROOT/repos"
+  # shellcheck disable=SC2034
+  WORK="$ROOT/workspaces"
+  # shellcheck disable=SC2034
+  LOGDIR="$ROOT/system/logs"
   ok "shared profile saved  ${DIM}$WT_USER_CONFIG${N}"
   printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
   printf '  %sthen:%s mount the share and run %swt doctor%s\n' "$DIM" "$N" "$GRN" "$N"
@@ -633,5 +658,5 @@ mac_update(){ banner "update"
   [ -z "$mount_helper" ] && [ -x "$WT_PREFIX/contrib/mount-wt.sh" ] && mount_helper="$WT_PREFIX/contrib/mount-wt.sh"
   mount | grep -q " on $MAC_ROOT " || { [ -n "$mount_helper" ] && "$mount_helper" >/dev/null 2>&1; }
   mount | grep -q " on $MAC_ROOT " || { err "mount is down at $MAC_ROOT"; return 1; }; ok "mount up"
-  echo; mac_sync; echo; mac_doctor
+  echo; mac_sync --all; echo; mac_doctor
 }

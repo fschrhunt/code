@@ -136,11 +136,13 @@ _progress_filter(){
 }
 
 # Run a backend verb with a live progress bar; non-progress stdout → PROGRESS_OUT.
+# PROGRESS_OUT / SPIN_OUT are read by frontend callers (separate lint unit).
 _progress_run(){
   local label=$1; shift
   local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
   { "$@" 2>&1 | tr '\r' '\n' | _progress_filter "$label"; } >"$tmp"
   local rc=${PIPESTATUS[0]}
+  # shellcheck disable=SC2034
   PROGRESS_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
   return "$rc"
 }
@@ -148,4 +150,6 @@ _progress_run(){
 _spin_run(){ local msg=$1; shift; local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
   ( "$@" >"$tmp" 2>&1 ) & local pid=$! i=0 fr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
   if [ -t 1 ]; then printf '\e[?25l'; while kill -0 "$pid" 2>/dev/null; do printf '\r\e[2K  %s%s%s %s' "$GRN" "${fr:$((i%10)):1}" "$N" "$msg"; i=$((i+1)); sleep 0.08; done; printf '\r\e[2K\e[?25h'; fi
-  wait "$pid"; local rc=$?; SPIN_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"; return $rc; }
+  wait "$pid"; local rc=$?
+  # shellcheck disable=SC2034
+  SPIN_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"; return $rc; }
