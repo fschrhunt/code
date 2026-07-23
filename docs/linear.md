@@ -7,7 +7,7 @@ Workspace: [intuitum](https://linear.app/intuitum) · Team: **Engineering** (`DE
 | [argus.core](https://github.com/intuitumxyz/argus.core) | [argus.core](https://linear.app/intuitum/project/arguscore-8c2e62251b42) |
 | [solo](https://github.com/intuitumxyz/solo) | [solo](https://linear.app/intuitum/project/solo-2b2495b70d32) |
 | [leo](https://github.com/intuitumxyz/leo) | [leo](https://linear.app/intuitum/project/leo-9ea619a6611a) |
-| [wt](https://github.com/intuitumxyz/wt) | [wt](https://linear.app/intuitum/project/wt-03565bb5855d) |
+| [wt](https://github.com/fschrhunt/wt) | [wt](https://linear.app/intuitum/project/wt-03565bb5855d) |
 | [websites](https://github.com/intuitumxyz/websites) | [websites](https://linear.app/intuitum/project/websites-7ebcc8146737) |
 
 Process source of truth (Engineering team docs):

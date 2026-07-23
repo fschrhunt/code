@@ -279,11 +279,13 @@ EOF
   fi
 }
 
-@test "shared Linux frontend preserves user HOME" {
+@test "shared frontend preserves user HOME" {
   local user_home="$BATS_TEST_TMPDIR/user-home"
   local box_root="$BATS_TEST_TMPDIR/box-root"
   local mount_path="$BATS_TEST_TMPDIR/mount"
+  local expected_root
   mkdir -p "$user_home/.wt" "$box_root/.home" "$mount_path"
+  expected_root=$(cd "$mount_path" && pwd -P)
   cat > "$user_home/.wt/config" <<EOF
 type = shared
 box_host = box.example
@@ -301,7 +303,7 @@ EOF
   '
   [ "$status" -eq 0 ]
   [[ "$output" == *"HOME=$user_home"* ]]
-  [[ "$output" == *"ROOT=$mount_path"* ]]
+  [[ "$output" == *"ROOT=$expected_root"* ]]
   [[ "$output" != *"HOME=$box_root"* ]]
   [[ "$output" != *"GIT_TERMINAL_PROMPT=0"* ]]
 }
@@ -310,7 +312,9 @@ EOF
   local user_home="$BATS_TEST_TMPDIR/user-home"
   local box_root="$BATS_TEST_TMPDIR/box-root"
   local mount_path="$BATS_TEST_TMPDIR/mount"
+  local expected_root
   mkdir -p "$user_home/.wt" "$box_root/.home" "$mount_path"
+  expected_root=$(cd "$box_root" && pwd -P)
   cat > "$user_home/.wt/config" <<EOF
 type = shared
 box_host = box.example
@@ -328,7 +332,7 @@ EOF
   '
   [ "$status" -eq 0 ]
   [[ "$output" == *"HOME=$box_root/.home"* ]]
-  [[ "$output" == *"ROOT=$box_root"* ]]
+  [[ "$output" == *"ROOT=$expected_root"* ]]
   [[ "$output" == *"GIT_TERMINAL_PROMPT=0"* ]]
 }
 
