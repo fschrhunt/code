@@ -13,6 +13,8 @@ _repo_name_ok(){
 }
 _canon(){
   _repo_name_ok "$1" || die "invalid repo name '$1'"
+  # REPOS is assigned in config.sh (linted as a separate top-level file).
+  # shellcheck disable=SC2153
   printf '%s' "$REPOS/$1"
 }
 # Last path segment of a clone URL/spec (https, git@host:owner/repo, owner/repo).

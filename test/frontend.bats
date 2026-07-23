@@ -388,3 +388,24 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" == *"usage: wt config"* ]]
 }
+
+@test "_bx_remote_cmd quotes box paths containing spaces" {
+  run bash -c '
+    export WT_COLOR=0 WT_HOME="'"$BATS_TEST_TMPDIR/store"'"
+    mkdir -p "$WT_HOME"
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
+    BOX_USER=agents; BOX_ROOT="/mnt/my wt"; BOX_HOME="/mnt/my wt/.home"
+    VALID_AGENTS="claude codex"
+    cmd=$(_bx_remote_cmd 0 list)
+    # Re-parse the way the remote shell will, then print one arg per line.
+    eval "set -- $cmd"
+    for a in "$@"; do printf "%s\n" "$a"; done
+  '
+  [ "$status" -eq 0 ]
+  # Paths and the agent list must each survive as ONE argument, not split on space.
+  [[ "$output" == *"HOME=/mnt/my wt/.home"* ]]
+  [[ "$output" == *"WT_HOME=/mnt/my wt"* ]]
+  [[ "$output" == *"WT_VALID_AGENTS=claude codex"* ]]
+  [[ "$output" == *"/mnt/my wt/system/bin/wt"* ]]
+}
