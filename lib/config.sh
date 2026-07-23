@@ -139,7 +139,7 @@ _save_user_config(){
   fi
 }
 
-_load_user_config
+_load_user_config "$WT_USER_CONFIG"
 
 # Optional overlay from the active store's wt.conf (values only), after user config
 # has established MAC_ROOT / BOX_ROOT. Never clobber editor/org; only fill empty
@@ -192,7 +192,13 @@ else
   ROOT="${MAC_ROOT:-$WT_USER_DIR}"
 fi
 [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
-REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+# Used by backend/frontend modules (linted separately from this file).
+# shellcheck disable=SC2034
+REPOS="$ROOT/repos"
+# shellcheck disable=SC2034
+WORK="$ROOT/workspaces"
+# shellcheck disable=SC2034
+LOGDIR="$ROOT/system/logs"
 
 _is_local_store(){
   [ "${WT_PROFILE_TYPE}" = local ]

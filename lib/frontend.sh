@@ -38,6 +38,8 @@ _bx(){
 _bx_remote_cmd(){
   local wc=$1; shift
   local cmd
+  # BOX_HOME is assigned in config.sh (linted as a separate top-level file).
+  # shellcheck disable=SC2153
   cmd="sudo -u $(printf '%q' "$BOX_USER") env HOME=$(printf '%q' "$BOX_HOME") WT_COLOR=$wc WT_BACKEND=1 WT_HOME=$(printf '%q' "$BOX_ROOT")"
   # Forward Mac agent list so the box honors `wt agents` (see config.sh).
   [ -n "$VALID_AGENTS" ] && cmd+=" WT_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
@@ -225,7 +227,13 @@ mac_init(){
   _ask_agents_and_prefs
   _save_user_config
   ROOT="$MAC_ROOT"
-  REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+  # Used by backend modules after init (linted separately from this file).
+  # shellcheck disable=SC2034
+  REPOS="$ROOT/repos"
+  # shellcheck disable=SC2034
+  WORK="$ROOT/workspaces"
+  # shellcheck disable=SC2034
+  LOGDIR="$ROOT/system/logs"
   ok "shared profile saved  ${DIM}$WT_USER_CONFIG${N}"
   printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
   printf '  %sthen:%s mount the share and run %swt doctor%s\n' "$DIM" "$N" "$GRN" "$N"
@@ -650,5 +658,5 @@ mac_update(){ banner "update"
   [ -z "$mount_helper" ] && [ -x "$WT_PREFIX/contrib/mount-wt.sh" ] && mount_helper="$WT_PREFIX/contrib/mount-wt.sh"
   mount | grep -q " on $MAC_ROOT " || { [ -n "$mount_helper" ] && "$mount_helper" >/dev/null 2>&1; }
   mount | grep -q " on $MAC_ROOT " || { err "mount is down at $MAC_ROOT"; return 1; }; ok "mount up"
-  echo; mac_sync; echo; mac_doctor
+  echo; mac_sync --all; echo; mac_doctor
 }
