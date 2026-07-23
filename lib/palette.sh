@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # palette — wt truecolor theme
+#
+# Color vars are consumed by ui/frontend/backend; when this file is linted
+# alone shellcheck cannot see those uses.
+# shellcheck disable=SC2034
 
 # Commands / examples teal  #5ecacb = RGB(94,202,203)
 # Descriptions grey         #aaaaaa = RGB(170,170,170)

@@ -40,6 +40,26 @@ _config_safe_val(){
   return 0
 }
 
+# A cache dir must be a single path segment directly under the worktree.
+# mac_localdeps does `rm -rf "$wt/$d"` for each entry, so a value containing a
+# slash or dot-dot escapes the worktree: cache_dirs="../other-worktree" would
+# delete a sibling worktree's contents. _config_safe_val only screens shell
+# metacharacters, not path traversal. Same rules as _repo_name_ok.
+_cache_dir_ok(){
+  case "$1" in
+    ""|"."|".."|*/*|*\\*) return 1;;
+    *[!A-Za-z0-9._-]*) return 1;;
+  esac
+  return 0
+}
+# Drop any entry that is not a safe single segment. Silently — a bad value in a
+# config file should degrade to "not cached", never to a destructive path.
+_sanitize_cache_dirs(){
+  local out='' d
+  for d in $1; do _cache_dir_ok "$d" && out="$out $d"; done
+  printf '%s' "${out# }"
+}
+
 _sync_box_home(){
   [ -n "$BOX_ROOT" ] && BOX_HOME="${BOX_ROOT%/}/.home" || BOX_HOME=""
 }
@@ -74,6 +94,7 @@ _load_user_config(){
         CACHE_DIRS=$(printf '%s' "$val" | tr ',;' '  ' | tr -s ' ')
         CACHE_DIRS=${CACHE_DIRS# }
         CACHE_DIRS=${CACHE_DIRS% }
+        CACHE_DIRS=$(_sanitize_cache_dirs "$CACHE_DIRS")
         ;;
       localdeps|LOCALDEPS)
         case "$val" in
@@ -118,7 +139,7 @@ _save_user_config(){
   fi
 }
 
-_load_user_config
+_load_user_config "$WT_USER_CONFIG"
 
 # Optional overlay from the active store's wt.conf (values only), after user config
 # has established MAC_ROOT / BOX_ROOT. Never clobber editor/org; only fill empty
@@ -171,7 +192,13 @@ else
   ROOT="${MAC_ROOT:-$WT_USER_DIR}"
 fi
 [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
-REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+# Used by backend/frontend modules (linted separately from this file).
+# shellcheck disable=SC2034
+REPOS="$ROOT/repos"
+# shellcheck disable=SC2034
+WORK="$ROOT/workspaces"
+# shellcheck disable=SC2034
+LOGDIR="$ROOT/system/logs"
 
 _is_local_store(){
   [ "${WT_PROFILE_TYPE}" = local ]
