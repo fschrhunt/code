@@ -2,7 +2,7 @@
 # Mount a box-hosted wt SMB share (idempotent).
 #
 # Credentials come from the login keychain (or a one-shot seed file). Connection
-# details come from the environment, or from ~/.wt/config when present:
+# details come from the environment, or from ~/wt/config when present:
 #   WT_SHARE_NAME / share_name
 #   WT_BOX_USER   / box_user
 #   WT_MOUNT_PATH / mount_path
@@ -10,7 +10,8 @@
 #
 # There are no baked-in hosts or fleet IPs — set env vars or run `wt init --shared`.
 
-_cfg="${HOME}/.wt/config"
+_cfg="${HOME}/wt/config"
+[ -f "$_cfg" ] || _cfg="${HOME}/.wt/config"
 _get() {
   local key="$1" envv="$2" val=""
   if [ -n "${!envv:-}" ]; then printf '%s' "${!envv}"; return; fi
@@ -29,7 +30,7 @@ SERVER="$(_get box_addr WT_BOX_ADDR)"
 SEED="${HOME}/.wt-cred.seed"
 
 if [ -z "$SHARE" ] || [ -z "$SMBUSER" ] || [ -z "$MP" ] || [ -z "$SERVER" ]; then
-  echo "$(date): mount-wt: set WT_SHARE_NAME, WT_BOX_USER, WT_MOUNT_PATH, WT_BOX_ADDR (or fill ~/.wt/config via wt init --shared)"
+  echo "$(date): mount-wt: set WT_SHARE_NAME, WT_BOX_USER, WT_MOUNT_PATH, WT_BOX_ADDR (or fill ~/wt/config via wt init --shared)"
   exit 1
 fi
 

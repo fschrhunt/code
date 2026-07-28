@@ -1,13 +1,13 @@
 # Customize wt (your prefs)
 
 Shape `wt` to your machine and team **without forking the code**. Everything in
-this guide lives in `~/.wt/config` (or the prompts behind `wt config` /
+this guide lives in `~/wt/config` (or the prompts behind `wt config` /
 `wt init` / `wt agents`).
 
 Updating `wt` (`./install.sh`, `git pull`) does **not** rewrite this file.
 
 **Never edit** the live fleet binary at `/Volumes/Agents/system/bin/wt`. Prefs
-belong here in `~/.wt/config`; product changes belong in a PR against this repo.
+belong here in `~/wt/config`; product changes belong in a PR against this repo.
 
 ---
 
@@ -24,7 +24,7 @@ Day to day: `wt ide`, `wt list`, `wt archive`, `wt restore`, …
 
 Bare `wt` prints the same help as `wt help` (EXAMPLES · COMMANDS).
 
-Roadmap: shared/SSH is the M0 production path. Local under `~/.wt` works in
+Roadmap: shared/SSH is the M0 production path. Local under `~/wt` works in
 this checkout today; [M2 / DEV-181](https://linear.app/intuitum/issue/DEV-181)
 is when local becomes the documented default with migration notes. See
 [README.md](README.md) for milestone status.
@@ -34,11 +34,11 @@ is when local becomes the documented default with migration notes. See
 ## Mental model
 
 ```
-~/.wt/config          ← you (agents, editor, org, shared host/paths)
+~/wt/config          ← you (agents, editor, org, shared host/paths)
 this checkout         ← the product (commands, UI, git behavior)
 ```
 
-| | Prefs (`~/.wt/config`) | Product (this repo) |
+| | Prefs (`~/wt/config`) | Product (this repo) |
 |--|------------------------|---------------------|
 | Who changes it | You, via CLI or editor | Contributors / coding agents |
 | Survives reinstall? | Yes | You pull/rebuild deliberately |
@@ -77,7 +77,7 @@ Names: lowercase `[a-z0-9._-]+`.
 wt config          # choose “prefs”
 ```
 
-Or in `~/.wt/config`:
+Or in `~/wt/config`:
 
 ```
 editor = cursor        # anything on your PATH: code, windsurf, …
@@ -104,11 +104,11 @@ Full `owner/repo` and `https://…` / `git@…` URLs still work as-is.
 
 | Profile | Data lives | Git runs |
 |---------|------------|----------|
-| **local** | `~/.wt` on this machine | In-process (`cmd_*`) |
+| **local** | `~/wt` on this machine | In-process (`cmd_*`) |
 | **shared** | box (`box_root`) + Mac mount (`mount_path`) | Over SSH to `$BOX_ROOT/system/bin/wt` |
 
 ```
-wt init                 # local under ~/.wt
+wt init                 # local under ~/wt
 wt init --shared        # prompts for host, user, paths, share name
 wt config               # switch profile or edit the shared stack later
 ```
@@ -132,7 +132,7 @@ keys or `WT_*` env vars).
 
 ## Full config reference
 
-Path: `~/.wt/config` (or `$WT_HOME/config` in tests).
+Path: `~/wt/config` (or `$WT_HOME/config` in tests).
 
 ```
 # values only — parsed, never sourced as shell
@@ -141,7 +141,7 @@ editor = cursor
 default_org = example
 agents = nova, alice
 cache_dirs = node_modules, .next, .turbo, dist, build
-localdeps = 0                # shared only: 1 = link cache dirs into ~/.wt-cache
+localdeps = 0                # shared only: 1 = link cache dirs into ~/wt-cache
 
 # only when type = shared (example values — use yours):
 box_host = my-box
@@ -170,14 +170,14 @@ This path scheme is the product — keep it unless you are intentionally forking
 branch: <agent>/<feature>                  # mutable branch name
 ```
 
-- **Local** `<store>` → `~/.wt` (or `$WT_HOME`)
+- **Local** `<store>` → `~/wt` (or `$WT_HOME`)
 - **Shared** `<store>` → `mount_path` on the Mac, `box_root` on the box
 
 City names are random folder labels (sampled from `lib/cities.txt`, with a
 syllable fallback on collisions) so paths stay stable when you rename a feature.
 
 On a **shared** mount, set `localdeps = 1` if you want `node_modules` / build
-caches symlinked into `~/.wt-cache` (off by default — it replaces those dirs).
+caches symlinked into `~/wt-cache` (off by default — it replaces those dirs).
 
 ---
 

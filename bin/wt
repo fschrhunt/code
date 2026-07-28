@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # wt — agent worktree control plane.
 #
-# Canonical repos live in a store (local: ~/.wt after `wt init`; shared: box +
+# Canonical repos live in a store (local: ~/wt after `wt init`; shared: box +
 # mount via SSH). Agents get isolated worktrees at
 # workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
 #

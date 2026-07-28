@@ -3,7 +3,7 @@
 Use this when a coding agent (or you) should change **how wt behaves for
 everyone**, not just one machine’s prefs.
 
-User prefs (`agents`, `editor`, shared hosts) belong in `~/.wt/config` —
+User prefs (`agents`, `editor`, shared hosts) belong in `~/wt/config` —
 see [customize.md](customize.md). Do **not** hardcode private IPs, orgs, or
 fleet hostnames into shipped defaults.
 
@@ -37,7 +37,7 @@ Helpers: `test/helper.bash`. Tests must stay offline, non-interactive, determini
 
 ```
 bin/wt                 entry + dispatch (frontend vs WT_BACKEND=1)
-lib/config.sh          neutral defaults + ~/.wt/config load/save + ROOT paths
+lib/config.sh          neutral defaults + ~/wt/config load/save + ROOT paths
 lib/palette.sh         colors + ok/warn/err/die/banner
 lib/ui.sh              logo, help (EXAMPLES/COMMANDS), gum helpers, progress
 lib/agents.sh          agent registry + IDE launch (`_editor_open`)
@@ -90,7 +90,7 @@ Commands are CLI-first (args + flags). Interactive prompts only fill missing arg
 Only in `lib/config.sh`, and keep them **neutral** (empty shared stack; product
 default `type = local` until M2 documents local as the default for fleets).
 `editor = cursor` is a Cursor-oriented default — override in user config. Real
-shared-stack hosts/paths stay in `~/.wt/config`.
+shared-stack hosts/paths stay in `~/wt/config`.
 
 ### Change how the IDE opens
 

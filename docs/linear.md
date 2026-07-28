@@ -44,7 +44,7 @@ Also mirrored for coding agents in [../AGENTS.md](../AGENTS.md) (`## Linear + mu
 | --- | --- | --- |
 | M0 foundation | shipped | Shared/SSH + in-repo CLI |
 | M1 profiles | [DEV-175](https://linear.app/intuitum/issue/DEV-175) | Configurable profiles |
-| M2 local `~/.wt` | [DEV-181](https://linear.app/intuitum/issue/DEV-181) | Local as documented default |
+| M2 local `~/wt` | [DEV-181](https://linear.app/intuitum/issue/DEV-181) / [DEV-260](https://linear.app/intuitum/issue/DEV-260) | Local as documented default; store path `~/wt` |
 
 ## Linking PRs to issues
 
