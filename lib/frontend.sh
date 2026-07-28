@@ -194,7 +194,7 @@ mac_init(){
   if [ -z "$mode" ]; then
     if [ -t 0 ] && [ -t 1 ]; then
       mode=$(_choose "where should worktrees live?" \
-        "local    on this machine (~/.wt) — default" \
+        "local    on this machine (~/wt) — default" \
         "shared   on a box, mounted locally") || return 0
       case "$mode" in local*) mode=local;; shared*) mode=shared;; esac
     else
@@ -220,7 +220,7 @@ mac_init(){
     return 0
   fi
 
-  # shared — all host/path values come from prompts (or existing ~/.wt/config)
+  # shared — all host/path values come from prompts (or existing ~/wt/config)
   WT_PROFILE_TYPE=shared
   mkdir -p "$WT_USER_DIR"
   _ask_shared_stack

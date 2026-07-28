@@ -284,9 +284,9 @@ EOF
   local box_root="$BATS_TEST_TMPDIR/box-root"
   local mount_path="$BATS_TEST_TMPDIR/mount"
   local expected_root
-  mkdir -p "$user_home/.wt" "$box_root/.home" "$mount_path"
+  mkdir -p "$user_home/wt" "$box_root/.home" "$mount_path"
   expected_root=$(cd "$mount_path" && pwd -P)
-  cat > "$user_home/.wt/config" <<EOF
+  cat > "$user_home/wt/config" <<EOF
 type = shared
 box_host = box.example
 box_user = wt
@@ -313,9 +313,9 @@ EOF
   local box_root="$BATS_TEST_TMPDIR/box-root"
   local mount_path="$BATS_TEST_TMPDIR/mount"
   local expected_root
-  mkdir -p "$user_home/.wt" "$box_root/.home" "$mount_path"
+  mkdir -p "$user_home/wt" "$box_root/.home" "$mount_path"
   expected_root=$(cd "$box_root" && pwd -P)
-  cat > "$user_home/.wt/config" <<EOF
+  cat > "$user_home/wt/config" <<EOF
 type = shared
 box_host = box.example
 box_user = wt

@@ -23,10 +23,10 @@ agents follow it so work stays compatible and safe.
   tests. Intended output changes get their own visible commit + updated golden.
 - **Never run teardown against a live shared store while developing.** Exercise
   `archive` / `remove` / `clean` only against test fixtures or your own local
-  `~/.wt`.
+  `~/wt`.
 - **Small, reviewable PRs** — one milestone slice each, with its tests.
 - **No fleet secrets in the repo.** Hostnames, Tailscale IPs, org names, and
-  mount paths belong in `~/.wt/config` (or a private deploy), not in shipped
+  mount paths belong in `~/wt/config` (or a private deploy), not in shipped
   defaults.
 
 ## Status (milestones)
@@ -35,7 +35,7 @@ agents follow it so work stays compatible and safe.
 |-----------|--------|---------|
 | **M0** foundation | shipped | Shared/SSH mode + CLI in this repo (`bin/wt`, `lib/*`) |
 | **M1** profiles | [DEV-175](https://linear.app/intuitum/issue/DEV-175) | Configurable profiles (schema, selection, multi-profile tests) |
-| **M2** local `~/.wt` | [DEV-181](https://linear.app/intuitum/issue/DEV-181) | Local as documented default + shared→local migration notes |
+| **M2** local `~/wt` | [DEV-181](https://linear.app/intuitum/issue/DEV-181) | Local as documented default + shared→local migration notes |
 
 `type = local|shared` already exists in code; M1/M2 harden and productize it.
 Do not invent scope beyond the active `DEV-*`.
@@ -57,7 +57,7 @@ plain fallback otherwise).
 
 ```
 bin/wt              entry point: resolves lib/, sources modules, dispatches
-lib/config.sh       defaults, ~/.wt/config, role + paths (ROOT/REPOS/WORK)
+lib/config.sh       defaults, ~/wt/config, role + paths (ROOT/REPOS/WORK)
 lib/cities.txt      world place-name slugs for worktree folder labels (~4.5k)
 lib/palette.sh      colors + ok/warn/err/die/banner
 lib/ui.sh           logo, help, gum helpers, progress bar/spinner
