@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# wt configuration: defaults, user-owned config under ~/.wt (or $WT_HOME), and
+# wt configuration: defaults, user-owned config under ~/wt (or $WT_HOME), and
 # role + path resolution.
 #
 # Values only. User config is parsed (never sourced). Known keys only; values
 # with shell metacharacters are rejected.
 #
-# Product defaults are neutral. Shared-stack hosts/paths/org live in ~/.wt/config
+# Product defaults are neutral. Shared-stack hosts/paths/org live in ~/wt/config
 # (filled by `wt init --shared` / `wt config`), not in this file.
 
 # ---- built-in defaults (neutral product) ----
@@ -18,20 +18,39 @@ MAC_ROOT=""
 SHARE_NAME=""
 VALID_AGENTS=""
 DEFAULT_ORG=""
-# Cursor-oriented default; override with editor= in ~/.wt/config.
+# Cursor-oriented default; override with editor= in ~/wt/config.
 EDITOR_CMD=cursor
 # Optional worktree exclude list (override via cache_dirs= in config).
 CACHE_DIRS="node_modules .next .turbo dist build"
 # Shared-only: link CACHE_DIRS into ~/.wt-cache (off by default — opt in).
 LOCALDEPS=0
-# Local until the user opts into shared via init/config (or an existing ~/.wt/config).
+# Local until the user opts into shared via init/config (or an existing ~/wt/config).
 WT_PROFILE_TYPE=local
 
-# User/data directory: $WT_HOME for tests/local override, else ~/.wt
+# Migrate legacy ~/.wt → ~/wt once, when safe. Prints to stderr (palette not loaded yet).
+_migrate_legacy_wt_home(){
+  local legacy="${HOME}/.wt" modern="${HOME}/wt"
+  [ -e "$legacy" ] || return 0
+  if [ -e "$modern" ]; then
+    printf 'wt: legacy %s still present; using %s (remove the legacy dir when done)\n' \
+      "$legacy" "$modern" >&2
+    return 0
+  fi
+  if mv "$legacy" "$modern" 2>/dev/null; then
+    printf 'wt: migrated local store %s → %s\n' "$legacy" "$modern" >&2
+    return 0
+  fi
+  printf 'wt: could not migrate %s → %s; using legacy path (deprecated)\n' \
+    "$legacy" "$modern" >&2
+  WT_USER_DIR="$legacy"
+}
+
+# User/data directory: $WT_HOME for tests/local override, else ~/wt
 if [ -n "${WT_HOME:-}" ]; then
   WT_USER_DIR="$WT_HOME"
 else
-  WT_USER_DIR="${HOME}/.wt"
+  WT_USER_DIR="${HOME}/wt"
+  _migrate_legacy_wt_home
 fi
 WT_USER_CONFIG="$WT_USER_DIR/config"
 
@@ -143,7 +162,7 @@ _load_user_config "$WT_USER_CONFIG"
 
 # Optional overlay from the active store's wt.conf (values only), after user config
 # has established MAC_ROOT / BOX_ROOT. Never clobber editor/org; only fill empty
-# shared-stack fields so a fleet wt.conf cannot stomp ~/.wt/config prefs.
+# shared-stack fields so a fleet wt.conf cannot stomp ~/wt/config prefs.
 for c in \
   ${MAC_ROOT:+"$MAC_ROOT/system/config/wt.conf"} \
   ${BOX_ROOT:+"$BOX_ROOT/system/config/wt.conf"}; do

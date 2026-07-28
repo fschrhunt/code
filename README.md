@@ -9,10 +9,10 @@ There is no silent default agent.
 
 **Status:** M0 foundation is shipped (shared/SSH store + in-repo CLI). Next:
 [M1 profiles](https://linear.app/intuitum/issue/DEV-175) →
-[M2 local `~/.wt`](https://linear.app/intuitum/issue/DEV-181).
+[M2 local `~/wt`](https://linear.app/intuitum/issue/DEV-181).
 
 ```
-wt init --shared                     # or: wt init  (local under ~/.wt)
+wt init --shared                     # or: wt init  (local under ~/wt)
 wt agents add nova                   # if init did not already
 wt clone owner/repo                  # add a repo to the store
 wt new <repo> <feature> --agent nova
@@ -34,10 +34,10 @@ cd "$(wt cd …)"                      # or install the shell hook via wt init/c
 | Profile | Data lives | Git / store verbs |
 |---------|------------|-------------------|
 | **shared** (M0 production / fleet) | box (`box_root`) + Mac mount (`mount_path`) | Over SSH to `$BOX_ROOT/system/bin/wt` |
-| **local** (in-repo today; M2 documents as default) | `~/.wt` (or `$WT_HOME`) | In-process |
+| **local** (in-repo today; M2 documents as default) | `~/wt` (or `$WT_HOME`) | In-process |
 
 Configure with `wt init` / `wt init --shared` or `wt config`. Shared hosts and
-paths live in `~/.wt/config` (`mount_path`, `box_root`, `share_name`,
+paths live in `~/wt/config` (`mount_path`, `box_root`, `share_name`,
 `box_host`, …). The repo ships no fleet-specific defaults.
 
 **Never edit the live deploy** at `/Volumes/Agents/system/bin/wt` (or any other
