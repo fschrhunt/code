@@ -35,6 +35,27 @@ else
 fi
 WORKFRAME_USER_CONFIG="$WORKFRAME_USER_DIR/config"
 
+# Install the product-owned store guide exactly once. Noclobber protects an
+# existing user file even if another initializer creates it between the first
+# existence check and the write.
+_ensure_store_guide(){
+  local root=${1:-${ROOT:-}} guide source
+  [ -n "$root" ] || return 1
+  guide="$root/WORKFRAME.md"
+  source="${WORKFRAME_LIB:-}/WORKFRAME.md"
+  [ -e "$guide" ] && return 0
+  [ -r "$source" ] || return 1
+  mkdir -p "$root" || return 1
+  if (
+    set -C
+    umask 022
+    command cat "$source" > "$guide"
+  ) 2>/dev/null; then
+    return 0
+  fi
+  [ -e "$guide" ]
+}
+
 _config_safe_val(){
   case "$1" in *[\`\$\(\)\;\|\&\<\>\\\'\"]*) return 1;; esac
   return 0

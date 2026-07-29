@@ -55,7 +55,7 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
        workframe remove repo <repo> [--force] [--yes]";;
       esac
       ;;
-    status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
+    status) cmd_status "$@";; doctor) cmd_doctor "$@";; guide) cmd_guide "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
     agents|agent)
       sub="${1:-list}"; shift || true
       case "$sub" in
@@ -68,6 +68,7 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
     init)
       WORKFRAME_PROFILE_TYPE=local
       mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
+      _ensure_store_guide "$WORKFRAME_USER_DIR" || die "could not create Workframe guide at $WORKFRAME_USER_DIR/WORKFRAME.md"
       if [ -n "${1:-}" ]; then
         agents_add "$1"
       else

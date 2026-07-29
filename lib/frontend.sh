@@ -10,7 +10,7 @@ _bx(){
       new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
       list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
       archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
-      status) cmd_status "$@";; doctor) cmd_doctor "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
+      status) cmd_status "$@";; doctor) cmd_doctor "$@";; guide) cmd_guide "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
       *) die "unknown backend verb: $verb";;
     esac
     return $?
@@ -203,12 +203,13 @@ mac_init(){
   fi
 
   if [ "$mode" = local ]; then
+    mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
+    _ensure_store_guide "$WORKFRAME_USER_DIR" || die "could not create Workframe guide at $WORKFRAME_USER_DIR/WORKFRAME.md"
     if [ -f "$WORKFRAME_USER_CONFIG" ] && [ "${WORKFRAME_PROFILE_TYPE:-}" = local ]; then
       ok "local profile already at ${GRN}$WORKFRAME_USER_DIR${N}"
       return 0
     fi
     WORKFRAME_PROFILE_TYPE=local
-    mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
     _ask_agents_and_prefs
     _save_user_config
     ROOT="$WORKFRAME_USER_DIR"
@@ -235,6 +236,15 @@ mac_init(){
   # shellcheck disable=SC2034
   LOGDIR="$ROOT/system/logs"
   ok "shared profile saved  ${DIM}$WORKFRAME_USER_CONFIG${N}"
+  if _box_reachable; then
+    if _bx guide >/dev/null 2>&1; then
+      ok "Workframe guide ready  ${DIM}$MAC_ROOT/WORKFRAME.md${N}"
+    else
+      warn "Workframe guide pending — run: workframe update"
+    fi
+  else
+    warn "Workframe guide pending — run: workframe update when the box is reachable"
+  fi
   printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
   printf '  %sthen:%s mount the share and run %sworkframe doctor%s\n' "$DIM" "$N" "$GRN" "$N"
   _print_next_steps
@@ -658,5 +668,7 @@ mac_update(){ banner "update"
   [ -z "$mount_helper" ] && [ -x "$WORKFRAME_PREFIX/contrib/mount-workframe.sh" ] && mount_helper="$WORKFRAME_PREFIX/contrib/mount-workframe.sh"
   mount | grep -q " on $MAC_ROOT " || { [ -n "$mount_helper" ] && "$mount_helper" >/dev/null 2>&1; }
   mount | grep -q " on $MAC_ROOT " || { err "mount is down at $MAC_ROOT"; return 1; }; ok "mount up"
+  _bx guide >/dev/null || return 1
+  ok "Workframe guide ready  ${DIM}$MAC_ROOT/WORKFRAME.md${N}"
   echo; mac_sync --all; echo; mac_doctor
 }

@@ -15,6 +15,18 @@
   [[ "$output" == *"linked $bindir/workframe"* ]]
 }
 
+@test "installed command can provision the shipped store guide" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  local store="$BATS_TEST_TMPDIR/store"
+
+  "$BATS_TEST_DIRNAME/../install.sh" "$bindir" >/dev/null
+  run env WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
+    "$bindir/workframe" init codex
+
+  [ "$status" -eq 0 ]
+  cmp "$BATS_TEST_DIRNAME/../lib/WORKFRAME.md" "$store/WORKFRAME.md"
+}
+
 @test "mount helper names every required Workframe setting" {
   local user_home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$user_home"
