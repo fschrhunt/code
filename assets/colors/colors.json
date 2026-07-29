@@ -6,7 +6,7 @@
     "white": { "hex": "#FFFFFF", "rgb": [255, 255, 255], "role": "neutral — the mark on photography or non-brand dark surfaces" }
   },
   "terminal": {
-    "mint":  { "hex": "#3ADEA1", "rgb": [58, 222, 161], "role": "accent, logo/title, success — GUM_MINT" },
+    "acid":  { "hex": "#F0FB29", "rgb": [240, 251, 41], "role": "brand accent, logo/title, success — GUM_ACID" },
     "teal":  { "hex": "#5ECACB", "rgb": [94, 202, 203], "role": "commands and examples — GUM_TEAL" },
     "grey":  { "hex": "#AAAAAA", "rgb": [170, 170, 170], "role": "descriptions, dimmed text — GUM_GREY" },
     "white": { "hex": "#FFFFFF", "rgb": [255, 255, 255], "role": "section headers, hover — GUM_WHITE" }
