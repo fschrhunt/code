@@ -35,6 +35,15 @@ workframe version
 workframe help
 ```
 
+Later releases can be installed from anywhere with:
+
+```bash
+workframe update
+```
+
+The command safely fast-forwards the tracked branch of the checkout used by
+the installed executable.
+
 If the shell cannot find `workframe`, add `~/.local/bin` to `PATH` or install
 into a directory already on `PATH`.
 
