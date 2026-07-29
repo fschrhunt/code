@@ -28,6 +28,14 @@ environment variables use `WORKFRAME_*`, and local state begins at
 
 Requirements: Bash, Git, and macOS or Linux. `gum` is optional.
 
+Install with Homebrew:
+
+```bash
+brew install fschrhunt/tap/workframe
+```
+
+Or install from a Git checkout:
+
 ```bash
 git clone https://github.com/fschrhunt/workframe.git
 cd workframe
@@ -39,6 +47,9 @@ workframe clone owner/repo
 workframe new repo fix-login --agent codex
 workframe list
 ```
+
+Homebrew installations update with `brew upgrade workframe`. Checkout
+installations update with `workframe update`.
 
 Open the new workspace:
 
