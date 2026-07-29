@@ -12,7 +12,12 @@ PREFIX="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BINDIR="${1:-$HOME/.local/bin}"
 
 mkdir -p "$BINDIR"
-ln -sf "$PREFIX/bin/workframe" "$BINDIR/workframe"
+DEST="$BINDIR/workframe"
+if [ -d "$DEST" ] && [ ! -L "$DEST" ]; then
+  echo "error: refusing to replace directory: $DEST" >&2
+  exit 1
+fi
+ln -sfn "$PREFIX/bin/workframe" "$DEST"
 echo "linked $BINDIR/workframe -> $PREFIX/bin/workframe"
 echo "docs:   $PREFIX/docs/   (start: docs/README.md)"
 echo "next:   workframe setup"
