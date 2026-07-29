@@ -9,69 +9,69 @@ setup() {
 }
 
 @test "agents list shows configured agents" {
-  run "$WT" agents list
+  run "$WORKFRAME" agents list
   [ "$status" -eq 0 ]
   [[ "$output" == *codex* ]]
   [[ "$output" == *alpha* ]]
 }
 
 @test "agents add appends a new agent" {
-  run "$WT" agents add nova
+  run "$WORKFRAME" agents add nova
   [ "$status" -eq 0 ]
   [[ "$output" == *nova* ]]
-  run "$WT" agents list
+  run "$WORKFRAME" agents list
   [[ "$output" == *nova* ]]
 }
 
 @test "agents add rejects invalid names" {
-  run "$WT" agents add 'Bad Name'
+  run "$WORKFRAME" agents add 'Bad Name'
   [ "$status" -ne 0 ]
 }
 
 @test "agents treats dotted names as fixed strings not regex" {
-  run "$WT" agents add co.ex
+  run "$WORKFRAME" agents add co.ex
   [ "$status" -eq 0 ]
-  run "$WT" agents list
+  run "$WORKFRAME" agents list
   [[ "$output" == *codex* ]]
   [[ "$output" == *co.ex* ]]
-  run "$WT" agents remove co.ex
+  run "$WORKFRAME" agents remove co.ex
   [ "$status" -eq 0 ]
-  run "$WT" agents list
+  run "$WORKFRAME" agents list
   [[ "$output" == *codex* ]]
   [[ "$output" != *co.ex* ]]
 }
 
 @test "new rejects an unknown agent" {
-  run "$WT" new mystery demo feat
+  run "$WORKFRAME" new mystery demo feat
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown agent"* ]]
 }
 
 @test "new without agent fails in non-TTY (no silent default)" {
   # Backend path requires agent as first positional — omitting it is usage error.
-  run "$WT" new
+  run "$WORKFRAME" new
   [ "$status" -ne 0 ]
   [[ "$output" == *usage* ]]
 }
 
 @test "agents remove refuses while worktrees exist" {
-  "$WT" new codex demo live >/dev/null 2>&1
-  run "$WT" agents remove codex
+  "$WORKFRAME" new codex demo live >/dev/null 2>&1
+  run "$WORKFRAME" agents remove codex
   [ "$status" -ne 0 ]
   [[ "$output" == *"active worktrees"* ]]
 }
 
 @test "agents remove rejects --force" {
-  "$WT" new codex demo live2 >/dev/null 2>&1
-  run "$WT" agents remove codex --force
+  "$WORKFRAME" new codex demo live2 >/dev/null 2>&1
+  run "$WORKFRAME" agents remove codex --force
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown flag"* ]]
-  run "$WT" agents list
+  run "$WORKFRAME" agents list
   [[ "$output" == *codex* ]]
 }
 
-@test "WT_VALID_AGENTS overrides agent list for the process" {
-  run env WT_VALID_AGENTS="nova alpha" "$WT" agents list
+@test "WORKFRAME_VALID_AGENTS overrides agent list for the process" {
+  run env WORKFRAME_VALID_AGENTS="nova alpha" "$WORKFRAME" agents list
   [ "$status" -eq 0 ]
   [[ "$output" == *nova* ]]
   [[ "$output" == *alpha* ]]
@@ -80,19 +80,19 @@ setup() {
 
 @test "init creates local config" {
   # Fresh store without config overwrite
-  export WT_HOME="$BATS_TEST_TMPDIR/fresh"
-  mkdir -p "$WT_HOME"
-  run "$WT" init nova
+  export WORKFRAME_HOME="$BATS_TEST_TMPDIR/fresh"
+  mkdir -p "$WORKFRAME_HOME"
+  run "$WORKFRAME" init nova
   [ "$status" -eq 0 ]
-  [ -f "$WT_HOME/config" ]
-  grep -q 'type = local' "$WT_HOME/config"
-  grep -q 'nova' "$WT_HOME/config"
+  [ -f "$WORKFRAME_HOME/config" ]
+  grep -q 'type = local' "$WORKFRAME_HOME/config"
+  grep -q 'nova' "$WORKFRAME_HOME/config"
 }
 
 @test "list archived shows archived branches" {
-  local ws; ws=$("$WT" new codex demo archived-list 2>/dev/null | _workspace_path)
-  "$WT" archive "$ws" >/dev/null
-  run "$WT" archived
+  local ws; ws=$("$WORKFRAME" new codex demo archived-list 2>/dev/null | _workspace_path)
+  "$WORKFRAME" archive "$ws" >/dev/null
+  run "$WORKFRAME" archived
   [ "$status" -eq 0 ]
   [[ "$output" == *archived-list* ]]
 }

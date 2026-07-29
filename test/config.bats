@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Config parsing safety. CACHE_DIRS feeds `rm -rf "$wt/$d"` in mac_localdeps,
+# Config parsing safety. CACHE_DIRS feeds `rm -rf "$worktree/$d"` in mac_localdeps,
 # so every entry must be a single path segment under the worktree. A value that
 # escapes via `../` deletes whatever it lands on — including a sibling worktree
 # holding unpushed work.
@@ -7,16 +7,16 @@
 load helper
 
 setup() {
-  export WT_HOME="$BATS_TEST_TMPDIR/store"
-  mkdir -p "$WT_HOME"
+  export WORKFRAME_HOME="$BATS_TEST_TMPDIR/store"
+  mkdir -p "$WORKFRAME_HOME"
   # shellcheck source=/dev/null
   . "${BATS_TEST_DIRNAME}/../lib/config.sh"
 }
 
 # Write a config file and load it, so assertions run against the real parser.
 _load_cfg() {
-  printf '%s\n' "$@" > "$WT_HOME/config"
-  _load_user_config "$WT_HOME/config"
+  printf '%s\n' "$@" > "$WORKFRAME_HOME/config"
+  _load_user_config "$WORKFRAME_HOME/config"
 }
 
 @test "_cache_dir_ok accepts plain single segments" {

@@ -3,7 +3,7 @@
        /\__\         /\  \      
       /:/ _/_        \:\  \     
      /:/ /\__\        \:\  \    
-    /:/ /:/ _/_       /::\  \   wt v1.4.2
+    /:/ /:/ _/_       /::\  \   Workframe v1.5.0
    /:/_/:/ /\__\     /:/\:\__\  
    \:\/:/ /:/  /    /:/  \/__/  Isolated git worktrees from your terminal.
     \::/_/:/  /    /:/  /       Local profile · editor cursor
@@ -13,11 +13,11 @@
 
   EXAMPLES
 
-    wt clone owner/repo               Add a repo to the store.
-    wt new repo feat --agent nova     Start a worktree for an agent.
-    wt list                           See active worktrees.
-    wt archive <sel> --yes            Put a worktree away (keeps branch).
-    wt restore <repo> <branch>        Bring an archived branch back.
+    workframe clone owner/repo                Add a repo to the store.
+    workframe new repo feat --agent nova      Start a worktree for an agent.
+    workframe list                            See active worktrees.
+    workframe archive <sel> --yes             Put a worktree away (keeps branch).
+    workframe restore <repo> <branch>         Bring an archived branch back.
 
   COMMANDS
 
@@ -38,4 +38,3 @@
     clean       Remove orphans (dry-run; --yes applies).
     remove      Delete a branch or repo permanently.
     update      Refresh install / sync.
-
