@@ -3,11 +3,11 @@
 
 load helper
 
-@test "backend init creates the shipped store guide" {
+@test "backend setup creates the shipped store guide" {
   local store="$BATS_TEST_TMPDIR/local-store"
 
   run env WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
-    "$WORKFRAME" init nova
+    "$WORKFRAME" setup nova
 
   [ "$status" -eq 0 ]
   [ -f "$store/WORKFRAME.md" ]
@@ -16,30 +16,34 @@ load helper
   grep -q 'Do not implement' "$store/WORKFRAME.md"
 }
 
-@test "init never overwrites an existing store guide" {
+@test "setup never overwrites an existing store guide" {
   local store="$BATS_TEST_TMPDIR/custom-store"
   mkdir -p "$store"
   printf 'custom agent contract\n' > "$store/WORKFRAME.md"
 
   run env WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
-    "$WORKFRAME" init nova
+    "$WORKFRAME" setup nova
 
   [ "$status" -eq 0 ]
   [ "$(cat "$store/WORKFRAME.md")" = "custom agent contract" ]
 }
 
-@test "repeated local init repairs a missing guide without rewriting config" {
+@test "repeated local setup repairs a missing guide and migrates legacy config" {
   local store="$BATS_TEST_TMPDIR/existing-store"
   mkdir -p "$store"
   printf 'type = local\neditor = cursor\nagents = codex\n' > "$store/config"
-  cp "$store/config" "$BATS_TEST_TMPDIR/config.before"
 
   run env -u WORKFRAME_BACKEND WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
-    "$WORKFRAME" init
+    "$WORKFRAME" setup
 
   [ "$status" -eq 0 ]
   [ -f "$store/WORKFRAME.md" ]
-  cmp "$BATS_TEST_TMPDIR/config.before" "$store/config"
+  [ ! -e "$store/config" ]
+  [ -f "$store/system/config/workframe.conf" ]
+  grep -q '^type = local$' "$store/system/config/workframe.conf"
+  grep -q '^editor = cursor$' "$store/system/config/workframe.conf"
+  grep -q '^agents = codex$' "$store/system/config/workframe.conf"
+  [[ "$output" == *"config moved"* ]]
   [[ "$output" == *"local profile already"* ]]
 }
 

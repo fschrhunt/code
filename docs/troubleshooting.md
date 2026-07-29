@@ -37,6 +37,10 @@ Then rerun:
 workframe update
 ```
 
+Updating never repairs or maintains the Workframe store. Run `workframe sync`,
+`workframe doctor`, or `workframe setup` explicitly when those operations are
+needed.
+
 ## No agents configured
 
 ```bash
@@ -113,7 +117,7 @@ contrib/mount-workframe.sh
 ```
 
 The helper requires the share, user, mount path, and server values in
-`~/workframe/config` or their `WORKFRAME_*` overrides.
+`system/config/workframe.conf` or their `WORKFRAME_*` overrides.
 
 ## Sync skips a repository
 

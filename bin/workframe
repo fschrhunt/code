@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # workframe — agent worktree control plane.
 #
-# Canonical repos live in a store (local: ~/workframe after `workframe init`; shared: box +
+# Canonical repos live in a store (local: selected by `workframe setup`; shared: box +
 # mount via SSH). Agents get isolated worktrees at
 # workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
 #
@@ -41,6 +41,13 @@ esac
 # No args → help.
 [ -z "$cmd" ] && { _help; exit 0; }
 
+if [ "${WORKFRAME_ROOT_SELECTED:-0}" = 1 ] && [ ! -d "$WORKFRAME_USER_DIR" ]; then
+  case "$cmd" in
+    setup|init|update) ;;
+    *) die "selected Workframe root is unavailable: $WORKFRAME_USER_DIR (attach the volume or run: workframe setup)";;
+  esac
+fi
+
 if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
   case "$cmd" in
     new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
@@ -65,14 +72,14 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
         *) die "usage: workframe agents [list|add <name>|remove <name>]";;
       esac
       ;;
-    init)
+    setup|init)
       WORKFRAME_PROFILE_TYPE=local
       mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
       _ensure_store_guide "$WORKFRAME_USER_DIR" || die "could not create Workframe guide at $WORKFRAME_USER_DIR/WORKFRAME.md"
       if [ -n "${1:-}" ]; then
         agents_add "$1"
       else
-        _save_user_config
+        _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
         ok "local store ready  ${DIM}$WORKFRAME_USER_DIR${N}"
       fi
       ;;
@@ -80,6 +87,7 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
   esac
 else
   case "$cmd" in
+    setup)            mac_setup "$@";;
     init)             mac_init "$@";;
     new)              mac_new "$@";;
     rename)           mac_rename "$@";;
