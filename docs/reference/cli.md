@@ -22,7 +22,9 @@ version.
 workframe init [--local|--shared]
 ```
 
-Creates or updates the selected profile. Local is the default.
+Creates or updates the selected profile. Local is the default. Initialization
+also provisions the store-level `WORKFRAME.md` when it is missing; an existing file
+is never overwritten.
 
 ### `config`
 

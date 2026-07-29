@@ -1,6 +1,8 @@
-# Workframe
+<h1 align="center">
+  <img src="assets/lockup/lockup.black-on-acid.svg" alt="Workframe" width="713">
+</h1>
 
-**A control plane for isolated agent worktrees.**
+<p align="center"><strong>A control plane for isolated agent worktrees.</strong></p>
 
 Workframe turns each piece of work into a dedicated Git worktree, branch, and
 folder. Agents can work in parallel without sharing uncommitted state, while
@@ -48,15 +50,9 @@ workframe restore repo codex/fix-login
 
 ## The lifecycle
 
-```mermaid
-flowchart LR
-    A[Clone a canonical repo] --> B[Create an agent worktree]
-    B --> C[Work in an isolated branch]
-    C --> D{What next?}
-    D -->|Pause| E[Archive folder; keep branch]
-    E -->|Resume| B
-    D -->|Finish| F[Open PR and remove when safe]
-```
+<p align="center">
+  <img src="docs/images/workspace-lifecycle.png" alt="Workspace lifecycle: clone a canonical repository, create an agent worktree, work on an isolated branch, then archive and resume it or open a pull request and safely remove it." width="713" height="270">
+</p>
 
 Workframe separates reversible lifecycle actions from destructive ones:
 
@@ -71,21 +67,18 @@ Workframe separates reversible lifecycle actions from destructive ones:
 
 ## Local or shared
 
-```mermaid
-flowchart TD
-    CLI[workframe CLI] --> P{Profile}
-    P -->|local| L[~/workframe]
-    P -->|shared| S[Mounted store + SSH backend]
-    L --> R[Canonical repos]
-    L --> W[Agent worktrees]
-    S --> R2[Canonical repos]
-    S --> W2[Agent worktrees]
-```
+<p align="center">
+  <img src="docs/images/profile-layout.png" alt="Profile layout: the Workframe command uses either a local profile rooted at ~/workframe or a shared profile using a mounted store and SSH backend; both contain canonical repositories and agent worktrees." width="713" height="340">
+</p>
 
 - **Local** is the default. Commands operate directly on `~/workframe`.
 - **Shared** keeps the store on a remote box and exposes worktrees through a
   mounted path. Connection details live in `~/workframe/config`, never in the
   repository.
+
+Every store also receives a non-overwriting `WORKFRAME.md` safety contract for
+coding agents and agent launchers. Repository-local instructions remain the
+automatically discovered authority for tools that stop at the Git root.
 
 Run `workframe init --shared` to configure a shared profile.
 

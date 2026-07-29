@@ -27,11 +27,17 @@ the CLI.
 
 ```text
 ~/workframe/
+├── WORKFRAME.md
 ├── config
 ├── repos/
 ├── workspaces/
 └── system/logs/
 ```
+
+`WORKFRAME.md` gives agents and launchers a store-level contract. Re-running
+`workframe init` restores the shipped guide when it is missing and never
+overwrites an existing file. Tools that begin instruction discovery at the Git
+root must be directed to this parent guide explicitly.
 
 Use `WORKFRAME_HOME` for an explicit process-level root, especially in tests:
 
@@ -65,6 +71,10 @@ In shared mode:
 3. The backend runs at `$BOX_ROOT/system/bin/workframe`.
 4. The backend receives `WORKFRAME_BACKEND=1` and
    `WORKFRAME_HOME=$BOX_ROOT`.
+
+Shared setup provisions `WORKFRAME.md` at `$BOX_ROOT`, not in the Mac-side user
+config directory. If the box is offline during initialization, `workframe
+update` retries once the shared stack is reachable.
 
 The optional [`mount-workframe.sh`](../../contrib/mount-workframe.sh) helper
 reads the same config keys or `WORKFRAME_SHARE_NAME`,

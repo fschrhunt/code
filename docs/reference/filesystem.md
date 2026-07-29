@@ -7,6 +7,7 @@ process.
 
 ```text
 ~/workframe/
+├── WORKFRAME.md
 ├── config
 ├── repos/
 │   └── <repo>/
@@ -20,6 +21,7 @@ process.
 
 | Path | Purpose |
 |---|---|
+| `WORKFRAME.md` | Store safety guidance for coding agents and launchers |
 | `config` | User profile and preferences |
 | `repos/<repo>` | Canonical Git clone |
 | `workspaces/<agent>/<repo>/<city>` | Active Git worktree |
@@ -37,6 +39,8 @@ Restore creates a new city folder for the same branch.
 
 The box stores the same layout below `box_root`. The frontend reads and opens
 files through `mount_path`, while backend Git operations use the box path.
+The shared `WORKFRAME.md` lives directly under `box_root` so it remains an
+ancestor of every mounted worktree.
 
 The backend executable is:
 

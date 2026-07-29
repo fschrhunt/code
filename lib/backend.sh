@@ -28,6 +28,10 @@ _prog(){ printf 'workframe-progress:%s:%s\n' "$1" "$2" >&2; }
 _default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
 _repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
 _ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
+cmd_guide(){
+  _ensure_store_guide "$ROOT" || die "could not create Workframe guide at $ROOT/WORKFRAME.md"
+  printf 'guide: %s\n' "$ROOT/WORKFRAME.md"
+}
 
 # Wider than $RANDOM alone (15-bit) so sampling ~1e5 cities stays uniform.
 _city_rand(){ printf '%s' $(( (RANDOM << 15 | RANDOM) & 0x3FFFFFFF )); }
