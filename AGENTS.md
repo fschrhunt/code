@@ -36,8 +36,10 @@ Workframe 1.5.0 is the current clean-start product surface:
 - Local root: `~/workframe`
 - Profiles: `local|shared`
 
-The current GitHub issue and user request are the scope boundary. Do not infer
-roadmap work from historical milestones or completed issues.
+The current tracked issue and user request are the scope boundary. Internal
+maintainer work is tracked in Linear; an existing GitHub issue may define scope
+only when it came from a consumer or community contributor. Do not infer roadmap
+work from historical milestones or completed issues.
 
 ## Build / test / run
 
@@ -98,20 +100,24 @@ test/               bats tests + golden fixtures
   use `workframe new <agent> <repo> <feature>`, `workframe list`, `workframe archive <workspace>`,
   `workframe restore <repo> <branch>`.
 
-## GitHub + multi-agent loop
+## Tracking + multi-agent loop
 
-1. Planned work starts from a GitHub issue with a clear problem and acceptance
-   criteria. Tiny documentation fixes and automated dependency updates are
-   exceptions.
+1. Planned internal maintainer work starts from a Linear issue with a clear
+   problem and acceptance criteria. Never create a GitHub issue for internal
+   tracking. GitHub Issues are reserved for issues submitted by consumers or
+   community contributors. Tiny documentation fixes and automated dependency
+   updates are exceptions.
 2. Keep one agent on an issue unless a maintainer explicitly splits the work.
 3. Use an isolated branch/worktree for implementation.
-4. Keep the PR focused and link it with `Fixes #<number>` when it completes the
-   issue.
+4. Keep the PR focused. Use `Fixes #<number>` only when it completes an existing
+   consumer/community GitHub issue; do not expose private Linear details in
+   public PRs.
 5. Treat review comments as feedback on the PR. Open a follow-up issue only for
-   durable work that does not belong in the current change.
+   durable work that does not belong in the current change, using Linear for
+   internal work.
 6. Never expose secrets, private infrastructure, customer data, or local agent
    state in issues, commits, logs, or PRs.
 
-Public contributors need only GitHub access. Maintainers may mirror roadmap work
-into private planning tools, but those tools are not part of the contribution
-contract.
+Linear is the source of truth for internal maintainer planning. Public
+contributors need only GitHub access and may use GitHub Issues for consumer or
+community reports; Linear is not part of the public contribution contract.
