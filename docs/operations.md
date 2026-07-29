@@ -35,13 +35,13 @@ overwriting an existing store contract.
 
 ## Pre-release checklist
 
-1. Confirm the issue has Why and Acceptance.
+1. Confirm the GitHub issue has a clear problem and acceptance criteria.
 2. Review the complete diff against `origin/main`.
 3. Run `make check`.
 4. Exercise the riskiest lifecycle path against a disposable
    `WORKFRAME_HOME`.
 5. Confirm tracked documentation contains no private infrastructure values.
-6. Open a PR with `Fixes DEV-<id>`.
+6. Open a PR with `Fixes #<issue>`.
 7. Wait for CI and review.
 
 ## Workframe 1.5.0 cutover
@@ -55,7 +55,8 @@ This release is a fresh start:
 - Leave pre-existing stores and binaries untouched until a separately approved
   retirement task.
 
-The repository rename and visibility change happen only after merge.
+Repository settings and visibility changes happen only after the release PR
+merges and its checks pass.
 
 ## Public visibility gate
 

@@ -4,6 +4,11 @@
 
 <p align="center"><strong>A control plane for isolated agent worktrees.</strong></p>
 
+<p align="center">
+  <a href="https://github.com/fschrhunt/workframe/actions/workflows/ci.yml"><img src="https://github.com/fschrhunt/workframe/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
+</p>
+
 Workframe turns each piece of work into a dedicated Git worktree, branch, and
 folder. Agents can work in parallel without sharing uncommitted state, while
 every repository keeps one canonical clone.
@@ -95,7 +100,9 @@ Run `workframe init --shared` to configure a shared profile.
 | Look up configuration or environment variables | [Configuration reference](docs/reference/configuration.md) |
 | Diagnose a problem | [Troubleshooting](docs/troubleshooting.md) |
 | Operate or release Workframe | [Operations](docs/operations.md) |
-| Contribute safely | [Contributing](docs/contributing.md) |
+| Contribute safely | [Contributing](CONTRIBUTING.md) |
+| Get help | [Support](SUPPORT.md) |
+| Report a vulnerability | [Security policy](SECURITY.md) |
 
 The complete guided index lives in [the documentation library](docs/README.md).
 
@@ -112,3 +119,13 @@ bin/workframe help
 network connection, shared mount, remote box, or interactive terminal.
 
 Read [AGENTS.md](AGENTS.md) before changing the product. Version: **1.5.0**.
+
+## Community and license
+
+Workframe welcomes focused issues and pull requests. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md) before participating. Usage questions
+belong in [GitHub Discussions](https://github.com/fschrhunt/workframe/discussions);
+security reports must use the private channel in [SECURITY.md](SECURITY.md).
+
+Workframe is licensed under the [Apache License 2.0](LICENSE).

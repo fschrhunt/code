@@ -2,21 +2,16 @@
 
 - <!-- What changed and why? -->
 
-## Linear
+## Related issue
 
-- Issue: DEV-<!-- number --> (required for planned work; omit only for tiny/Renovate PRs)
-- Link with a magic word in this PR body, e.g. `Fixes DEV-123` or `Contributes to DEV-123`
-- Assignee stays Fischer; agents are delegates only
-- Issue must have Why + Acceptance before implementation work
+- Fixes #<!-- issue number -->
 
 ## Test plan
 
 - <!-- What did you run, or why was validation not run? -->
-- [ ] `make check` (shellcheck + bats) when code or golden help changed
+- [ ] `make check` (ShellCheck + Bats)
 
 ## Review notes
 
-- Keep the PR focused; call out intentional follow-ups.
-- Branch should include the issue id when applicable (Linear copy-branch / `DEV-123-slug`).
-- Greptile reviews on the PR — do not file Linear issues for nits unless follow-up is durable.
-- Never edit `/Volumes/Agents/system/bin/workframe`.
+- <!-- Compatibility notes, risks, screenshots, or intentional follow-ups -->
+- I did not include secrets, private infrastructure values, or generated local state.

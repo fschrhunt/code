@@ -17,6 +17,24 @@ load helper
   [ "$output" = $'rc=17\nout=backend failed' ]
 }
 
+@test "progress_run refuses an insecure predictable temp fallback" {
+  run bash -c '
+    export WORKFRAME_COLOR=0
+    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
+    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
+    victim="'"$BATS_TEST_TMPDIR"'/victim"
+    printf "safe\n" > "$victim"
+    ln -s "$victim" "/tmp/workframe.$$.out"
+    trap '\''rm -f "/tmp/workframe.$$.out"'\'' EXIT
+    mktemp() { return 1; }
+    _progress_run "testing" printf "overwritten\n"
+    rc=$?
+    printf "rc=%s\nvictim=%s\n" "$rc" "$(cat "$victim")"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = $'  ✗ could not create a secure temporary file\nrc=1\nvictim=safe' ]
+}
+
 @test "resolve_worktree rejects absolute paths outside the store" {
   _use_backend_store
   run bash -c '
