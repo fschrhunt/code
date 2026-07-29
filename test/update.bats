@@ -63,6 +63,38 @@ EOF
   [ "$(cat "$UPDATE_STORE/archived-contexts/sentinel")" = "archive data" ]
 }
 
+@test "workframe update recovers a squash-merged checkout after its topic branch is deleted" {
+  git -C "$UPDATE_SOURCE" checkout -q -b setup-topic
+  printf '9.9.9\n' > "$UPDATE_SOURCE/VERSION"
+  git -C "$UPDATE_SOURCE" add VERSION
+  git -C "$UPDATE_SOURCE" commit -qm "topic version"
+  printf 'updated\n' > "$UPDATE_SOURCE/UPDATE-MARKER"
+  git -C "$UPDATE_SOURCE" add UPDATE-MARKER
+  git -C "$UPDATE_SOURCE" commit -qm "topic program"
+  git -C "$UPDATE_SOURCE" push -q -u origin setup-topic
+
+  git -C "$UPDATE_CHECKOUT" fetch -q origin setup-topic
+  git -C "$UPDATE_CHECKOUT" checkout -q -b setup-topic --track origin/setup-topic
+
+  git -C "$UPDATE_SOURCE" checkout -q main
+  git -C "$UPDATE_SOURCE" merge -q --squash setup-topic
+  git -C "$UPDATE_SOURCE" commit -qm "publish squash"
+  git -C "$UPDATE_SOURCE" push -q origin main
+  git -C "$UPDATE_SOURCE" push -q origin --delete setup-topic
+  local published
+  published=$(git -C "$UPDATE_SOURCE" rev-parse main)
+
+  run env HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 WORKFRAME_HOME="$UPDATE_STORE" \
+    "$UPDATE_CHECKOUT/bin/workframe" update
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recovered onto origin/main"* ]]
+  [ "$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)" = "$published" ]
+  [ "$(git -C "$UPDATE_CHECKOUT" symbolic-ref --short HEAD)" = setup-topic ]
+  [ "$(git -C "$UPDATE_CHECKOUT" rev-parse --abbrev-ref '@{upstream}')" = origin/main ]
+  [ "$(cat "$UPDATE_CHECKOUT/UPDATE-MARKER")" = updated ]
+}
+
 @test "workframe update preserves a checkout with local changes" {
   printf 'local change\n' >> "$UPDATE_CHECKOUT/VERSION"
 
@@ -71,6 +103,55 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" == *"checkout has local changes"* ]]
   [[ "$(cat "$UPDATE_CHECKOUT/VERSION")" == *"local change"* ]]
+}
+
+@test "workframe update refuses clean unpublished commits" {
+  printf 'local commit\n' > "$UPDATE_CHECKOUT/LOCAL-COMMIT"
+  git -C "$UPDATE_CHECKOUT" add LOCAL-COMMIT
+  git -C "$UPDATE_CHECKOUT" commit -qm "local program change"
+  local before
+  before=$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)
+
+  printf 'published\n' > "$UPDATE_SOURCE/PUBLISHED"
+  git -C "$UPDATE_SOURCE" add PUBLISHED
+  git -C "$UPDATE_SOURCE" commit -qm "published program change"
+  git -C "$UPDATE_SOURCE" push -q
+
+  run env HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 WORKFRAME_HOME="$UPDATE_STORE" \
+    "$UPDATE_CHECKOUT/bin/workframe" update
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"commits not represented on 'origin/main'"* ]]
+  [[ "$output" == *"no files were changed"* ]]
+  [ "$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)" = "$before" ]
+  [ "$(cat "$UPDATE_CHECKOUT/LOCAL-COMMIT")" = "local commit" ]
+  [ ! -e "$UPDATE_CHECKOUT/PUBLISHED" ]
+}
+
+@test "workframe update refuses a detached checkout" {
+  git -C "$UPDATE_CHECKOUT" checkout -q --detach
+  local before
+  before=$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)
+
+  run env HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 WORKFRAME_HOME="$UPDATE_STORE" \
+    "$UPDATE_CHECKOUT/bin/workframe" update
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"detached HEAD"* ]]
+  [ "$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)" = "$before" ]
+}
+
+@test "workframe update reports an unavailable stable remote without changing files" {
+  local before missing_origin="$BATS_TEST_TMPDIR/missing-origin.git"
+  before=$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)
+  git -C "$UPDATE_CHECKOUT" remote set-url origin "$missing_origin"
+
+  run env HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 WORKFRAME_HOME="$UPDATE_STORE" \
+    "$UPDATE_CHECKOUT/bin/workframe" update
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"could not fetch the stable Workframe branch 'origin/main'"* ]]
+  [ "$(git -C "$UPDATE_CHECKOUT" rev-parse HEAD)" = "$before" ]
 }
 
 @test "workframe update does not inspect or maintain a shared store" {
