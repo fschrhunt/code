@@ -1,72 +1,69 @@
 #!/usr/bin/env bash
 # UI: logo, help text, gum helpers (with a plain fallback), progress.
 
-# ---- logo (isometric workframe) ----
+# ---- logo (8×6 terminal grid derived from assets/logo) ----
 LOGO=(
-'      ___           ___     '
-'     /\__\         /\  \    '
-'    /:/ _/_        \:\  \   '
-'   /:/ /\__\        \:\  \  '
-'  /:/ /:/ _/_       /::\  \ '
-' /:/_/:/ /\__\     /:/\:\__\'
-' \:\/:/ /:/  /    /:/  \/__/'
-'  \::/_/:/  /    /:/  /     '
-'   \:\/:/  /     \/__/      '
-'    \::/  /                 '
-'     \/__/                  '
+' # ## #'
+'#      #'
+' #    #'
+' #    #'
+'#      #'
+' # ## #'
 )
 _header(){
-  local -a T=()
-  local ver="${WORKFRAME_VERSION:-0.0.0}"
-  local status
-  if [ "${WORKFRAME_PROFILE_TYPE:-local}" = local ]; then
-    status="Local profile · editor ${EDITOR_CMD:-cursor}"
-  else
-    status="Shared profile · editor ${EDITOR_CMD:-cursor}"
-  fi
-  # Brand block beside the logo: title, tagline, status.
-  T[4]="${GRN}Workframe${N} ${DIM}v${ver}${N}"
-  T[6]="${W}Isolated git worktrees from your terminal.${N}"
-  T[7]="${DIM}${status}${N}"
-  echo; local i; for i in "${!LOGO[@]}"; do printf '  %s%-28s%s  %s\n' "$GRN" "${LOGO[i]}" "$N" "${T[i]:-}"; done; echo
+  printf '\n'
+  local row cell i
+  for row in "${LOGO[@]}"; do
+    printf '  '
+    for ((i=0; i<${#row}; i++)); do
+      cell=${row:i:1}
+      if [ "$cell" = "#" ]; then
+        if [ -n "$ACID_BG" ]; then
+          printf '%s  %s' "$ACID_BG" "$N"
+        else
+          printf '██'
+        fi
+      else
+        printf '  '
+      fi
+    done
+    printf '\n'
+  done
 }
 
-# Help layout: EXAMPLES (full invocations) + COMMANDS (short verbs).
-# Keep left columns tight and descriptions short so narrow panes don't wrap junk.
+# Help layout: onboarding followed by fixed-width command groups.
 _help(){
   _header
-  # Left columns sized so full lines stay ≤ ~72 cols (narrow IDE panes).
-  local ex_col=40 cmd_col=10
-  sec(){ printf '  %s%s%s\n\n' "$W" "$1" "$N"; }
-  ex(){ printf '    %s%-'${ex_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
-  cm(){ printf '    %s%-'${cmd_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
+  sec(){ printf '\n\n  %s%s%s\n\n' "$W" "$1" "$N"; }
+  start(){ printf '  %s%-43s%s%s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
+  pair(){
+    printf '  %s%-10s%s%s%-28s%s%s%-10s%s%s%s%s\n' \
+      "$GRN" "$1" "$N" "$DIM" "$2" "$N" \
+      "$GRN" "$3" "$N" "$DIM" "$4" "$N"
+  }
+  single(){ printf '  %s%-10s%s%s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
 
-  sec EXAMPLES
-  ex "workframe clone owner/repo"             "Add a repo to the store."
-  ex "workframe new repo feat --agent nova"   "Start a worktree for an agent."
-  ex "workframe list"                         "See active worktrees."
-  ex "workframe archive <sel> --yes"          "Put a worktree away (keeps branch)."
-  ex "workframe restore <repo> <branch>"      "Bring an archived branch back."
-  echo
+  printf '\n\n  %sworkframe%s %s<command> [options]%s\n' "$W" "$N" "$DIM" "$N"
 
-  sec COMMANDS
-  cm new      "Start a new worktree."
-  cm ide      "Open a worktree in $EDITOR_CMD."
-  cm cd       "Print a worktree path."
-  cm list     "List active or archived worktrees."
-  cm archive  "Put a worktree away (keeps branch)."
-  cm restore  "Restore an archived branch."
-  cm clone    "Add a GitHub repo to the store."
-  cm agents   "Manage agent identities."
-  cm config   "Editor, org, profile, shared stack."
-  cm init     "Create a local or shared profile."
-  cm status   "Quick store glance."
-  cm doctor   "Deep health check."
-  cm rename   "Rename a worktree's branch."
-  cm sync     "Fetch latest for every repo."
-  cm clean    "Remove orphans (dry-run; --yes applies)."
-  cm remove   "Delete a branch or repo permanently."
-  cm update   "Refresh install / sync."
+  sec "START HERE"
+  start "workframe clone owner/repo"               "Add a repository"
+  start "workframe new repo feature --agent nova" "Create a workspace"
+  start "workframe ide"                            "Open a workspace"
+
+  sec WORKSPACES
+  pair new  "Create a worktree" archive "Put one away"
+  pair list "Browse worktrees"   restore "Bring one back"
+  pair ide  "Open in ${EDITOR_CMD:-editor}" rename "Rename its branch"
+  single cd "Print its path"
+
+  sec REPOSITORIES
+  pair clone "Add a repository"       sync   "Fetch latest"
+  pair clean "Find orphaned worktrees" remove "Delete permanently"
+
+  sec SYSTEM
+  pair agents "Manage identities" config "Preferences"
+  pair init   "Create a profile"  status "Store overview"
+  pair doctor "Run diagnostics"   update "Refresh Workframe"
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----

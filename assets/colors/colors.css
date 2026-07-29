@@ -6,7 +6,7 @@
   --wf-white: #ffffff;
 
   /* Terminal palette (lib/palette.sh) */
-  --wf-mint: #3adea1;
+  --wf-terminal-accent: var(--wf-acid);
   --wf-teal: #5ecacb;
   --wf-grey: #aaaaaa;
 

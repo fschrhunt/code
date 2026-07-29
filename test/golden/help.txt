@@ -1,40 +1,38 @@
 
-        ___           ___       
-       /\__\         /\  \      
-      /:/ _/_        \:\  \     
-     /:/ /\__\        \:\  \    
-    /:/ /:/ _/_       /::\  \   Workframe v1.5.0
-   /:/_/:/ /\__\     /:/\:\__\  
-   \:\/:/ /:/  /    /:/  \/__/  Isolated git worktrees from your terminal.
-    \::/_/:/  /    /:/  /       Local profile · editor cursor
-     \:\/:/  /     \/__/        
-      \::/  /                   
-       \/__/                    
+    ██  ████  ██
+  ██            ██
+    ██        ██
+    ██        ██
+  ██            ██
+    ██  ████  ██
 
-  EXAMPLES
 
-    workframe clone owner/repo                Add a repo to the store.
-    workframe new repo feat --agent nova      Start a worktree for an agent.
-    workframe list                            See active worktrees.
-    workframe archive <sel> --yes             Put a worktree away (keeps branch).
-    workframe restore <repo> <branch>         Bring an archived branch back.
+  workframe <command> [options]
 
-  COMMANDS
 
-    new         Start a new worktree.
-    ide         Open a worktree in cursor.
-    cd          Print a worktree path.
-    list        List active or archived worktrees.
-    archive     Put a worktree away (keeps branch).
-    restore     Restore an archived branch.
-    clone       Add a GitHub repo to the store.
-    agents      Manage agent identities.
-    config      Editor, org, profile, shared stack.
-    init        Create a local or shared profile.
-    status      Quick store glance.
-    doctor      Deep health check.
-    rename      Rename a worktree's branch.
-    sync        Fetch latest for every repo.
-    clean       Remove orphans (dry-run; --yes applies).
-    remove      Delete a branch or repo permanently.
-    update      Refresh install / sync.
+  START HERE
+
+  workframe clone owner/repo                 Add a repository
+  workframe new repo feature --agent nova    Create a workspace
+  workframe ide                              Open a workspace
+
+
+  WORKSPACES
+
+  new       Create a worktree           archive   Put one away
+  list      Browse worktrees            restore   Bring one back
+  ide       Open in cursor              rename    Rename its branch
+  cd        Print its path
+
+
+  REPOSITORIES
+
+  clone     Add a repository            sync      Fetch latest
+  clean     Find orphaned worktrees     remove    Delete permanently
+
+
+  SYSTEM
+
+  agents    Manage identities           config    Preferences
+  init      Create a profile            status    Store overview
+  doctor    Run diagnostics             update    Refresh Workframe
