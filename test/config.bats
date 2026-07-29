@@ -8,15 +8,15 @@ load helper
 
 setup() {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/store"
-  mkdir -p "$WORKFRAME_HOME"
+  mkdir -p "$WORKFRAME_HOME/system/config"
   # shellcheck source=/dev/null
   . "${BATS_TEST_DIRNAME}/../lib/config.sh"
 }
 
 # Write a config file and load it, so assertions run against the real parser.
 _load_cfg() {
-  printf '%s\n' "$@" > "$WORKFRAME_HOME/config"
-  _load_user_config "$WORKFRAME_HOME/config"
+  printf '%s\n' "$@" > "$WORKFRAME_USER_CONFIG"
+  _load_user_config "$WORKFRAME_USER_CONFIG"
 }
 
 @test "_cache_dir_ok accepts plain single segments" {

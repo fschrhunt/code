@@ -6,8 +6,8 @@ load helper
 
 @test "help output byte-matches the golden" {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
-  mkdir -p "$WORKFRAME_HOME"
-  cat > "$WORKFRAME_HOME/config" <<'EOF'
+  mkdir -p "$WORKFRAME_HOME/system/config"
+  cat > "$WORKFRAME_HOME/system/config/workframe.conf" <<'EOF'
 type = local
 editor = cursor
 default_org = example
@@ -20,8 +20,8 @@ EOF
 
 @test "bare workframe prints help" {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
-  mkdir -p "$WORKFRAME_HOME"
-  printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/config"
+  mkdir -p "$WORKFRAME_HOME/system/config"
+  printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
   run bash -c "WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"START HERE"* ]]
@@ -34,8 +34,8 @@ EOF
 
 @test "help header uses the brace logo without adjacent metadata" {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
-  mkdir -p "$WORKFRAME_HOME"
-  printf 'type = shared\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/config"
+  mkdir -p "$WORKFRAME_HOME/system/config"
+  printf 'type = shared\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
   run bash -c "WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME' help"
   [ "$status" -eq 0 ]
   [[ "$output" == *"██  ████  ██"* ]]

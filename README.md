@@ -41,8 +41,7 @@ git clone https://github.com/fschrhunt/workframe.git
 cd workframe
 ./install.sh
 
-workframe init
-workframe agents add codex
+workframe setup
 workframe clone owner/repo
 workframe new repo fix-login --agent codex
 workframe list
@@ -87,16 +86,17 @@ Workframe separates reversible lifecycle actions from destructive ones:
   <img src="docs/images/profile-layout.png" alt="Profile layout: the Workframe command uses either a local profile rooted at ~/workframe or a shared profile using a mounted store and SSH backend; both contain canonical repositories and agent worktrees." width="713" height="340">
 </p>
 
-- **Local** is the default. Commands operate directly on `~/workframe`.
+- **Local** is the default. Setup offers `~/workframe` and lets you choose any
+  absolute path, including a folder on an attached volume.
 - **Shared** keeps the store on a remote box and exposes worktrees through a
-  mounted path. Connection details live in `~/workframe/config`, never in the
-  repository.
+  mounted path. Connection details live in
+  `system/config/workframe.conf`, never in the repository.
 
 Every store also receives a non-overwriting `WORKFRAME.md` safety contract for
 coding agents and agent launchers. Repository-local instructions remain the
 automatically discovered authority for tools that stop at the Git root.
 
-Run `workframe init --shared` to configure a shared profile.
+Run `workframe setup --shared` to configure a shared profile.
 
 ## Find the right guide
 

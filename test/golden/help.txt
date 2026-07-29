@@ -12,6 +12,7 @@
 
   START HERE
 
+  workframe setup                            Choose a root and agents
   workframe clone owner/repo                 Add a repository
   workframe new repo feature --agent nova    Create a workspace
   workframe ide                              Open a workspace
@@ -34,5 +35,5 @@
   SYSTEM
 
   agents    Manage identities           config    Preferences
-  init      Create a profile            status    Store overview
+  setup     Configure Workframe         status    Store overview
   doctor    Run diagnostics             update    Refresh Workframe

@@ -61,23 +61,33 @@ and use `brew upgrade workframe` instead.
 If the shell cannot find `workframe`, add `~/.local/bin` to `PATH` or install
 into a directory already on `PATH`.
 
-## Initialize a local profile
+## Set up a local profile
 
 ```bash
-workframe init
+workframe setup
 ```
 
-Local mode creates the Workframe store at `~/workframe`, writes preferences to
-`~/workframe/config`, and provisions `~/workframe/WORKFRAME.md`. The guide is a
-central safety contract for agents and launchers. Tools that begin discovery at
-the Git root must be directed to the parent guide explicitly.
+Setup asks where the Workframe store should live, which agent identities to
+create, which editor to use, and an optional default GitHub organization. The
+suggested local root is `~/workframe`, but any absolute path is supported,
+including a folder on an attached volume.
 
-Add at least one agent identity:
+For a non-interactive setup:
 
 ```bash
-workframe agents add codex
-workframe agents list
+workframe setup --local \
+  --root /Volumes/v0/development/workframe \
+  --agent codex \
+  --agent claude \
+  --editor cursor
 ```
+
+The selected store contains `system/config/workframe.conf` and `WORKFRAME.md`.
+Workframe remembers its location in
+`${XDG_CONFIG_HOME:-~/.config}/workframe/root`, so later commands find it
+without a symlink or exported environment variable. `WORKFRAME.md` is a
+central safety contract for agents and launchers. Tools that begin discovery
+at the Git root must be directed to the parent guide explicitly.
 
 An agent identity is a branch namespace, not a vendor lock-in. Names such as
 `codex`, `claude`, `cursor`, or a teammate name are all valid.

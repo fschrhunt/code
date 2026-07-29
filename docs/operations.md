@@ -33,6 +33,17 @@ not in source defaults.
 The backend provisions `WORKFRAME.md` from Workframe's shipped template without
 overwriting an existing store contract.
 
+Ownership inside `system/` is deliberately split:
+
+- `system/bin` contains program-owned executable assets and may be replaced by
+  an explicit installation or deployment.
+- `system/config/workframe.conf` is user-owned and must survive program updates.
+- `system/logs` is operational state and is not replaced by program updates.
+
+`workframe update` only fast-forwards the checkout that provides the installed
+CLI. It does not deploy a shared backend or inspect, repair, sync, or otherwise
+modify the selected store.
+
 ## Pre-release checklist
 
 1. Confirm the GitHub issue has a clear problem and acceptance criteria.

@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
-# workframe configuration: defaults, user-owned config under ~/workframe (or $WORKFRAME_HOME), and
-# role + path resolution.
+# workframe configuration: defaults, user-owned store config, persistent local
+# root selection, and role + path resolution.
 #
 # Values only. User config is parsed (never sourced). Known keys only; values
 # with shell metacharacters are rejected.
 #
-# Product defaults are neutral. Shared-stack hosts/paths/org live in ~/workframe/config
-# (filled by `workframe init --shared` / `workframe config`), not in this file.
+# Product defaults are neutral. Shared-stack hosts/paths/org live in the selected
+# store's config (filled by `workframe setup --shared` / `workframe config`), not
+# in this file.
+
+_config_safe_val(){
+  case "$1" in *[\`\$\(\)\;\|\&\<\>\\\'\"]*) return 1;; esac
+  return 0
+}
+
+_root_path_ok(){
+  local path=${1:-}
+  case "$path" in
+    ""|/|[!/]*) return 1;;
+    *$'\n'*|*$'\r'*) return 1;;
+  esac
+  _config_safe_val "$path"
+}
 
 # ---- built-in defaults (neutral product) ----
 BOX_HOST=""
@@ -18,22 +33,69 @@ MAC_ROOT=""
 SHARE_NAME=""
 VALID_AGENTS=""
 DEFAULT_ORG=""
-# Cursor-oriented default; override with editor= in ~/workframe/config.
+# Cursor-oriented default; override with editor= in the selected store config.
 EDITOR_CMD=cursor
 # Optional worktree exclude list (override via cache_dirs= in config).
 CACHE_DIRS="node_modules .next .turbo dist build"
 # Shared-only: link CACHE_DIRS into ~/.workframe-cache (off by default — opt in).
 LOCALDEPS=0
-# Local until the user opts into shared via init/config (or an existing ~/workframe/config).
+# Local until the user opts into shared via setup/config (or an existing config).
 WORKFRAME_PROFILE_TYPE=local
 
-# User/data directory: $WORKFRAME_HOME for tests/local override, else ~/workframe
+# WORKFRAME_HOME is an explicit process override used by tests and backend
+# execution. Otherwise, a small per-user locator remembers a root selected by
+# `workframe setup`; existing installs still fall back to ~/workframe.
+WORKFRAME_ROOT_POINTER="${XDG_CONFIG_HOME:-${HOME}/.config}/workframe/root"
+# Used by the entry point and frontend module (linted separately).
+# shellcheck disable=SC2034
+WORKFRAME_ROOT_SELECTED=0
 if [ -n "${WORKFRAME_HOME:-}" ]; then
   WORKFRAME_USER_DIR="$WORKFRAME_HOME"
 else
   WORKFRAME_USER_DIR="${HOME}/workframe"
+  if [ -f "$WORKFRAME_ROOT_POINTER" ]; then
+    IFS= read -r _workframe_selected_root < "$WORKFRAME_ROOT_POINTER" || _workframe_selected_root=""
+    _workframe_selected_root=${_workframe_selected_root#"${_workframe_selected_root%%[![:space:]]*}"}
+    _workframe_selected_root=${_workframe_selected_root%"${_workframe_selected_root##*[![:space:]]}"}
+    if _root_path_ok "$_workframe_selected_root"; then
+      WORKFRAME_USER_DIR=${_workframe_selected_root%/}
+      # shellcheck disable=SC2034
+      WORKFRAME_ROOT_SELECTED=1
+    fi
+    unset _workframe_selected_root
+  fi
 fi
-WORKFRAME_USER_CONFIG="$WORKFRAME_USER_DIR/config"
+
+_set_config_paths(){
+  WORKFRAME_LEGACY_CONFIG="$WORKFRAME_USER_DIR/config"
+  WORKFRAME_USER_CONFIG="$WORKFRAME_USER_DIR/system/config/workframe.conf"
+}
+_set_config_paths
+
+_set_local_root(){
+  local root=${1:-}
+  _root_path_ok "$root" || return 1
+  root=${root%/}
+  WORKFRAME_USER_DIR=$root
+  _set_config_paths
+  ROOT=$root
+  [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
+  REPOS="$ROOT/repos"
+  WORK="$ROOT/workspaces"
+  LOGDIR="$ROOT/system/logs"
+}
+
+_save_root_pointer(){
+  [ -n "${WORKFRAME_HOME:-}" ] && return 0
+  _root_path_ok "$WORKFRAME_USER_DIR" || return 1
+  local pointer_dir tmp
+  pointer_dir=${WORKFRAME_ROOT_POINTER%/*}
+  mkdir -p "$pointer_dir" || return 1
+  tmp=$(umask 077; mktemp "$pointer_dir/.root.XXXXXX") || return 1
+  printf '%s\n' "$WORKFRAME_USER_DIR" > "$tmp" || { rm -f -- "$tmp"; return 1; }
+  chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
+  mv -f "$tmp" "$WORKFRAME_ROOT_POINTER" || { rm -f -- "$tmp"; return 1; }
+}
 
 # Install the product-owned store guide exactly once. Noclobber protects an
 # existing user file even if another initializer creates it between the first
@@ -54,11 +116,6 @@ _ensure_store_guide(){
     return 0
   fi
   [ -e "$guide" ]
-}
-
-_config_safe_val(){
-  case "$1" in *[\`\$\(\)\;\|\&\<\>\\\'\"]*) return 1;; esac
-  return 0
 }
 
 # A cache dir must be a single path segment directly under the worktree.
@@ -133,13 +190,26 @@ _load_user_config(){
   done < "$file"
 }
 
+_load_selected_user_config(){
+  if [ -f "$WORKFRAME_USER_CONFIG" ]; then
+    _load_user_config "$WORKFRAME_USER_CONFIG"
+  elif [ -f "$WORKFRAME_LEGACY_CONFIG" ]; then
+    _load_user_config "$WORKFRAME_LEGACY_CONFIG"
+  fi
+}
+
+_user_config_exists(){
+  [ -f "$WORKFRAME_USER_CONFIG" ] || [ -f "$WORKFRAME_LEGACY_CONFIG" ]
+}
+
 _save_user_config(){
-  mkdir -p "$WORKFRAME_USER_DIR"
-  local agents_csv cache_csv tmp
+  local agents_csv cache_csv config_dir tmp
+  config_dir=${WORKFRAME_USER_CONFIG%/*}
+  mkdir -p "$config_dir"
   agents_csv=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   cache_csv=$(printf '%s' "$CACHE_DIRS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   _sync_box_home
-  tmp=$(umask 077; mktemp "$WORKFRAME_USER_DIR/.config.XXXXXX") || return 1
+  tmp=$(umask 077; mktemp "$config_dir/.workframe.conf.XXXXXX") || return 1
   {
     printf '# workframe user config — values only (parsed, never sourced)\n'
     printf 'type = %s\n' "$WORKFRAME_PROFILE_TYPE"
@@ -159,13 +229,16 @@ _save_user_config(){
   } > "$tmp" || { rm -f -- "$tmp"; return 1; }
   chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
   mv -f "$tmp" "$WORKFRAME_USER_CONFIG" || { rm -f -- "$tmp"; return 1; }
+  if [ "$WORKFRAME_LEGACY_CONFIG" != "$WORKFRAME_USER_CONFIG" ] && [ -f "$WORKFRAME_LEGACY_CONFIG" ]; then
+    rm -f -- "$WORKFRAME_LEGACY_CONFIG" || return 1
+  fi
 }
 
-_load_user_config "$WORKFRAME_USER_CONFIG"
+_load_selected_user_config
 
 # Optional overlay from the active store's workframe.conf (values only), after user config
 # has established MAC_ROOT / BOX_ROOT. Never clobber editor/org; only fill empty
-# shared-stack fields so a fleet workframe.conf cannot stomp ~/workframe/config prefs.
+# shared-stack fields so a fleet workframe.conf cannot stomp user preferences.
 for c in \
   ${MAC_ROOT:+"$MAC_ROOT/system/config/workframe.conf"} \
   ${BOX_ROOT:+"$BOX_ROOT/system/config/workframe.conf"}; do

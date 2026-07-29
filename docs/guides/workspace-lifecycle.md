@@ -45,7 +45,7 @@ use:
 cd "$(workframe cd repo/feature-name)"
 ```
 
-Run `workframe init` or `workframe config` interactively to offer installation
+Run `workframe setup` or `workframe config` interactively to offer installation
 of the shell wrapper that makes `workframe cd` change the current shell.
 
 ## Rename a branch

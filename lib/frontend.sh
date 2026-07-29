@@ -147,16 +147,30 @@ mac_localdeps(){
   [ "$linked" = 1 ] && printf '  %slinked cache dirs → %s%s\n' "$DIM" "$base" "$N"
 }
 
-_ask_agents_and_prefs(){
-  if ! _agents_configured; then
-    printf '  %sAdd an agent identity you will choose from on %sworkframe new%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
-    local first
-    first=$(_input "first agent name" "")
-    [ -n "$first" ] || die "need at least one agent name"
-    first=$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')
-    _agent_name_ok "$first" || die "invalid agent name '$first'"
-    VALID_AGENTS="$first"
-  fi
+_setup_add_agents(){
+  local raw=${1:-} name
+  raw=$(printf '%s' "$raw" | tr ',;' '  ')
+  for name in $raw; do
+    name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+    _agent_name_ok "$name" || die "invalid agent name '$name' (use [a-z0-9._-]+)"
+    _is_agent "$name" && continue
+    VALID_AGENTS=$(printf '%s %s' "$VALID_AGENTS" "$name" | tr -s ' ')
+    VALID_AGENTS=${VALID_AGENTS# }
+  done
+}
+
+_ask_setup_agents(){
+  local current entered
+  current=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
+  printf '  %sAgent identities become branch namespaces and choices for %sworkframe new%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
+  entered=$(_input "agent names (comma separated)" "$current")
+  [ -n "$entered" ] || die "need at least one agent name"
+  VALID_AGENTS=""
+  _setup_add_agents "$entered"
+  _agents_configured || die "need at least one agent name"
+}
+
+_ask_prefs(){
   local e o
   e=$(_input "editor command" "$EDITOR_CMD"); e=${e:-$EDITOR_CMD}
   o=$(_input "default github org" "$DEFAULT_ORG"); o=${o:-$DEFAULT_ORG}
@@ -183,52 +197,149 @@ _ask_shared_stack(){
   _sync_box_home
 }
 
-mac_init(){
-  banner "init"
-  local mode="${1:-}"
-  case "$mode" in
-    --shared|shared) mode=shared; shift || true;;
-    --local|local|"") mode="";;
-    -h|--help) printf 'usage: workframe init [--local|--shared]\n'; return 0;;
-  esac
+_setup_usage(){
+  printf 'usage: workframe setup [--local|--shared] [--root <path>] [--agent <name>] [--editor <command>] [--org <name>]\n'
+}
+
+mac_setup(){
+  banner "setup"
+  local mode="" requested_root="" agents_to_add="" editor="" org=""
+  local interactive=0 explicit=0
+  [ -t 0 ] && [ -t 1 ] && interactive=1
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --local|local)
+        [ -z "$mode" ] || [ "$mode" = local ] || die "choose only one profile type"
+        mode=local; explicit=1; shift
+        ;;
+      --shared|shared)
+        [ -z "$mode" ] || [ "$mode" = shared ] || die "choose only one profile type"
+        mode=shared; explicit=1; shift
+        ;;
+      --root)
+        [ $# -ge 2 ] || die "missing value for --root"
+        requested_root=$2; explicit=1; shift 2
+        ;;
+      --agent)
+        [ $# -ge 2 ] || die "missing value for --agent"
+        agents_to_add=$(printf '%s %s' "$agents_to_add" "$2"); explicit=1; shift 2
+        ;;
+      --editor)
+        [ $# -ge 2 ] || die "missing value for --editor"
+        editor=$2; explicit=1; shift 2
+        ;;
+      --org)
+        [ $# -ge 2 ] || die "missing value for --org"
+        org=$2; explicit=1; shift 2
+        ;;
+      -h|--help)
+        _setup_usage
+        return 0
+        ;;
+      -*)
+        die "unknown flag: $1 ($(_setup_usage))"
+        ;;
+      *)
+        die "$(_setup_usage)"
+        ;;
+    esac
+  done
+
   if [ -z "$mode" ]; then
-    if [ -t 0 ] && [ -t 1 ]; then
+    if [ "$interactive" = 1 ]; then
       mode=$(_choose "where should worktrees live?" \
-        "local    on this machine (~/workframe) — default" \
+        "local    on this machine ($WORKFRAME_USER_DIR)" \
         "shared   on a box, mounted locally") || return 0
       case "$mode" in local*) mode=local;; shared*) mode=shared;; esac
     else
-      mode=local
+      mode=${WORKFRAME_PROFILE_TYPE:-local}
     fi
   fi
+  [ "$mode" = shared ] && [ -n "$requested_root" ] && die "--root is for local profiles"
 
   if [ "$mode" = local ]; then
+    local old_root=$WORKFRAME_USER_DIR old_config=$WORKFRAME_USER_CONFIG
+    local old_legacy_config=$WORKFRAME_LEGACY_CONFIG moved=0 parent old_physical=""
+    [ -d "$old_root" ] && old_physical=$(cd "$old_root" 2>/dev/null && pwd -P || true)
+    if [ "$interactive" = 1 ] && [ -z "$requested_root" ]; then
+      requested_root=$(_input "Workframe root" "$WORKFRAME_USER_DIR")
+    fi
+    if [ "${WORKFRAME_ROOT_SELECTED:-0}" = 1 ] && [ ! -d "$WORKFRAME_USER_DIR" ] \
+      && [ -z "$requested_root" ]; then
+      die "selected Workframe root is unavailable: $WORKFRAME_USER_DIR (attach the volume or pass --root <path>)"
+    fi
+    if [ -n "$requested_root" ]; then
+      case "$requested_root" in
+        "~") requested_root=$HOME;;
+        \~/*) requested_root="$HOME/${requested_root#\~/}";;
+      esac
+      requested_root=${requested_root%/}
+      _root_path_ok "$requested_root" || die "invalid root '$requested_root' — use an absolute path other than /"
+      if [ ! -d "$requested_root" ]; then
+        parent=${requested_root%/*}; [ -n "$parent" ] || parent=/
+        [ -d "$parent" ] || die "root parent does not exist: $parent"
+      fi
+      [ "$requested_root" != "$old_root" ] && moved=1
+      _set_local_root "$requested_root" || die "invalid root: $requested_root"
+      [ -n "$old_physical" ] && [ "$ROOT" = "$old_physical" ] && moved=0
+      if [ "$WORKFRAME_USER_CONFIG" != "$old_config" ] && _user_config_exists; then
+        _load_selected_user_config
+      fi
+    fi
     mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
     _ensure_store_guide "$WORKFRAME_USER_DIR" || die "could not create Workframe guide at $WORKFRAME_USER_DIR/WORKFRAME.md"
-    if [ -f "$WORKFRAME_USER_CONFIG" ] && [ "${WORKFRAME_PROFILE_TYPE:-}" = local ]; then
+    if [ "$interactive" = 0 ] && [ "$explicit" = 0 ] && _user_config_exists \
+      && [ "${WORKFRAME_PROFILE_TYPE:-}" = local ]; then
+      if [ ! -f "$WORKFRAME_USER_CONFIG" ] && [ -f "$WORKFRAME_LEGACY_CONFIG" ]; then
+        _save_user_config || die "could not migrate Workframe config to $WORKFRAME_USER_CONFIG"
+        ok "config moved  ${DIM}$WORKFRAME_USER_CONFIG${N}"
+      fi
+      _save_root_pointer || die "could not remember Workframe root in $WORKFRAME_ROOT_POINTER"
       ok "local profile already at ${GRN}$WORKFRAME_USER_DIR${N}"
       return 0
     fi
     WORKFRAME_PROFILE_TYPE=local
-    _ask_agents_and_prefs
-    _save_user_config
-    ROOT="$WORKFRAME_USER_DIR"
-    [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
-    REPOS="$ROOT/repos"; WORK="$ROOT/workspaces"; LOGDIR="$ROOT/system/logs"
+    if [ "$interactive" = 1 ]; then
+      _ask_setup_agents
+      _ask_prefs
+    else
+      [ -n "$agents_to_add" ] && _setup_add_agents "$agents_to_add"
+      if [ -n "$editor" ]; then _config_safe_val "$editor" || die "unsafe editor value"; EDITOR_CMD=$editor; fi
+      if [ -n "$org" ]; then _config_safe_val "$org" || die "unsafe org value"; DEFAULT_ORG=$org; fi
+    fi
+    _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
+    _save_root_pointer || die "could not remember Workframe root in $WORKFRAME_ROOT_POINTER"
+    _set_local_root "$WORKFRAME_USER_DIR"
     ok "local profile ready  ${DIM}$WORKFRAME_USER_DIR${N}"
+    if [ "$moved" = 1 ] && { [ -f "$old_config" ] || [ -f "$old_legacy_config" ] \
+      || [ -d "$old_root/repos" ] || [ -d "$old_root/workspaces" ]; }; then
+      warn "selected a new root; existing data was not moved from $old_root"
+    fi
     _print_next_steps
     _offer_shell_cd_hook
     return 0
   fi
 
-  # shared — all host/path values come from prompts (or existing ~/workframe/config)
+  # shared — all host/path values come from prompts (or the selected store config)
+  if [ "${WORKFRAME_ROOT_SELECTED:-0}" = 1 ] && [ ! -d "$WORKFRAME_USER_DIR" ]; then
+    die "selected Workframe root is unavailable: $WORKFRAME_USER_DIR (attach the volume or select a local root first)"
+  fi
   WORKFRAME_PROFILE_TYPE=shared
   mkdir -p "$WORKFRAME_USER_DIR"
   _ask_shared_stack
-  _ask_agents_and_prefs
-  _save_user_config
+  if [ "$interactive" = 1 ]; then
+    _ask_setup_agents
+    _ask_prefs
+  else
+    [ -n "$agents_to_add" ] && _setup_add_agents "$agents_to_add"
+    if [ -n "$editor" ]; then _config_safe_val "$editor" || die "unsafe editor value"; EDITOR_CMD=$editor; fi
+    if [ -n "$org" ]; then _config_safe_val "$org" || die "unsafe org value"; DEFAULT_ORG=$org; fi
+  fi
+  _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
+  _save_root_pointer || die "could not remember Workframe root in $WORKFRAME_ROOT_POINTER"
   ROOT="$MAC_ROOT"
-  # Used by backend modules after init (linted separately from this file).
+  # Used by backend modules after setup (linted separately from this file).
   # shellcheck disable=SC2034
   REPOS="$ROOT/repos"
   # shellcheck disable=SC2034
@@ -240,15 +351,20 @@ mac_init(){
     if _bx guide >/dev/null 2>&1; then
       ok "Workframe guide ready  ${DIM}$MAC_ROOT/WORKFRAME.md${N}"
     else
-      warn "Workframe guide pending — run: workframe update"
+      warn "Workframe guide pending — rerun: workframe setup --shared"
     fi
   else
-    warn "Workframe guide pending — run: workframe update when the box is reachable"
+    warn "Workframe guide pending — rerun workframe setup --shared when the box is reachable"
   fi
   printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
   printf '  %sthen:%s mount the share and run %sworkframe doctor%s\n' "$DIM" "$N" "$GRN" "$N"
   _print_next_steps
   _offer_shell_cd_hook
+}
+
+mac_init(){
+  warn "'workframe init' was renamed to 'workframe setup'"
+  mac_setup "$@"
 }
 
 # Shared profile: inspect box worktrees, not the mount (may be stale/down).
@@ -688,15 +804,5 @@ _update_checkout(){
 
 mac_update(){ banner "update"
   [ $# -eq 0 ] || die "usage: workframe update"
-  _update_checkout || return $?
-  if _is_local_store; then return 0; fi
-  _require_shared_stack
-  local mount_helper=""
-  [ -x "$HOME/.local/bin/mount-workframe.sh" ] && mount_helper="$HOME/.local/bin/mount-workframe.sh"
-  [ -z "$mount_helper" ] && [ -x "$WORKFRAME_PREFIX/contrib/mount-workframe.sh" ] && mount_helper="$WORKFRAME_PREFIX/contrib/mount-workframe.sh"
-  mount | grep -q " on $MAC_ROOT " || { [ -n "$mount_helper" ] && "$mount_helper" >/dev/null 2>&1; }
-  mount | grep -q " on $MAC_ROOT " || { err "mount is down at $MAC_ROOT"; return 1; }; ok "mount up"
-  _bx guide >/dev/null || return 1
-  ok "Workframe guide ready  ${DIM}$MAC_ROOT/WORKFRAME.md${N}"
-  echo; mac_sync --all; echo; mac_doctor
+  _update_checkout
 }

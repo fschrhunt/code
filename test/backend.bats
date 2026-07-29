@@ -176,7 +176,8 @@ setup() {
 }
 
 @test "clone without default org refuses bare names" {
-  printf 'type = local\neditor = cursor\nagents = codex\n' > "$WORKFRAME_HOME/config"
+  mkdir -p "$WORKFRAME_HOME/system/config"
+  printf 'type = local\neditor = cursor\nagents = codex\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
   run env WORKFRAME_HOME="$WORKFRAME_HOME" WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 "$WORKFRAME" clone lonely
   [ "$status" -ne 0 ]
   [[ "$output" == *"no default org"* ]]
