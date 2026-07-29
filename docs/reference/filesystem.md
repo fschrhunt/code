@@ -75,10 +75,21 @@ one-shot seed may be placed at:
 ```
 
 The helper removes the seed after successfully adding the credential to the
-keychain. Never commit credential material.
+keychain. The seed must be owned by the current user, must not be a symlink, and
+must use mode `600` or `400`:
+
+```bash
+chmod 600 ~/.workframe-cred.seed
+```
+
+Never commit credential material. The optional helper passes the SMB URL to the
+system mount utility, so the password may be briefly visible to other processes
+running as the same local user. Prefer the login keychain and avoid the helper
+on an untrusted multi-user Mac.
 
 ## Temporary files and logs
 
-Progress helpers may use `/tmp/workframe.*.out` when the system temporary-file
-utility is unavailable. Safe cleanup records use
+Progress helpers require the system temporary-file utility and create
+user-private randomized files below `${TMPDIR:-/tmp}`. They refuse to run if a
+secure temporary file cannot be created. Safe cleanup records use
 `system/logs/workframe-clean.log`.

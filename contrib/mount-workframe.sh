@@ -38,8 +38,18 @@ if /sbin/mount | grep -q " on ${MP} "; then exit 0; fi
 # Prefer keychain; else seed file (first-run / headless).
 P=$(/usr/bin/security find-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -w 2>/dev/null || true)
 if [ -z "$P" ] && [ -f "$SEED" ]; then
+  if [ -L "$SEED" ]; then
+    echo "$(date): refusing symlink credential seed: ${SEED}"
+    exit 1
+  fi
+  SEED_MODE=$(stat -f '%Lp' "$SEED" 2>/dev/null || stat -c '%a' "$SEED" 2>/dev/null || true)
+  SEED_OWNER=$(stat -f '%u' "$SEED" 2>/dev/null || stat -c '%u' "$SEED" 2>/dev/null || true)
+  if [ "$SEED_OWNER" != "$(id -u)" ] || { [ "$SEED_MODE" != 600 ] && [ "$SEED_MODE" != 400 ]; }; then
+    echo "$(date): refusing credential seed unless it is owned by the current user and mode 600 or 400: ${SEED}"
+    exit 1
+  fi
   P=$(cat "$SEED")
-  /usr/bin/security add-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -l "workframe SMB" -w "$P" -T /sbin/mount_smbfs -U 2>/dev/null && rm -f "$SEED" || true
+  /usr/bin/security add-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -l "workframe SMB" -w "$P" -T /sbin/mount_smbfs -U 2>/dev/null && rm -f -- "$SEED" || true
 fi
 [ -z "$P" ] && { echo "$(date): no keychain/seed cred for ${SMBUSER}@${SERVER}"; exit 1; }
 

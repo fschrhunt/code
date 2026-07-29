@@ -5,10 +5,9 @@ agents follow it so work stays compatible and safe.
 
 ## Golden rules
 
-- **Never edit the live deploy.** Do not patch `/Volumes/Agents/system/bin/workframe`
-  (or any mounted `$BOX_ROOT/system/bin/workframe`) in place. All work happens in
-  **this repo**, on a branch, via PR. Shipping is a deliberate install/release
-  step (`./install.sh` or a tagged release onto the box).
+- **Never edit a live deploy.** Do not patch any installed or mounted
+  `$BOX_ROOT/system/bin/workframe` in place. All work happens in **this repo**,
+  on a branch, via PR. Shipping is a deliberate install/release step.
 - **Dev is decoupled from deploy.** In-progress work must not take down a
   running fleet tool.
 - **Green before proposed.** Every change must pass `make check` (shellcheck with
@@ -36,10 +35,9 @@ Workframe 1.5.0 is the current clean-start product surface:
 - CLI: `workframe`
 - Local root: `~/workframe`
 - Profiles: `local|shared`
-- Active release issue: [DEV-275](https://linear.app/intuitum/issue/DEV-275)
 
-The active `DEV-*` issue is the scope boundary. Do not infer roadmap work from
-historical milestones or completed issues.
+The current GitHub issue and user request are the scope boundary. Do not infer
+roadmap work from historical milestones or completed issues.
 
 ## Build / test / run
 
@@ -99,27 +97,20 @@ test/               bats tests + golden fixtures
   use `workframe new <agent> <repo> <feature>`, `workframe list`, `workframe archive <workspace>`,
   `workframe restore <repo> <branch>`.
 
-## Linear + multi-agent loop
+## GitHub + multi-agent loop
 
-Workspace: [intuitum](https://linear.app/intuitum) · Team **Engineering** (`DEV-*`) ·
-Project [workframe](https://linear.app/intuitum/project/workframe-03565bb5855d).
+1. Planned work starts from a GitHub issue with a clear problem and acceptance
+   criteria. Tiny documentation fixes and automated dependency updates are
+   exceptions.
+2. Keep one agent on an issue unless a maintainer explicitly splits the work.
+3. Use an isolated branch/worktree for implementation.
+4. Keep the PR focused and link it with `Fixes #<number>` when it completes the
+   issue.
+5. Treat review comments as feedback on the PR. Open a follow-up issue only for
+   durable work that does not belong in the current change.
+6. Never expose secrets, private infrastructure, customer data, or local agent
+   state in issues, commits, logs, or PRs.
 
-Source of truth for process:
-- [Agent Contract](https://linear.app/intuitum/document/agent-contract-5cca5188b456)
-- [Triage Ritual](https://linear.app/intuitum/document/triage-ritual-806f09954c6c)
-- [Week-1 Focus](https://linear.app/intuitum/document/week-1-focus-3083713a8662)
-- Repo detail: [docs/linear.md](docs/linear.md)
-
-Rules for every agent (Cursor, Claude, Codex, Leo, Devin):
-
-1. No real implementation without a `DEV-*` (tiny drive-bys / Renovate excepted).
-2. Fischer stays **assignee**; agents are **delegates** — never silent owners.
-3. Issue must have **Why** + **Acceptance** before coding; if missing, stop and
-   ask (or file Needs/Clarification) instead of inventing scope.
-4. Branch from Linear (`⌘⇧.` / `DEV-XXX` in the name); PR body includes
-   `Fixes DEV-XXX` or `Contributes to DEV-XXX`.
-5. Greptile reviews the PR — do not open Linear issues for nits unless the
-   follow-up is durable (>~30 min).
-6. One agent per issue unless Fischer splits into sub-issues; use `workframe` when
-   paralleling on the same repo.
-7. Status: Triage/Backlog = do not start; Todo/In Progress = OK to pick up.
+Public contributors need only GitHub access. Maintainers may mirror roadmap work
+into private planning tools, but those tools are not part of the contribution
+contract.
