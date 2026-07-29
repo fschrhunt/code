@@ -657,11 +657,39 @@ mac_config(){ banner "config"
   _offer_shell_cd_hook
 }
 
-mac_update(){ banner "update"
-  if _is_local_store; then
-    warn "local profile — refresh the install with: ./install.sh  (from your workframe checkout)"
-    return 0
+_update_checkout(){
+  command -v git >/dev/null 2>&1 || { err "git is required to update Workframe"; return 1; }
+  git -C "$WORKFRAME_PREFIX" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
+    { err "Workframe is not installed from a Git checkout — reinstall it from the repository"; return 1; }
+  [ -z "$(git -C "$WORKFRAME_PREFIX" status --porcelain)" ] ||
+    { err "Workframe checkout has local changes — commit or stash them before updating"; return 1; }
+
+  local branch upstream before after version
+  branch=$(git -C "$WORKFRAME_PREFIX" symbolic-ref --quiet --short HEAD) ||
+    { err "Workframe checkout has a detached HEAD — switch to a tracked branch before updating"; return 1; }
+  upstream=$(git -C "$WORKFRAME_PREFIX" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) ||
+    { err "Workframe branch '$branch' has no upstream — configure one before updating"; return 1; }
+  before=$(git -C "$WORKFRAME_PREFIX" rev-parse HEAD) || return 1
+
+  warn "updating $branch from $upstream"
+  git -C "$WORKFRAME_PREFIX" pull --ff-only || {
+    err "could not fast-forward '$branch' — resolve the checkout manually"
+    return 1
+  }
+
+  after=$(git -C "$WORKFRAME_PREFIX" rev-parse HEAD) || return 1
+  version=$(cat "$WORKFRAME_PREFIX/VERSION" 2>/dev/null || printf 'unknown')
+  if [ "$before" = "$after" ]; then
+    ok "Workframe $version is already current"
+  else
+    ok "updated Workframe $version"
   fi
+}
+
+mac_update(){ banner "update"
+  [ $# -eq 0 ] || die "usage: workframe update"
+  _update_checkout || return $?
+  if _is_local_store; then return 0; fi
   _require_shared_stack
   local mount_helper=""
   [ -x "$HOME/.local/bin/mount-workframe.sh" ] && mount_helper="$HOME/.local/bin/mount-workframe.sh"
