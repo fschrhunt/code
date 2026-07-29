@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1426" height="680" viewBox="0 0 1426 680" role="img" aria-labelledby="title desc">
+  <title id="title">Workframe local and shared profiles</title>
+  <desc id="desc">The Workframe command uses either a local profile rooted at the user's Workframe folder or a shared profile using a mounted store and SSH backend. Both contain canonical repositories and agent worktrees.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerUnits="userSpaceOnUse" markerWidth="24" markerHeight="24" orient="auto-start-reverse">
+      <path d="M1 1L11 6L1 11Z" fill="#202020"/>
+    </marker>
+    <style>
+      .label { font: 700 22px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 2px; }
+      .copy { font: 700 29px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .small { font: 600 23px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .flow { fill: none; stroke: #202020; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1426" height="680" rx="58" fill="#F0FB29"/>
+  <text x="76" y="70" class="label" fill="#202020">PROFILE LAYOUT</text>
+
+  <rect x="528" y="95" width="370" height="94" rx="24" fill="#202020"/>
+  <text x="713" y="153" text-anchor="middle" class="copy" fill="#F0FB29">workframe CLI</text>
+
+  <path class="flow" d="M713 189V239H371V297"/>
+  <path class="flow" d="M713 239H1055V297"/>
+
+  <rect x="111" y="297" width="520" height="132" rx="28" fill="#202020"/>
+  <text x="371" y="352" text-anchor="middle" class="label" fill="#F0FB29">LOCAL PROFILE</text>
+  <text x="371" y="398" text-anchor="middle" class="small" fill="#F0FB29">~/workframe</text>
+
+  <rect x="795" y="297" width="520" height="132" rx="28" fill="#202020"/>
+  <text x="1055" y="352" text-anchor="middle" class="label" fill="#F0FB29">SHARED PROFILE</text>
+  <text x="1055" y="398" text-anchor="middle" class="small" fill="#F0FB29">mounted store + SSH backend</text>
+
+  <path class="flow" d="M371 429V491H233V521"/>
+  <path class="flow" d="M371 491H509V521"/>
+  <path class="flow" d="M1055 429V491H917V521"/>
+  <path class="flow" d="M1055 491H1193V521"/>
+
+  <rect x="96" y="521" width="274" height="100" rx="22" fill="#F0FB29" stroke="#202020" stroke-width="8"/>
+  <text x="233" y="563" text-anchor="middle" class="label" fill="#202020">REPOS</text>
+  <text x="233" y="596" text-anchor="middle" class="small" fill="#202020">canonical clones</text>
+
+  <rect x="372" y="521" width="274" height="100" rx="22" fill="#F0FB29" stroke="#202020" stroke-width="8"/>
+  <text x="509" y="563" text-anchor="middle" class="label" fill="#202020">WORKSPACES</text>
+  <text x="509" y="596" text-anchor="middle" class="small" fill="#202020">agent worktrees</text>
+
+  <rect x="780" y="521" width="274" height="100" rx="22" fill="#F0FB29" stroke="#202020" stroke-width="8"/>
+  <text x="917" y="563" text-anchor="middle" class="label" fill="#202020">REPOS</text>
+  <text x="917" y="596" text-anchor="middle" class="small" fill="#202020">canonical clones</text>
+
+  <rect x="1056" y="521" width="274" height="100" rx="22" fill="#F0FB29" stroke="#202020" stroke-width="8"/>
+  <text x="1193" y="563" text-anchor="middle" class="label" fill="#202020">WORKSPACES</text>
+  <text x="1193" y="596" text-anchor="middle" class="small" fill="#202020">agent worktrees</text>
+</svg>
