@@ -28,6 +28,34 @@
   cmp "$BATS_TEST_DIRNAME/../lib/WORKFRAME.md" "$store/WORKFRAME.md"
 }
 
+@test "installer replaces a command symlink that points to a directory" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  local old_target="$BATS_TEST_TMPDIR/old-target"
+  local expected
+  expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workframe"
+  mkdir -p "$bindir" "$old_target"
+  ln -s "$old_target" "$bindir/workframe"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -eq 0 ]
+  [ -L "$bindir/workframe" ]
+  [ "$(readlink "$bindir/workframe")" = "$expected" ]
+  [ ! -e "$old_target/workframe" ]
+}
+
+@test "installer refuses to write inside a directory at the command path" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$bindir/workframe"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"refusing to replace directory"* ]]
+  [ -d "$bindir/workframe" ]
+  [ ! -e "$bindir/workframe/workframe" ]
+}
+
 @test "mount helper names every required Workframe setting" {
   local user_home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$user_home"

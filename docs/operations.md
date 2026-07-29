@@ -40,9 +40,9 @@ Ownership inside `system/` is deliberately split:
 - `system/config/workframe.conf` is user-owned and must survive program updates.
 - `system/logs` is operational state and is not replaced by program updates.
 
-`workframe update` only fast-forwards the checkout that provides the installed
-CLI. It does not deploy a shared backend or inspect, repair, sync, or otherwise
-modify the selected store.
+`workframe update` only moves the checkout that provides the installed CLI
+onto safely published `main` history. It does not deploy a shared backend or
+inspect, repair, sync, or otherwise modify the selected store.
 
 ## Pre-release checklist
 

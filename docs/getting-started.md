@@ -54,9 +54,11 @@ Checkout installations can be updated from anywhere with:
 workframe update
 ```
 
-The command safely fast-forwards the tracked branch of the checkout used by
-the installed executable. Homebrew installations remain package-manager-owned
-and use `brew upgrade workframe` instead.
+The command safely updates the checkout used by the installed executable from
+its stable `main` branch. It can recover a clean checkout whose pull-request
+branch was squash-merged and deleted, but refuses unpublished or divergent
+work. Homebrew installations remain package-manager-owned and use
+`brew upgrade workframe` instead.
 
 If the shell cannot find `workframe`, add `~/.local/bin` to `PATH` or install
 into a directory already on `PATH`.
