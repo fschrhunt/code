@@ -5,7 +5,7 @@ setup = """
 for cmd in bash git shellcheck bats; do
   command -v "$cmd" >/dev/null || { echo "missing required tool: $cmd" >&2; exit 1; }
 done
-bin/wt help >/dev/null
+bin/workframe help >/dev/null
 """
 archive = "true"
 run_mode = "concurrent"
@@ -24,5 +24,5 @@ command = "make test"
 icon = "test-tube"
 
 [scripts.run.help]
-command = "bin/wt help"
+command = "bin/workframe help"
 icon = "terminal"

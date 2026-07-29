@@ -1,17 +1,16 @@
 #!/bin/bash
-# Mount a box-hosted wt SMB share (idempotent).
+# Mount a box-hosted workframe SMB share (idempotent).
 #
 # Credentials come from the login keychain (or a one-shot seed file). Connection
-# details come from the environment, or from ~/wt/config when present:
-#   WT_SHARE_NAME / share_name
-#   WT_BOX_USER   / box_user
-#   WT_MOUNT_PATH / mount_path
-#   WT_BOX_ADDR   / box_addr  (or WT_BOX_HOST / box_host)
+# details come from the environment, or from ~/workframe/config when present:
+#   WORKFRAME_SHARE_NAME / share_name
+#   WORKFRAME_BOX_USER   / box_user
+#   WORKFRAME_MOUNT_PATH / mount_path
+#   WORKFRAME_BOX_ADDR   / box_addr  (or WORKFRAME_BOX_HOST / box_host)
 #
-# There are no baked-in hosts or fleet IPs — set env vars or run `wt init --shared`.
+# There are no baked-in hosts or fleet IPs — set env vars or run `workframe init --shared`.
 
-_cfg="${HOME}/wt/config"
-[ -f "$_cfg" ] || _cfg="${HOME}/.wt/config"
+_cfg="${HOME}/workframe/config"
 _get() {
   local key="$1" envv="$2" val=""
   if [ -n "${!envv:-}" ]; then printf '%s' "${!envv}"; return; fi
@@ -22,15 +21,15 @@ _get() {
   printf '%s' "$val"
 }
 
-SHARE="$(_get share_name WT_SHARE_NAME)"
-SMBUSER="$(_get box_user WT_BOX_USER)"
-MP="$(_get mount_path WT_MOUNT_PATH)"
-SERVER="$(_get box_addr WT_BOX_ADDR)"
-[ -z "$SERVER" ] && SERVER="$(_get box_host WT_BOX_HOST)"
-SEED="${HOME}/.wt-cred.seed"
+SHARE="$(_get share_name WORKFRAME_SHARE_NAME)"
+SMBUSER="$(_get box_user WORKFRAME_BOX_USER)"
+MP="$(_get mount_path WORKFRAME_MOUNT_PATH)"
+SERVER="$(_get box_addr WORKFRAME_BOX_ADDR)"
+[ -z "$SERVER" ] && SERVER="$(_get box_host WORKFRAME_BOX_HOST)"
+SEED="${HOME}/.workframe-cred.seed"
 
 if [ -z "$SHARE" ] || [ -z "$SMBUSER" ] || [ -z "$MP" ] || [ -z "$SERVER" ]; then
-  echo "$(date): mount-wt: set WT_SHARE_NAME, WT_BOX_USER, WT_MOUNT_PATH, WT_BOX_ADDR (or fill ~/wt/config via wt init --shared)"
+  echo "$(date): mount-workframe: set WORKFRAME_SHARE_NAME, WORKFRAME_BOX_USER, WORKFRAME_MOUNT_PATH, WORKFRAME_BOX_ADDR (or fill ~/workframe/config via workframe init --shared)"
   exit 1
 fi
 
@@ -40,7 +39,7 @@ if /sbin/mount | grep -q " on ${MP} "; then exit 0; fi
 P=$(/usr/bin/security find-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -w 2>/dev/null || true)
 if [ -z "$P" ] && [ -f "$SEED" ]; then
   P=$(cat "$SEED")
-  /usr/bin/security add-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -l "wt SMB" -w "$P" -T /sbin/mount_smbfs -U 2>/dev/null && rm -f "$SEED" || true
+  /usr/bin/security add-internet-password -a "$SMBUSER" -s "$SERVER" -r "smb " -l "workframe SMB" -w "$P" -T /sbin/mount_smbfs -U 2>/dev/null && rm -f "$SEED" || true
 fi
 [ -z "$P" ] && { echo "$(date): no keychain/seed cred for ${SMBUSER}@${SERVER}"; exit 1; }
 

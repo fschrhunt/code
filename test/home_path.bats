@@ -1,45 +1,62 @@
 #!/usr/bin/env bats
-# Default local store is ~/wt; legacy ~/.wt migrates when safe.
+# Default local store is ~/workframe. Existing pre-Workframe stores are untouched.
 
 load helper
 
-@test "default WT_USER_DIR is HOME/wt when WT_HOME unset" {
+@test "default WORKFRAME_USER_DIR is HOME/workframe when WORKFRAME_HOME unset" {
   local user_home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$user_home"
-  run env -u WT_HOME -u WT_BACKEND HOME="$user_home" bash -c '
+  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WT_USER_DIR"
+    printf "%s\n" "$WORKFRAME_USER_DIR"
   '
   [ "$status" -eq 0 ]
-  [ "$output" = "$user_home/wt" ]
+  [ "$output" = "$user_home/workframe" ]
 }
 
-@test "legacy ~/.wt migrates to ~/wt when modern path is absent" {
+@test "pre-Workframe store is ignored and left untouched" {
   local user_home="$BATS_TEST_TMPDIR/home"
-  mkdir -p "$user_home/.wt/repos"
-  echo "type = local" > "$user_home/.wt/config"
-  run env -u WT_HOME -u WT_BACKEND HOME="$user_home" bash -c '
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'" 2>/dev/null
-    printf "dir=%s\n" "$WT_USER_DIR"
-    test -d "'"$user_home"'/wt/repos" && echo migrated=yes
-    test -e "'"$user_home"'/.wt" && echo legacy=still || echo legacy=gone
+  local old_name old_store
+  old_name=$(printf '%s%s' w t)
+  old_store="$user_home/$old_name"
+  mkdir -p "$old_store/repos"
+  echo "type = local" > "$old_store/config"
+  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    printf "%s\n" "$WORKFRAME_USER_DIR"
   '
   [ "$status" -eq 0 ]
-  [[ "$output" == *"dir=$user_home/wt"* ]]
-  [[ "$output" == *"migrated=yes"* ]]
-  [[ "$output" == *"legacy=gone"* ]]
+  [ "$output" = "$user_home/workframe" ]
+  [ -d "$old_store/repos" ]
+  [ ! -e "$user_home/workframe" ]
 }
 
-@test "WT_HOME override skips default and migration" {
+@test "WORKFRAME_HOME override skips the default store" {
   local user_home="$BATS_TEST_TMPDIR/home"
   local override="$BATS_TEST_TMPDIR/override"
-  mkdir -p "$user_home/.wt" "$override"
-  run env -u WT_BACKEND HOME="$user_home" WT_HOME="$override" bash -c '
+  mkdir -p "$override"
+  run env -u WORKFRAME_BACKEND HOME="$user_home" WORKFRAME_HOME="$override" bash -c '
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WT_USER_DIR"
+    printf "%s\n" "$WORKFRAME_USER_DIR"
   '
   [ "$status" -eq 0 ]
   [ "$output" = "$override" ]
-  [ -d "$user_home/.wt" ]
-  [ ! -e "$user_home/wt" ]
+  [ ! -e "$user_home/workframe" ]
+}
+
+@test "pre-Workframe environment namespace is ignored" {
+  local user_home="$BATS_TEST_TMPDIR/home"
+  local old_prefix old_override
+  old_prefix=$(printf '%s%s' W T)
+  old_override="$BATS_TEST_TMPDIR/pre-workframe"
+  mkdir -p "$user_home" "$old_override"
+
+  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" \
+    "${old_prefix}_HOME=$old_override" bash -c '
+      . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+      printf "%s\n" "$WORKFRAME_USER_DIR"
+    '
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$user_home/workframe" ]
 }

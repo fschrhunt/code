@@ -1,20 +1,20 @@
-# wt shellcheck config.
+# workframe shellcheck config.
 #
-# Follow `source`d modules (bin/wt sources lib/*.sh) so the program is analyzed
+# Follow `source`d modules (bin/workframe sources lib/*.sh) so the program is analyzed
 # as a whole rather than file-by-file (avoids false "unassigned/unused" across
 # modules).
 external-sources=true
-# Resolve `# shellcheck source=../lib/*.sh` directives relative to bin/wt's dir.
+# Resolve `# shellcheck source=../lib/*.sh` directives relative to bin/workframe's dir.
 source-path=SCRIPTDIR
 
 # Intentional word-splitting on space-separated lists (CACHE_DIRS, agents, and
 # newline lists of repo names) is pervasive in this list-oriented CLI.
 disable=SC2206,SC2046,SC2086
-# bin/wt dispatch: `[ $# -gt 0 ] && shift || true` — intentional; shift must not
+# bin/workframe dispatch: `[ $# -gt 0 ] && shift || true` — intentional; shift must not
 # fail the script when invoked with no args (see AGENTS.md).
 disable=SC2015
 # `make lint` also checks lib/*.sh directly (not only transitively through
-# bin/wt), because issues inside a sourced file are NOT reported when only the
+# bin/workframe), because issues inside a sourced file are NOT reported when only the
 # sourcing script is named — that blind spot hid a real `rm -rf` finding.
 # Cross-module vars (REPOS/WORK, palette, …) use per-file `# shellcheck disable=`
 # for SC2034/SC2153 — keep those narrow so new unused/misspelled vars still warn.

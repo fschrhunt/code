@@ -19,4 +19,4 @@
 - Keep the PR focused; call out intentional follow-ups.
 - Branch should include the issue id when applicable (Linear copy-branch / `DEV-123-slug`).
 - Greptile reviews on the PR — do not file Linear issues for nits unless follow-up is durable.
-- Never edit `/Volumes/Agents/system/bin/wt`.
+- Never edit `/Volumes/Agents/system/bin/workframe`.
