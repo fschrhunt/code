@@ -44,8 +44,10 @@ into a directory already on `PATH`.
 workframe init
 ```
 
-Local mode creates the Workframe store at `~/workframe` and writes preferences
-to `~/workframe/config`.
+Local mode creates the Workframe store at `~/workframe`, writes preferences to
+`~/workframe/config`, and provisions `~/workframe/WORKFRAME.md`. The guide is a
+central safety contract for agents and launchers. Tools that begin discovery at
+the Git root must be directed to the parent guide explicitly.
 
 Add at least one agent identity:
 

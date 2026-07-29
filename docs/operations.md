@@ -18,6 +18,7 @@ A shared profile expects:
 
 ```text
 $BOX_ROOT/
+├── WORKFRAME.md
 ├── repos/
 ├── workspaces/
 └── system/
@@ -28,6 +29,9 @@ $BOX_ROOT/
 
 Infrastructure values belong in the user config or private deployment overlay,
 not in source defaults.
+
+The backend provisions `WORKFRAME.md` from Workframe's shipped template without
+overwriting an existing store contract.
 
 ## Pre-release checklist
 
