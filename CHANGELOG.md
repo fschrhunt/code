@@ -6,6 +6,7 @@ Notable changes to Workframe are documented here. The project follows
 ## Unreleased
 
 - Security and community foundations for the public repository.
+- Homebrew installation through `fschrhunt/tap/workframe`.
 
 ## 1.5.0
 

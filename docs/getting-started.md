@@ -14,7 +14,20 @@ Contributors also need `shellcheck` and `bats`.
 
 ## Install
 
-Clone the repository and link the executable into `~/.local/bin`:
+Install the current release with Homebrew:
+
+```bash
+brew install fschrhunt/tap/workframe
+```
+
+Upgrade a Homebrew installation with:
+
+```bash
+brew upgrade workframe
+```
+
+To install from source instead, clone the repository and link the executable
+into `~/.local/bin`:
 
 ```bash
 git clone https://github.com/fschrhunt/workframe.git
@@ -35,14 +48,15 @@ workframe version
 workframe help
 ```
 
-Later releases can be installed from anywhere with:
+Checkout installations can be updated from anywhere with:
 
 ```bash
 workframe update
 ```
 
 The command safely fast-forwards the tracked branch of the checkout used by
-the installed executable.
+the installed executable. Homebrew installations remain package-manager-owned
+and use `brew upgrade workframe` instead.
 
 If the shell cannot find `workframe`, add `~/.local/bin` to `PATH` or install
 into a directory already on `PATH`.
