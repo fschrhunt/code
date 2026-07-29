@@ -1,7 +1,9 @@
 # Configuration reference
 
-Workframe preferences live in `~/workframe/config`, or
-`$WORKFRAME_HOME/config` when the root override is set.
+Workframe preferences live in
+`<selected-root>/system/config/workframe.conf`. The default selected root is
+`~/workframe`; `workframe setup` can persist any absolute local path.
+`WORKFRAME_HOME` replaces the selected root for the current process.
 
 The file is parsed as values-only configuration. It is never sourced as shell
 code. Unknown keys and unsafe values are ignored.
@@ -69,7 +71,28 @@ segments, and unsafe characters are discarded.
 Environment overrides are process-scoped. Credentials are not accepted through
 Workframe configuration.
 
-## Shared overlay
+## Root locator
+
+For normal local use, `workframe setup` records the selected root in:
+
+```text
+${XDG_CONFIG_HOME:-~/.config}/workframe/root
+```
+
+The locator contains one absolute path and is not shell code. It allows the CLI
+to find a store on an attached volume without a symlink. If the locator is
+missing or invalid, Workframe falls back to `~/workframe`. `WORKFRAME_HOME`
+takes precedence and never rewrites the locator. When a selected root is
+unavailable, commands stop with an attach-the-volume message instead of
+creating or using a fallback store.
+
+## Legacy location
+
+Older installations may have `<selected-root>/config`. Workframe reads that
+file until the next successful setup or configuration save, then writes
+`system/config/workframe.conf` and removes the legacy file.
+
+## Shared store configuration
 
 Shared installations may provide:
 
@@ -77,9 +100,9 @@ Shared installations may provide:
 $BOX_ROOT/system/config/workframe.conf
 ```
 
-or the equivalent file through the local mount. The overlay may fill empty
-shared connection fields, but it cannot replace editor or organization
-preferences from the user config.
+or the equivalent file through the local mount. Shared store values may fill
+empty connection fields, but they cannot replace editor or organization
+preferences loaded from the selected user store.
 
 ## Fresh-start behavior
 

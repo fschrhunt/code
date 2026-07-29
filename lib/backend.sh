@@ -130,7 +130,7 @@ cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/rep
         case "$spec" in
           */*) url="https://github.com/$spec.git"; repo=$(_clone_repo_name "$spec");;
           *)
-            [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in ~/workframe/config"
+            [ -n "$DEFAULT_ORG" ] || die "no default org — pass owner/repo, or set default_org in the selected store config"
             url="https://github.com/$DEFAULT_ORG/$spec.git"; repo=$spec
             ;;
         esac

@@ -2,15 +2,27 @@
 # Mount a box-hosted workframe SMB share (idempotent).
 #
 # Credentials come from the login keychain (or a one-shot seed file). Connection
-# details come from the environment, or from ~/workframe/config when present:
+# details come from the environment, or from the selected store config:
 #   WORKFRAME_SHARE_NAME / share_name
 #   WORKFRAME_BOX_USER   / box_user
 #   WORKFRAME_MOUNT_PATH / mount_path
 #   WORKFRAME_BOX_ADDR   / box_addr  (or WORKFRAME_BOX_HOST / box_host)
 #
-# There are no baked-in hosts or fleet IPs — set env vars or run `workframe init --shared`.
+# There are no baked-in hosts or fleet IPs — set env vars or run
+# `workframe setup --shared`.
 
-_cfg="${HOME}/workframe/config"
+_store_root="${HOME}/workframe"
+_root_pointer="${XDG_CONFIG_HOME:-${HOME}/.config}/workframe/root"
+if [ -f "$_root_pointer" ]; then
+  IFS= read -r _selected_root < "$_root_pointer" || _selected_root=""
+  _selected_root=${_selected_root#"${_selected_root%%[![:space:]]*}"}
+  _selected_root=${_selected_root%"${_selected_root##*[![:space:]]}"}
+  case "$_selected_root" in
+    /*) [ "$_selected_root" != / ] && _store_root=${_selected_root%/};;
+  esac
+fi
+_cfg="$_store_root/system/config/workframe.conf"
+[ -f "$_cfg" ] || _cfg="$_store_root/config"
 _get() {
   local key="$1" envv="$2" val=""
   if [ -n "${!envv:-}" ]; then printf '%s' "${!envv}"; return; fi
@@ -29,7 +41,7 @@ SERVER="$(_get box_addr WORKFRAME_BOX_ADDR)"
 SEED="${HOME}/.workframe-cred.seed"
 
 if [ -z "$SHARE" ] || [ -z "$SMBUSER" ] || [ -z "$MP" ] || [ -z "$SERVER" ]; then
-  echo "$(date): mount-workframe: set WORKFRAME_SHARE_NAME, WORKFRAME_BOX_USER, WORKFRAME_MOUNT_PATH, WORKFRAME_BOX_ADDR (or fill ~/workframe/config via workframe init --shared)"
+  echo "$(date): mount-workframe: set WORKFRAME_SHARE_NAME, WORKFRAME_BOX_USER, WORKFRAME_MOUNT_PATH, WORKFRAME_BOX_ADDR (or run workframe setup --shared)"
   exit 1
 fi
 

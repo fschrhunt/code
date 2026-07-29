@@ -44,6 +44,35 @@ load helper
   [ ! -e "$user_home/workframe" ]
 }
 
+@test "saved root locator selects a custom store" {
+  local user_home="$BATS_TEST_TMPDIR/home"
+  local selected="$BATS_TEST_TMPDIR/selected"
+  mkdir -p "$user_home/.config/workframe" "$selected"
+  printf '%s\n' "$selected" > "$user_home/.config/workframe/root"
+
+  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    printf "%s\n" "$WORKFRAME_USER_DIR"
+  '
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$selected" ]
+}
+
+@test "invalid root locator falls back to HOME/workframe" {
+  local user_home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$user_home/.config/workframe"
+  printf '%s\n' relative/path > "$user_home/.config/workframe/root"
+
+  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
+    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
+    printf "%s\n" "$WORKFRAME_USER_DIR"
+  '
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$user_home/workframe" ]
+}
+
 @test "pre-Workframe environment namespace is ignored" {
   local user_home="$BATS_TEST_TMPDIR/home"
   local old_prefix old_override

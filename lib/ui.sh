@@ -46,6 +46,7 @@ _help(){
   printf '\n\n  %sworkframe%s %s<command> [options]%s\n' "$W" "$N" "$DIM" "$N"
 
   sec "START HERE"
+  start "workframe setup"                          "Choose a root and agents"
   start "workframe clone owner/repo"               "Add a repository"
   start "workframe new repo feature --agent nova" "Create a workspace"
   start "workframe ide"                            "Open a workspace"
@@ -62,7 +63,7 @@ _help(){
 
   sec SYSTEM
   pair agents "Manage identities" config "Preferences"
-  pair init   "Create a profile"  status "Store overview"
+  pair setup  "Configure Workframe" status "Store overview"
   pair doctor "Run diagnostics"   update "Refresh Workframe"
 }
 

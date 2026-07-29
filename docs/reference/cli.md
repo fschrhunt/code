@@ -14,17 +14,23 @@ workframe version
 Bare `workframe`, `-h`, and `--help` print help. `-v` and `--version` print the
 version.
 
-## Initialization and configuration
+## Setup and configuration
 
-### `init`
+### `setup`
 
 ```text
-workframe init [--local|--shared]
+workframe setup [--local|--shared] [--root <path>] [--agent <name>]
+                [--editor <command>] [--org <name>]
 ```
 
-Creates or updates the selected profile. Local is the default. Initialization
-also provisions the store-level `WORKFRAME.md` when it is missing; an existing file
-is never overwritten.
+Creates or updates the selected profile. Local is the default. Interactive
+setup chooses the local root, one or more agent identities, editor, and default
+GitHub organization. `--agent` may be repeated for non-interactive setup.
+`--root` accepts an absolute local path other than `/`.
+
+Setup also provisions the store-level `WORKFRAME.md` when it is missing; an
+existing file is never overwritten. The former `init` command remains a
+compatibility alias and directs users to `setup`.
 
 ### `config`
 
@@ -172,8 +178,10 @@ installed CLI. The update refuses dirty checkouts, detached HEADs, branches
 without an upstream, and non-fast-forward changes so local work is never
 discarded.
 
-For shared profiles, a successful CLI update also refreshes mount state, syncs
-canonicals, and runs health checks.
+The command updates program files only. It does not inspect or modify
+`WORKFRAME.md`, configuration, repositories, workspaces, archived contexts, or
+other store data. Use `sync`, `doctor`, and `setup` explicitly for those
+separate operations.
 
 ## Permanent removal
 

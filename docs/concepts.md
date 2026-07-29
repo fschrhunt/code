@@ -11,10 +11,11 @@ process at another root.
 
 ```text
 ~/workframe/
-├── config
 ├── repos/
 ├── workspaces/
 └── system/
+    ├── config/workframe.conf
+    └── logs/
 ```
 
 ## Canonical repository
