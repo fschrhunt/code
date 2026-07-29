@@ -1,44 +1,44 @@
 #!/usr/bin/env bats
-# Help golden lock: `wt help` output must byte-match test/golden/help.txt.
-# Intentional UX changes update the golden in the same commit. Also covers `wt version`.
+# Help golden lock: `workframe help` output must byte-match test/golden/help.txt.
+# Intentional UX changes update the golden in the same commit. Also covers `workframe version`.
 
 load helper
 
 @test "help output byte-matches the golden" {
-  export WT_HOME="$BATS_TEST_TMPDIR/help-store"
-  mkdir -p "$WT_HOME"
-  cat > "$WT_HOME/config" <<'EOF'
+  export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
+  mkdir -p "$WORKFRAME_HOME"
+  cat > "$WORKFRAME_HOME/config" <<'EOF'
 type = local
 editor = cursor
 default_org = example
 agents = cursor
 EOF
-  WT_COLOR=0 "$WT" help > "$BATS_TEST_TMPDIR/help.out"
+  WORKFRAME_COLOR=0 "$WORKFRAME" help > "$BATS_TEST_TMPDIR/help.out"
   run diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$BATS_TEST_TMPDIR/help.out"
   [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "bare wt prints help" {
-  export WT_HOME="$BATS_TEST_TMPDIR/help-store"
-  mkdir -p "$WT_HOME"
-  printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WT_HOME/config"
-  run bash -c "WT_COLOR=0 WT_HOME='$WT_HOME' '$WT'"
+@test "bare workframe prints help" {
+  export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
+  mkdir -p "$WORKFRAME_HOME"
+  printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/config"
+  run bash -c "WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"EXAMPLES"* ]]
   [[ "$output" == *"COMMANDS"* ]]
   [[ "$output" == *"ide"* ]]
-  [[ "$output" == *"wt new"* ]]
+  [[ "$output" == *"workframe new"* ]]
 }
 
 @test "help works via -h and --help too" {
-  run bash -c "WT_COLOR=0 '$WT' -h"
+  run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' -h"
   [ "$status" -eq 0 ]
-  run bash -c "WT_COLOR=0 '$WT' --help"
+  run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' --help"
   [ "$status" -eq 0 ]
 }
 
 @test "version prints the VERSION file" {
-  run "$WT" version
+  run "$WORKFRAME" version
   [ "$status" -eq 0 ]
-  [ "$output" = "wt $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
+  [ "$output" = "workframe $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }

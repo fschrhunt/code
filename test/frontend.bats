@@ -5,7 +5,7 @@ load helper
 
 @test "progress_run preserves backend failures and output" {
   run bash -c '
-    export WT_COLOR=0
+    export WORKFRAME_COLOR=0
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
     fail_backend() { printf "backend failed\n"; return 17; }
@@ -20,7 +20,7 @@ load helper
 @test "resolve_worktree rejects absolute paths outside the store" {
   _use_backend_store
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -35,16 +35,16 @@ load helper
 
 @test "resolve_worktree rejects store internals that are not worktrees" {
   _use_backend_store
-  mkdir -p "$WT_HOME/repos/demo"
+  mkdir -p "$WORKFRAME_HOME/repos/demo"
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
-    _resolve_worktree "'"$WT_HOME/repos/demo"'"
+    _resolve_worktree "'"$WORKFRAME_HOME/repos/demo"'"
   '
   [ "$status" -ne 0 ]
   [[ "$output" == *"no worktree matching"* ]]
@@ -52,12 +52,12 @@ load helper
 
 @test "resolve_worktree rejects workspace-shaped paths not in the worktree list" {
   _use_backend_store
-  local p="$WT_HOME/workspaces/codex/demo/hanoi"
+  local p="$WORKFRAME_HOME/workspaces/codex/demo/hanoi"
   mkdir -p "$p"
   touch "$p/.git"
   p=$(cd "$p" && pwd -P)
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -73,9 +73,9 @@ load helper
 @test "mac_archive accepts a selector with --yes (non-interactive)" {
   _use_backend_store
   _seed_repo
-  local ws; ws=$("$WT" new codex demo cli-arch 2>/dev/null | _workspace_path)
+  local ws; ws=$("$WORKFRAME" new codex demo cli-arch 2>/dev/null | _workspace_path)
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -92,7 +92,7 @@ load helper
 @test "mac_archive without args is a usage error when non-TTY" {
   _use_backend_store
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -102,16 +102,16 @@ load helper
     mac_archive
   '
   [ "$status" -ne 0 ]
-  [[ "$output" == *"usage: wt archive"* ]]
+  [[ "$output" == *"usage: workframe archive"* ]]
 }
 
 @test "mac_restore accepts repo and branch args" {
   _use_backend_store
   _seed_repo
-  local ws; ws=$("$WT" new codex demo cli-rest 2>/dev/null | _workspace_path)
-  "$WT" archive "$ws" >/dev/null
+  local ws; ws=$("$WORKFRAME" new codex demo cli-rest 2>/dev/null | _workspace_path)
+  "$WORKFRAME" archive "$ws" >/dev/null
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -127,7 +127,7 @@ load helper
 @test "mac_remove without subcommand is a usage error" {
   _use_backend_store
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -137,16 +137,16 @@ load helper
     mac_remove
   '
   [ "$status" -ne 0 ]
-  [[ "$output" == *"usage: wt remove branch"* ]]
+  [[ "$output" == *"usage: workframe remove branch"* ]]
 }
 
 @test "mac_rmbranch deletes with --yes without prompting" {
   _use_backend_store
   _seed_repo
-  local ws; ws=$("$WT" new codex demo cli-rm 2>/dev/null | _workspace_path)
-  "$WT" archive "$ws" >/dev/null
+  local ws; ws=$("$WORKFRAME" new codex demo cli-rm 2>/dev/null | _workspace_path)
+  "$WORKFRAME" archive "$ws" >/dev/null
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -157,7 +157,7 @@ load helper
   '
   [ "$status" -eq 0 ]
   [[ "$output" == *"deleted"*codex/cli-rm* ]]
-  run git -C "$WT_HOME/repos/demo" branch --list codex/cli-rm
+  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/cli-rm
   [ -z "$output" ]
 }
 
@@ -165,7 +165,7 @@ load helper
   _use_backend_store
   _seed_repo
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -181,10 +181,10 @@ load helper
 @test "mac_archive --yes on dirty worktree refuses without --force" {
   _use_backend_store
   _seed_repo
-  local ws; ws=$("$WT" new codex demo cli-dirty 2>/dev/null | _workspace_path)
+  local ws; ws=$("$WORKFRAME" new codex demo cli-dirty 2>/dev/null | _workspace_path)
   echo change >> "$ws/README.md"
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -201,10 +201,10 @@ load helper
 @test "mac_archive --yes --force discards dirty work without DIRTY scare" {
   _use_backend_store
   _seed_repo
-  local ws; ws=$("$WT" new codex demo cli-force 2>/dev/null | _workspace_path)
+  local ws; ws=$("$WORKFRAME" new codex demo cli-force 2>/dev/null | _workspace_path)
   echo change >> "$ws/README.md"
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -222,7 +222,7 @@ load helper
 @test "mac_new -h exits 0 with usage" {
   _use_backend_store
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -232,16 +232,16 @@ load helper
     mac_new -h
   '
   [ "$status" -eq 0 ]
-  [[ "$output" == *"usage: wt new"* ]]
+  [[ "$output" == *"usage: workframe new"* ]]
 }
 
 @test "mac_new after archive surfaces restore hint" {
   _use_backend_store
   _seed_repo
-  local ws; ws=$("$WT" new codex demo comeback 2>/dev/null | _workspace_path)
-  "$WT" archive "$ws" >/dev/null
+  local ws; ws=$("$WORKFRAME" new codex demo comeback 2>/dev/null | _workspace_path)
+  "$WORKFRAME" archive "$ws" >/dev/null
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -252,7 +252,7 @@ load helper
   '
   [ "$status" -ne 0 ]
   [[ "$output" == *"archived"* ]]
-  [[ "$output" == *"wt restore demo codex/comeback"* ]]
+  [[ "$output" == *"workframe restore demo codex/comeback"* ]]
 }
 
 @test "box_reachable uses -w timeout on Linux" {
@@ -264,8 +264,8 @@ exit 0
 EOF
   chmod +x "$fake_nc"
   run env NC_BIN="$fake_nc" NC_ARGS_FILE="$BATS_TEST_TMPDIR/nc-args" bash -c '
-    export WT_COLOR=0 WT_HOME="'"$BATS_TEST_TMPDIR/store"'"
-    mkdir -p "$WT_HOME"
+    export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$BATS_TEST_TMPDIR/store"'"
+    mkdir -p "$WORKFRAME_HOME"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     BOX_HOST=box.example
     _box_reachable
@@ -284,18 +284,18 @@ EOF
   local box_root="$BATS_TEST_TMPDIR/box-root"
   local mount_path="$BATS_TEST_TMPDIR/mount"
   local expected_root
-  mkdir -p "$user_home/wt" "$box_root/.home" "$mount_path"
+  mkdir -p "$user_home/workframe" "$box_root/.home" "$mount_path"
   expected_root=$(cd "$mount_path" && pwd -P)
-  cat > "$user_home/wt/config" <<EOF
+  cat > "$user_home/workframe/config" <<EOF
 type = shared
 box_host = box.example
-box_user = wt
+box_user = workframe
 box_root = $box_root
 mount_path = $mount_path
-share_name = wt
+share_name = workframe
 agents = codex
 EOF
-  run env -u WT_BACKEND -u WT_HOME HOME="$user_home" bash -c '
+  run env -u WORKFRAME_BACKEND -u WORKFRAME_HOME HOME="$user_home" bash -c '
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     printf "HOME=%s\n" "$HOME"
     printf "ROOT=%s\n" "$ROOT"
@@ -313,18 +313,18 @@ EOF
   local box_root="$BATS_TEST_TMPDIR/box-root"
   local mount_path="$BATS_TEST_TMPDIR/mount"
   local expected_root
-  mkdir -p "$user_home/wt" "$box_root/.home" "$mount_path"
+  mkdir -p "$user_home/workframe" "$box_root/.home" "$mount_path"
   expected_root=$(cd "$box_root" && pwd -P)
-  cat > "$user_home/wt/config" <<EOF
+  cat > "$user_home/workframe/config" <<EOF
 type = shared
 box_host = box.example
-box_user = wt
+box_user = workframe
 box_root = $box_root
 mount_path = $mount_path
-share_name = wt
+share_name = workframe
 agents = codex
 EOF
-  run env -u WT_HOME WT_BACKEND=1 HOME="$user_home" bash -c '
+  run env -u WORKFRAME_HOME WORKFRAME_BACKEND=1 HOME="$user_home" bash -c '
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     printf "HOME=%s\n" "$HOME"
     printf "ROOT=%s\n" "$ROOT"
@@ -338,22 +338,22 @@ EOF
 
 @test "mac_localdeps is a no-op when localdeps is off" {
   _use_backend_store
-  local wt="$WT_HOME/workspaces/codex/demo/fakecity"
-  mkdir -p "$wt/node_modules"
-  echo keep > "$wt/node_modules/x"
+  local worktree="$WORKFRAME_HOME/workspaces/codex/demo/fakecity"
+  mkdir -p "$worktree/node_modules"
+  echo keep > "$worktree/node_modules/x"
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
-    WT_PROFILE_TYPE=shared
+    WORKFRAME_PROFILE_TYPE=shared
     LOCALDEPS=0
-    mac_localdeps "'"$wt"'"
-    [ -d "'"$wt"'/node_modules" ] && [ ! -L "'"$wt"'/node_modules" ]
-    grep -q keep "'"$wt"'/node_modules/x"
+    mac_localdeps "'"$worktree"'"
+    [ -d "'"$worktree"'/node_modules" ] && [ ! -L "'"$worktree"'/node_modules" ]
+    grep -q keep "'"$worktree"'/node_modules/x"
   '
   [ "$status" -eq 0 ]
 }
@@ -362,7 +362,7 @@ EOF
   _use_backend_store
   _seed_repo
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -380,7 +380,7 @@ EOF
 @test "mac_config refuses non-interactive prefs rewrite" {
   _use_backend_store
   run bash -c '
-    export WT_BACKEND=1 WT_COLOR=0 WT_HOME="'"$WT_HOME"'"
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
@@ -390,16 +390,16 @@ EOF
     mac_config
   '
   [ "$status" -ne 0 ]
-  [[ "$output" == *"usage: wt config"* ]]
+  [[ "$output" == *"usage: workframe config"* ]]
 }
 
 @test "_bx_remote_cmd quotes box paths containing spaces" {
   run bash -c '
-    export WT_COLOR=0 WT_HOME="'"$BATS_TEST_TMPDIR/store"'"
-    mkdir -p "$WT_HOME"
+    export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$BATS_TEST_TMPDIR/store"'"
+    mkdir -p "$WORKFRAME_HOME"
     . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
     . "'"$BATS_TEST_DIRNAME/../lib/frontend.sh"'"
-    BOX_USER=agents; BOX_ROOT="/mnt/my wt"; BOX_HOME="/mnt/my wt/.home"
+    BOX_USER=agents; BOX_ROOT="/mnt/my workframe"; BOX_HOME="/mnt/my workframe/.home"
     VALID_AGENTS="claude codex"
     cmd=$(_bx_remote_cmd 0 list)
     # Re-parse the way the remote shell will, then print one arg per line.
@@ -408,8 +408,8 @@ EOF
   '
   [ "$status" -eq 0 ]
   # Paths and the agent list must each survive as ONE argument, not split on space.
-  [[ "$output" == *"HOME=/mnt/my wt/.home"* ]]
-  [[ "$output" == *"WT_HOME=/mnt/my wt"* ]]
-  [[ "$output" == *"WT_VALID_AGENTS=claude codex"* ]]
-  [[ "$output" == *"/mnt/my wt/system/bin/wt"* ]]
+  [[ "$output" == *"HOME=/mnt/my workframe/.home"* ]]
+  [[ "$output" == *"WORKFRAME_HOME=/mnt/my workframe"* ]]
+  [[ "$output" == *"WORKFRAME_VALID_AGENTS=claude codex"* ]]
+  [[ "$output" == *"/mnt/my workframe/system/bin/workframe"* ]]
 }

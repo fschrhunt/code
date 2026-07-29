@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# palette — wt truecolor theme
+# palette — workframe truecolor theme
 #
 # Color vars are consumed by ui/frontend/backend; when this file is linted
 # alone shellcheck cannot see those uses.
@@ -15,7 +15,7 @@ GUM_WHITE="#ffffff"
 GUM_MINT="#3adea1"
 GUMC="$GUM_MINT"
 
-if [ -t 1 ] || [ "${WT_COLOR:-0}" = 1 ]; then
+if [ -t 1 ] || [ "${WORKFRAME_COLOR:-0}" = 1 ]; then
   B=$'\e[1m'; N=$'\e[0m'
   # Direct truecolor — do not go through 256-color approximation
   DIM=$'\e[38;2;170;170;170m'
