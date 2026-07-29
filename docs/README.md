@@ -30,8 +30,8 @@ flowchart TD
     A{Where should repositories and worktrees live?}
     A -->|On this machine| B[Local profile]
     A -->|On a shared box| C[Shared profile]
-    B --> D[workframe init]
-    C --> E[workframe init --shared]
+    B --> D[workframe setup]
+    C --> E[workframe setup --shared]
 ```
 
 Use **local** unless multiple machines need the same canonical store. Local
@@ -58,4 +58,5 @@ operates a secured box and mounted filesystem.
 - [Workframe 1.5.0 release notes](releases/1.5.0.md)
 
 All examples use generic repositories, accounts, hosts, and paths. Private
-infrastructure values belong only in `~/workframe/config`.
+infrastructure values belong only in the selected store's
+`system/config/workframe.conf`.

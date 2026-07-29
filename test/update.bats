@@ -26,11 +26,18 @@ setup() {
   git -C "$UPDATE_ORIGIN" symbolic-ref HEAD refs/heads/main
   git clone -q "$UPDATE_ORIGIN" "$UPDATE_CHECKOUT"
 
-  cat > "$UPDATE_STORE/config" <<'EOF'
+  mkdir -p "$UPDATE_STORE/system/config"
+  cat > "$UPDATE_STORE/system/config/workframe.conf" <<'EOF'
 type = local
 editor = cursor
 agents = codex
 EOF
+  mkdir -p "$UPDATE_STORE/repos/demo" "$UPDATE_STORE/workspaces/codex/demo/city" \
+    "$UPDATE_STORE/archived-contexts" "$UPDATE_STORE/system/logs"
+  printf 'custom guide\n' > "$UPDATE_STORE/WORKFRAME.md"
+  printf 'repo data\n' > "$UPDATE_STORE/repos/demo/sentinel"
+  printf 'workspace data\n' > "$UPDATE_STORE/workspaces/codex/demo/city/sentinel"
+  printf 'archive data\n' > "$UPDATE_STORE/archived-contexts/sentinel"
 }
 
 @test "workframe update fast-forwards the installed checkout" {
@@ -50,6 +57,10 @@ EOF
     "$UPDATE_CHECKOUT/bin/workframe" version
   [ "$status" -eq 0 ]
   [ "$output" = "workframe 9.9.9" ]
+  [ "$(cat "$UPDATE_STORE/WORKFRAME.md")" = "custom guide" ]
+  [ "$(cat "$UPDATE_STORE/repos/demo/sentinel")" = "repo data" ]
+  [ "$(cat "$UPDATE_STORE/workspaces/codex/demo/city/sentinel")" = "workspace data" ]
+  [ "$(cat "$UPDATE_STORE/archived-contexts/sentinel")" = "archive data" ]
 }
 
 @test "workframe update preserves a checkout with local changes" {
@@ -60,4 +71,44 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" == *"checkout has local changes"* ]]
   [[ "$(cat "$UPDATE_CHECKOUT/VERSION")" == *"local change"* ]]
+}
+
+@test "workframe update does not inspect or maintain a shared store" {
+  cat > "$UPDATE_STORE/system/config/workframe.conf" <<'EOF'
+type = shared
+editor = cursor
+agents = codex
+box_host = unreachable.example
+box_user = agents
+box_root = /srv/workframe
+mount_path = /definitely/not/mounted
+share_name = workframe
+EOF
+
+  run env HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 WORKFRAME_HOME="$UPDATE_STORE" \
+    "$UPDATE_CHECKOUT/bin/workframe" update
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already current"* ]]
+  [[ "$output" != *"mount"* ]]
+  [[ "$output" != *"sync"* ]]
+  [[ "$output" != *"doctor"* ]]
+  [ "$(cat "$UPDATE_STORE/WORKFRAME.md")" = "custom guide" ]
+  [ "$(cat "$UPDATE_STORE/repos/demo/sentinel")" = "repo data" ]
+  [ "$(cat "$UPDATE_STORE/workspaces/codex/demo/city/sentinel")" = "workspace data" ]
+  [ "$(cat "$UPDATE_STORE/archived-contexts/sentinel")" = "archive data" ]
+}
+
+@test "workframe update works while the selected store is unavailable" {
+  local missing_store="$BATS_TEST_TMPDIR/unmounted/workframe"
+  mkdir -p "$UPDATE_HOME/.config/workframe"
+  printf '%s\n' "$missing_store" > "$UPDATE_HOME/.config/workframe/root"
+
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+    HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 \
+    "$UPDATE_CHECKOUT/bin/workframe" update
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already current"* ]]
+  [ ! -e "$missing_store" ]
 }

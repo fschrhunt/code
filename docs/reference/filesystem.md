@@ -2,13 +2,12 @@
 
 ## Local store
 
-The default root is `~/workframe`. `WORKFRAME_HOME` replaces it for the current
-process.
+The default root is `~/workframe`. `workframe setup` can persist another
+absolute path, and `WORKFRAME_HOME` replaces it for the current process.
 
 ```text
 ~/workframe/
 ├── WORKFRAME.md
-├── config
 ├── repos/
 │   └── <repo>/
 ├── workspaces/
@@ -16,16 +15,27 @@ process.
 │       └── <repo>/
 │           └── <city>/
 └── system/
+    ├── config/
+    │   └── workframe.conf
     └── logs/
 ```
 
 | Path | Purpose |
 |---|---|
 | `WORKFRAME.md` | Store safety guidance for coding agents and launchers |
-| `config` | User profile and preferences |
 | `repos/<repo>` | Canonical Git clone |
 | `workspaces/<agent>/<repo>/<city>` | Active Git worktree |
+| `system/config/workframe.conf` | User profile and preferences |
 | `system/logs` | Maintenance logs |
+
+The selected root is remembered outside the store in:
+
+```text
+${XDG_CONFIG_HOME:-~/.config}/workframe/root
+```
+
+This one-line locator lets Workframe rediscover a store on an attached volume
+without a symlink.
 
 ## Branches and folders
 

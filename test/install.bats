@@ -13,6 +13,7 @@
   [ "$(readlink "$bindir/workframe")" = "$expected" ]
   [ ! -e "$bindir/$old_name" ]
   [[ "$output" == *"linked $bindir/workframe"* ]]
+  [[ "$output" == *"next:   workframe setup"* ]]
 }
 
 @test "installed command can provision the shipped store guide" {
@@ -21,7 +22,7 @@
 
   "$BATS_TEST_DIRNAME/../install.sh" "$bindir" >/dev/null
   run env WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
-    "$bindir/workframe" init codex
+    "$bindir/workframe" setup codex
 
   [ "$status" -eq 0 ]
   cmp "$BATS_TEST_DIRNAME/../lib/WORKFRAME.md" "$store/WORKFRAME.md"
@@ -38,7 +39,7 @@
   [[ "$output" == *"WORKFRAME_BOX_USER"* ]]
   [[ "$output" == *"WORKFRAME_MOUNT_PATH"* ]]
   [[ "$output" == *"WORKFRAME_BOX_ADDR"* ]]
-  [[ "$output" == *"~/workframe/config"* ]]
+  [[ "$output" == *"workframe setup --shared"* ]]
 }
 
 @test "mount helper refuses a permissive credential seed" {

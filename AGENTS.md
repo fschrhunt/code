@@ -25,8 +25,8 @@ agents follow it so work stays compatible and safe.
   `~/workframe`.
 - **Small, reviewable PRs** — one milestone slice each, with its tests.
 - **No fleet secrets in the repo.** Hostnames, Tailscale IPs, org names, and
-  mount paths belong in `~/workframe/config` (or a private deploy), not in shipped
-  defaults.
+  mount paths belong in the selected store's `system/config/workframe.conf`
+  (or a private deploy), not in shipped defaults.
 
 ## Status
 
@@ -56,7 +56,7 @@ plain fallback otherwise).
 
 ```
 bin/workframe              entry point: resolves lib/, sources modules, dispatches
-lib/config.sh       defaults, ~/workframe/config, role + paths (ROOT/REPOS/WORK)
+lib/config.sh       defaults, system/config/workframe.conf, role + paths
 lib/cities.txt      world place-name slugs for worktree folder labels (~4.5k)
 lib/palette.sh      colors + ok/warn/err/die/banner
 lib/ui.sh           logo, help, gum helpers, progress bar/spinner
@@ -71,7 +71,8 @@ test/               bats tests + golden fixtures
 ## Test seams
 
 - `WORKFRAME_BACKEND=1` — force the backend role on any OS (frontend is the default CLI).
-- `WORKFRAME_HOME=<dir>` — override the data root (and read `$WORKFRAME_HOME/config`).
+- `WORKFRAME_HOME=<dir>` — override the data root (and read
+  `$WORKFRAME_HOME/system/config/workframe.conf`).
 - `WORKFRAME_COLOR=0/1` — force color off/on regardless of TTY.
 - `WORKFRAME_AGENT=<name>` — non-interactive agent for `workframe new` (must be in `agents=`).
 

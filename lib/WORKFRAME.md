@@ -28,8 +28,8 @@ for all work below this directory.
   changes there.
 - `workspaces/` contains isolated working state. Treat sibling workspaces as
   private.
-- `config` and `system/` contain Workframe operational state. Do not place
-  project files there or expose their contents.
+- `system/` contains Workframe configuration, program files, and operational
+  state. Do not place project files there or expose its contents.
 
 ## Validate and hand off
 

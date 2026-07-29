@@ -15,6 +15,7 @@ mkdir -p "$BINDIR"
 ln -sf "$PREFIX/bin/workframe" "$BINDIR/workframe"
 echo "linked $BINDIR/workframe -> $PREFIX/bin/workframe"
 echo "docs:   $PREFIX/docs/   (start: docs/README.md)"
+echo "next:   workframe setup"
 
 case ":$PATH:" in
   *":$BINDIR:"*) ;;

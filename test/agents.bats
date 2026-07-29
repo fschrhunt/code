@@ -78,15 +78,15 @@ setup() {
   [[ "$output" != *codex* ]]
 }
 
-@test "init creates local config" {
+@test "backend setup creates local config" {
   # Fresh store without config overwrite
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/fresh"
   mkdir -p "$WORKFRAME_HOME"
-  run "$WORKFRAME" init nova
+  run "$WORKFRAME" setup nova
   [ "$status" -eq 0 ]
-  [ -f "$WORKFRAME_HOME/config" ]
-  grep -q 'type = local' "$WORKFRAME_HOME/config"
-  grep -q 'nova' "$WORKFRAME_HOME/config"
+  [ -f "$WORKFRAME_HOME/system/config/workframe.conf" ]
+  grep -q 'type = local' "$WORKFRAME_HOME/system/config/workframe.conf"
+  grep -q 'nova' "$WORKFRAME_HOME/system/config/workframe.conf"
 }
 
 @test "list archived shows archived branches" {
