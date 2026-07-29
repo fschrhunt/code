@@ -1,71 +1,62 @@
-# Linear ↔ GitHub
+# Linear and GitHub workflow
 
-Workspace: [intuitum](https://linear.app/intuitum) · Team: **Engineering** (`DEV-*`)
+Workframe uses Linear Engineering issues (`DEV-*`) and GitHub pull requests as
+the public work contract.
 
-| Repo | Linear project |
-| --- | --- |
-| [argus.core](https://github.com/intuitumxyz/argus.core) | [argus.core](https://linear.app/intuitum/project/arguscore-8c2e62251b42) |
-| [solo](https://github.com/intuitumxyz/solo) | [solo](https://linear.app/intuitum/project/solo-2b2495b70d32) |
-| [leo](https://github.com/intuitumxyz/leo) | [leo](https://linear.app/intuitum/project/leo-9ea619a6611a) |
-| [wt](https://github.com/fschrhunt/wt) | [wt](https://linear.app/intuitum/project/wt-03565bb5855d) |
-| [websites](https://github.com/intuitumxyz/websites) | [websites](https://linear.app/intuitum/project/websites-7ebcc8146737) |
+- Workspace: [intuitum](https://linear.app/intuitum)
+- Team: Engineering
+- Project: [Workframe](https://linear.app/intuitum/project/workframe-03565bb5855d)
+- Repository: [fschrhunt/workframe](https://github.com/fschrhunt/workframe)
 
-Process source of truth (Engineering team docs):
+## Before implementation
 
-- [Agent Contract](https://linear.app/intuitum/document/agent-contract-5cca5188b456)
-- [Triage Ritual](https://linear.app/intuitum/document/triage-ritual-806f09954c6c)
-- [Week-1 Focus](https://linear.app/intuitum/document/week-1-focus-3083713a8662)
+Every material change needs an issue in Todo or In Progress with:
 
-Also mirrored for coding agents in [../AGENTS.md](../AGENTS.md) (`## Linear + multi-agent loop`).
+- A clear Why
+- Testable Acceptance criteria
+- Fischer as assignee
+- The implementing agent recorded as delegate when available
+- Workframe project and labels
 
-## Agent contract (wt)
+Agents do not silently become owners.
 
-1. **No real implementation without a `DEV-*`** — except tiny drive-bys and Renovate.
-2. **Fischer stays assignee.** Cursor / Claude / Codex / Leo / Devin are **delegates**, never silent owners.
-3. **Why + Acceptance required** before coding. If missing, stop and clarify (Needs/Clarification) — do not invent scope.
-4. **One agent per issue** unless Fischer creates sub-issues. Use `wt` when paralleling on the same repo.
-5. **Branch from Linear** (`⌘⇧.` or include `DEV-XXX` in the branch name).
-6. **PR body** must include `Fixes DEV-XXX` (closes on merge) or `Contributes to DEV-XXX` (links without closing).
-7. **Greptile** reviews the PR. Do not open Linear issues for review nits unless the follow-up is durable (>~30 min).
+## Branches and pull requests
 
-### Status meanings for agents
+Normal branches include the `DEV-*` identifier and follow the configured agent
+prefix. A PR body must contain one of:
 
-| Status | Meaning |
-| --- | --- |
-| Triage | Human inbox — **do not start** |
-| Backlog | Scoped later — **do not start** |
-| Todo | Ready this cycle — pick up OK |
-| In Progress | Active; link the PR |
-| Done | Merged / shipped |
+```text
+Fixes DEV-123
+Contributes to DEV-123
+```
 
-### wt milestones (project [wt](https://linear.app/intuitum/project/wt-03565bb5855d))
+Use `Fixes` when the PR completes acceptance. Use `Contributes to` for an
+explicit partial slice.
 
-| Milestone | Issue | Notes |
-| --- | --- | --- |
-| M0 foundation | shipped | Shared/SSH + in-repo CLI |
-| M1 profiles | [DEV-175](https://linear.app/intuitum/issue/DEV-175) | Configurable profiles |
-| M2 local `~/wt` | [DEV-181](https://linear.app/intuitum/issue/DEV-181) / [DEV-260](https://linear.app/intuitum/issue/DEV-260) | Local as documented default; store path `~/wt` |
+## Status meaning
 
-## Linking PRs to issues
+| Status | Agent action |
+|---|---|
+| Triage | Do not start |
+| Backlog | Do not start |
+| Todo | May start when assigned/delegated |
+| In Progress | Active implementation |
+| Done | Acceptance completed and merged |
 
-1. Prefer Linear first for planned work (create/find `DEV-XXX`).
-2. Copy the git branch name from Linear (`⌘⇧.`), or include `DEV-XXX` in the branch.
-3. In the PR title or body, use a magic word: `Fixes DEV-123` or `Contributes to DEV-123`.
-4. GitHub autolink: typing `DEV-123` in issues/PRs/comments links to Linear.
-5. Tiny drive-by / docs-only / Renovate: omit Linear only when the contract allows; say so in the PR.
+## Review contract
 
-## Status automation (expected)
+1. Run `make check` locally.
+2. Open a focused PR against `main`.
+3. Let CI rerun ShellCheck and Bats on macOS and Linux.
+4. Address substantive review feedback.
+5. Do not merge or deploy unless explicitly authorized.
 
-| GitHub event | Linear status |
-| --- | --- |
-| PR opened / draft | In Progress |
-| PR ready to merge | keep In Progress (or Ready for merge if configured) |
-| PR merged | Done |
-| PR closed without merge | no auto-cancel (re-triage manually) |
+Durable follow-up work taking more than a small review fix belongs in a new
+Linear issue with enough context to execute later.
 
-Renovate / dependency-dashboard PRs: **no Linear issue**.
+## Active release
 
-## Labels (Linear)
+[DEV-275](https://linear.app/intuitum/issue/DEV-275) tracks the Workframe 1.5.0
+clean-cut product launch and documentation rebuild.
 
-- Workspace `Type/` + `Product/`
-- Team `Surface/` (one) + `Needs/` for triage
+Repository-specific agent rules remain in [`AGENTS.md`](../AGENTS.md).

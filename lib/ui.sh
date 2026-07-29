@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # UI: logo, help text, gum helpers (with a plain fallback), progress.
 
-# ---- logo (isometric wt) ----
+# ---- logo (isometric workframe) ----
 LOGO=(
 '      ___           ___     '
 '     /\__\         /\  \    '
@@ -17,15 +17,15 @@ LOGO=(
 )
 _header(){
   local -a T=()
-  local ver="${WT_VERSION:-0.0.0}"
+  local ver="${WORKFRAME_VERSION:-0.0.0}"
   local status
-  if [ "${WT_PROFILE_TYPE:-local}" = local ]; then
+  if [ "${WORKFRAME_PROFILE_TYPE:-local}" = local ]; then
     status="Local profile · editor ${EDITOR_CMD:-cursor}"
   else
     status="Shared profile · editor ${EDITOR_CMD:-cursor}"
   fi
   # Brand block beside the logo: title, tagline, status.
-  T[4]="${GRN}wt${N} ${DIM}v${ver}${N}"
+  T[4]="${GRN}Workframe${N} ${DIM}v${ver}${N}"
   T[6]="${W}Isolated git worktrees from your terminal.${N}"
   T[7]="${DIM}${status}${N}"
   echo; local i; for i in "${!LOGO[@]}"; do printf '  %s%-28s%s  %s\n' "$GRN" "${LOGO[i]}" "$N" "${T[i]:-}"; done; echo
@@ -36,17 +36,17 @@ _header(){
 _help(){
   _header
   # Left columns sized so full lines stay ≤ ~72 cols (narrow IDE panes).
-  local ex_col=32 cmd_col=10
+  local ex_col=40 cmd_col=10
   sec(){ printf '  %s%s%s\n\n' "$W" "$1" "$N"; }
   ex(){ printf '    %s%-'${ex_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
   cm(){ printf '    %s%-'${cmd_col}'s%s  %s%s%s\n' "$CYN" "$1" "$N" "$DIM" "$2" "$N"; }
 
   sec EXAMPLES
-  ex "wt clone owner/repo"             "Add a repo to the store."
-  ex "wt new repo feat --agent nova"   "Start a worktree for an agent."
-  ex "wt list"                         "See active worktrees."
-  ex "wt archive <sel> --yes"          "Put a worktree away (keeps branch)."
-  ex "wt restore <repo> <branch>"      "Bring an archived branch back."
+  ex "workframe clone owner/repo"             "Add a repo to the store."
+  ex "workframe new repo feat --agent nova"   "Start a worktree for an agent."
+  ex "workframe list"                         "See active worktrees."
+  ex "workframe archive <sel> --yes"          "Put a worktree away (keeps branch)."
+  ex "workframe restore <repo> <branch>"      "Bring an archived branch back."
   echo
 
   sec COMMANDS
@@ -67,7 +67,6 @@ _help(){
   cm clean    "Remove orphans (dry-run; --yes applies)."
   cm remove   "Delete a branch or repo permanently."
   cm update   "Refresh install / sync."
-  echo
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----
@@ -116,13 +115,13 @@ _bar(){ local label=$1 pct=${2:-0} w=26 i filled bar=''; [ "$pct" -gt 100 ] 2>/d
   printf '\r\e[2K  %s%s%s  %s%s%s %s%3s%%%s' "$DIM" "$label" "$N" "$GRN" "$bar" "$N" "$B" "$pct" "$N"; }
 _bar_done(){ [ -t 1 ] && printf '\r\e[2K'; }
 
-# Parse wt-progress:label:pct lines and git-style % updates; pass everything else through.
+# Parse workframe-progress:label:pct lines and git-style % updates; pass everything else through.
 _progress_filter(){
   local label=$1 line pl pct p
   while IFS= read -r line; do
     case "$line" in
-      wt-progress:*)
-        pl=${line#wt-progress:}; pct=${pl##*:}; pl=${pl%:*}
+      workframe-progress:*)
+        pl=${line#workframe-progress:}; pct=${pl##*:}; pl=${pl%:*}
         [ -t 1 ] && [ -n "$pct" ] && _bar "${pl:-$label}" "$pct"
         ;;
       *%*)
@@ -139,7 +138,7 @@ _progress_filter(){
 # PROGRESS_OUT / SPIN_OUT are read by frontend callers (separate lint unit).
 _progress_run(){
   local label=$1; shift
-  local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
+  local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/workframe.$$.out")
   { "$@" 2>&1 | tr '\r' '\n' | _progress_filter "$label"; } >"$tmp"
   local rc=${PIPESTATUS[0]}
   # shellcheck disable=SC2034
@@ -147,7 +146,7 @@ _progress_run(){
   return "$rc"
 }
 
-_spin_run(){ local msg=$1; shift; local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/wt.$$.out")
+_spin_run(){ local msg=$1; shift; local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/workframe.$$.out")
   ( "$@" >"$tmp" 2>&1 ) & local pid=$! i=0 fr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
   if [ -t 1 ]; then printf '\e[?25l'; while kill -0 "$pid" 2>/dev/null; do printf '\r\e[2K  %s%s%s %s' "$GRN" "${fr:$((i%10)):1}" "$N" "$msg"; i=$((i+1)); sleep 0.08; done; printf '\r\e[2K\e[?25h'; fi
   wait "$pid"; local rc=$?

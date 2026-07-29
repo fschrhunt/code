@@ -24,7 +24,7 @@ _list_agent_worktrees(){ cmd_worktrees 2>/dev/null || true; }
 agents_list(){
   if ! _agents_configured; then
     printf '  %sno agents configured%s\n' "$DIM" "$N"
-    printf '  %sadd one with:%s %swt agents add <name>%s\n' "$DIM" "$N" "$GRN" "$N"
+    printf '  %sadd one with:%s %sworkframe agents add <name>%s\n' "$DIM" "$N" "$GRN" "$N"
     return 0
   fi
   banner "agents"
@@ -36,7 +36,7 @@ agents_list(){
 
 agents_add(){
   local name="${1:-}"
-  [ -n "$name" ] || die "usage: wt agents add <name>"
+  [ -n "$name" ] || die "usage: workframe agents add <name>"
   name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
   _agent_name_ok "$name" || die "invalid agent name '$name' (use [a-z0-9._-]+)"
   _is_agent "$name" && { ok "already configured: $name"; return 0; }
@@ -51,19 +51,19 @@ agents_remove(){
   while [ $# -gt 0 ]; do
     case "$1" in
       --force|-f)
-        die "unknown flag: $1 — archive that agent's worktrees first, then: wt agents remove <name>"
+        die "unknown flag: $1 — archive that agent's worktrees first, then: workframe agents remove <name>"
         ;;
       -*)
-        die "unknown flag: $1 (usage: wt agents remove <name>)"
+        die "unknown flag: $1 (usage: workframe agents remove <name>)"
         ;;
       *)
-        [ -z "$name" ] || die "usage: wt agents remove <name>"
+        [ -z "$name" ] || die "usage: workframe agents remove <name>"
         name=$1
         shift
         ;;
     esac
   done
-  [ -n "$name" ] || die "usage: wt agents remove <name>"
+  [ -n "$name" ] || die "usage: workframe agents remove <name>"
   name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
   _is_agent "$name" || die "agent not configured: $name"
   local rows hit=0 ag
@@ -85,22 +85,22 @@ agents_remove(){
   ok "removed agent ${GRN}$name${N}"
 }
 
-# Resolve agent for `wt new`: --agent / WT_AGENT, else TTY picker, else usage error.
+# Resolve agent for `workframe new`: --agent / WORKFRAME_AGENT, else TTY picker, else usage error.
 # Never falls back to a silent default.
 _resolve_agent(){
   local agent="${1:-}"
   if [ -n "$agent" ]; then
-    _is_agent "$agent" || die "unknown agent '$agent' — configure with: wt agents add $agent"
+    _is_agent "$agent" || die "unknown agent '$agent' — configure with: workframe agents add $agent"
     printf '%s' "$agent"
     return 0
   fi
-  if [ -n "${WT_AGENT:-}" ]; then
-    _is_agent "$WT_AGENT" || die "unknown agent '$WT_AGENT' — configure with: wt agents add $WT_AGENT"
-    printf '%s' "$WT_AGENT"
+  if [ -n "${WORKFRAME_AGENT:-}" ]; then
+    _is_agent "$WORKFRAME_AGENT" || die "unknown agent '$WORKFRAME_AGENT' — configure with: workframe agents add $WORKFRAME_AGENT"
+    printf '%s' "$WORKFRAME_AGENT"
     return 0
   fi
   if ! _agents_configured; then
-    die "no agents configured — run: wt agents add <name>"
+    die "no agents configured — run: workframe agents add <name>"
   fi
   if [ -t 0 ] && [ -t 1 ]; then
     _agents_array
@@ -110,7 +110,7 @@ _resolve_agent(){
     printf '%s' "$sel"
     return 0
   fi
-  die "usage: wt new <repo> <feature> --agent <name>  (agents: $VALID_AGENTS)"
+  die "usage: workframe new <repo> <feature> --agent <name>  (agents: $VALID_AGENTS)"
 }
 
 # Open path in a real IDE window. cursor/code get -n (new window); never --chat.
