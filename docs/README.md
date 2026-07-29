@@ -21,7 +21,7 @@ lands on the shortest path to it.
 | Fix a broken setup | [Troubleshooting](troubleshooting.md) |
 | Operate a shared installation | [Operations](operations.md) |
 | Change Workframe itself | [Contributing](contributing.md) |
-| Follow the issue and PR workflow | [Linear and GitHub](linear.md) |
+| Follow the issue and PR workflow | [Contributing](../CONTRIBUTING.md) |
 
 ## Choose a profile
 
@@ -52,8 +52,9 @@ operates a secured box and mounted filesystem.
 
 - [Root product overview](../README.md)
 - [Operations and release safety](operations.md)
-- [Contributor workflow](contributing.md)
-- [Linear and GitHub contract](linear.md)
+- [Contributor workflow](../CONTRIBUTING.md)
+- [Security policy](../SECURITY.md)
+- [Support](../SUPPORT.md)
 - [Workframe 1.5.0 release notes](releases/1.5.0.md)
 
 All examples use generic repositories, accounts, hosts, and paths. Private

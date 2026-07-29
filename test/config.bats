@@ -60,3 +60,22 @@ _load_cfg() {
   _load_cfg "type = local" "cache_dirs = node_modules, .next, dist"
   [ "$CACHE_DIRS" = "node_modules .next dist" ]
 }
+
+@test "saved user config is private even when replacing a permissive file" {
+  printf 'old\n' > "$WORKFRAME_USER_CONFIG"
+  chmod 644 "$WORKFRAME_USER_CONFIG"
+  WORKFRAME_PROFILE_TYPE=shared
+  BOX_HOST=store.example
+  BOX_ADDR=192.0.2.10
+  BOX_USER=workframe
+  BOX_ROOT=/srv/workframe
+  MAC_ROOT=/Volumes/workframe
+  SHARE_NAME=workframe
+
+  _save_user_config
+
+  local mode
+  mode=$(stat -f '%Lp' "$WORKFRAME_USER_CONFIG" 2>/dev/null || stat -c '%a' "$WORKFRAME_USER_CONFIG")
+  [ "$mode" = 600 ]
+  grep -q '^box_host = store.example$' "$WORKFRAME_USER_CONFIG"
+}

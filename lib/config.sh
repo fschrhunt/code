@@ -135,10 +135,11 @@ _load_user_config(){
 
 _save_user_config(){
   mkdir -p "$WORKFRAME_USER_DIR"
-  local agents_csv cache_csv
+  local agents_csv cache_csv tmp
   agents_csv=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   cache_csv=$(printf '%s' "$CACHE_DIRS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   _sync_box_home
+  tmp=$(umask 077; mktemp "$WORKFRAME_USER_DIR/.config.XXXXXX") || return 1
   {
     printf '# workframe user config — values only (parsed, never sourced)\n'
     printf 'type = %s\n' "$WORKFRAME_PROFILE_TYPE"
@@ -147,17 +148,17 @@ _save_user_config(){
     printf 'agents = %s\n' "$agents_csv"
     printf 'cache_dirs = %s\n' "$cache_csv"
     printf 'localdeps = %s\n' "$LOCALDEPS"
-  } > "$WORKFRAME_USER_CONFIG"
-  if [ "$WORKFRAME_PROFILE_TYPE" = shared ]; then
-    {
+    if [ "$WORKFRAME_PROFILE_TYPE" = shared ]; then
       printf 'box_host = %s\n' "$BOX_HOST"
       printf 'box_addr = %s\n' "$BOX_ADDR"
       printf 'box_user = %s\n' "$BOX_USER"
       printf 'box_root = %s\n' "$BOX_ROOT"
       printf 'mount_path = %s\n' "$MAC_ROOT"
       printf 'share_name = %s\n' "$SHARE_NAME"
-    } >> "$WORKFRAME_USER_CONFIG"
-  fi
+    fi
+  } > "$tmp" || { rm -f -- "$tmp"; return 1; }
+  chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
+  mv -f "$tmp" "$WORKFRAME_USER_CONFIG" || { rm -f -- "$tmp"; return 1; }
 }
 
 _load_user_config "$WORKFRAME_USER_CONFIG"
