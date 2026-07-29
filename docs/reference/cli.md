@@ -167,8 +167,13 @@ applies removals.
 workframe update
 ```
 
-For a local profile, points to the repository installer. For shared profiles,
-refreshes mount state, syncs canonicals, and runs health checks.
+Fast-forwards the tracked branch of the Git checkout that provides the
+installed CLI. The update refuses dirty checkouts, detached HEADs, branches
+without an upstream, and non-fast-forward changes so local work is never
+discarded.
+
+For shared profiles, a successful CLI update also refreshes mount state, syncs
+canonicals, and runs health checks.
 
 ## Permanent removal
 

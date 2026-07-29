@@ -26,6 +26,17 @@ Reinstall from the intended checkout:
 
 Ensure the installation directory is on `PATH`.
 
+## Update refuses the checkout
+
+`workframe update` only fast-forwards a clean, tracked Git branch. In the
+checkout reported by `readlink ~/.local/bin/workframe`, commit or stash local
+changes, switch away from a detached HEAD, or configure the branch upstream.
+Then rerun:
+
+```bash
+workframe update
+```
+
 ## No agents configured
 
 ```bash
