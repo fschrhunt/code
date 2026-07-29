@@ -773,6 +773,17 @@ mac_config(){ banner "config"
   _offer_shell_cd_hook
 }
 
+_stable_commit_with_tree(){
+  local target=${1:-} wanted_tree=${2:-} commit tree
+  while read -r commit tree; do
+    if [ "$tree" = "$wanted_tree" ]; then
+      printf '%s\n' "$commit"
+      return 0
+    fi
+  done < <(git -C "$WORKFRAME_PREFIX" log --format='%H %T' "$target")
+  return 1
+}
+
 _update_checkout(){
   command -v git >/dev/null 2>&1 || { err "git is required to update Workframe"; return 1; }
   git -C "$WORKFRAME_PREFIX" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
@@ -780,23 +791,57 @@ _update_checkout(){
   [ -z "$(git -C "$WORKFRAME_PREFIX" status --porcelain)" ] ||
     { err "Workframe checkout has local changes — commit or stash them before updating"; return 1; }
 
-  local branch upstream before after version
+  local branch remote stable before before_tree matching after after_tree version
   branch=$(git -C "$WORKFRAME_PREFIX" symbolic-ref --quiet --short HEAD) ||
-    { err "Workframe checkout has a detached HEAD — switch to a tracked branch before updating"; return 1; }
-  upstream=$(git -C "$WORKFRAME_PREFIX" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null) ||
-    { err "Workframe branch '$branch' has no upstream — configure one before updating"; return 1; }
+    { err "Workframe checkout has a detached HEAD — switch to a branch before updating"; return 1; }
+  remote=$(git -C "$WORKFRAME_PREFIX" config --get "branch.$branch.remote" 2>/dev/null || true)
+  if [ -z "$remote" ] || [ "$remote" = "." ]; then
+    git -C "$WORKFRAME_PREFIX" remote get-url origin >/dev/null 2>&1 ||
+      { err "Workframe checkout has no 'origin' remote — reinstall it from the repository"; return 1; }
+    remote=origin
+  fi
+  stable="$remote/main"
   before=$(git -C "$WORKFRAME_PREFIX" rev-parse HEAD) || return 1
+  before_tree=$(git -C "$WORKFRAME_PREFIX" rev-parse "$before^{tree}") || return 1
 
-  warn "updating $branch from $upstream"
-  git -C "$WORKFRAME_PREFIX" pull --ff-only || {
-    err "could not fast-forward '$branch' — resolve the checkout manually"
+  warn "updating $branch from $stable"
+  git -C "$WORKFRAME_PREFIX" fetch --prune "$remote" \
+    "+refs/heads/main:refs/remotes/$remote/main" || {
+    err "could not fetch the stable Workframe branch '$stable'"
     return 1
   }
 
+  if git -C "$WORKFRAME_PREFIX" merge-base --is-ancestor "$before" "$stable"; then
+    git -C "$WORKFRAME_PREFIX" merge --ff-only --quiet "$stable" || {
+      err "could not fast-forward '$branch' to '$stable'"
+      return 1
+    }
+  else
+    matching=$(_stable_commit_with_tree "$stable" "$before_tree") || {
+      err "Workframe checkout contains commits not represented on '$stable'"
+      err "reinstall from main or reconcile the checkout manually; no files were changed"
+      return 1
+    }
+    git -C "$WORKFRAME_PREFIX" update-ref -m "workframe update: recover onto $stable" \
+      "refs/heads/$branch" "$matching" "$before" || {
+      err "could not recover '$branch' onto '$stable'; no files were changed"
+      return 1
+    }
+    git -C "$WORKFRAME_PREFIX" merge --ff-only --quiet "$stable" || {
+      err "could not fast-forward the recovered checkout to '$stable'"
+      return 1
+    }
+  fi
+
+  git -C "$WORKFRAME_PREFIX" branch --set-upstream-to="$stable" "$branch" >/dev/null 2>&1 ||
+    warn "updated, but could not record '$stable' as the checkout upstream"
   after=$(git -C "$WORKFRAME_PREFIX" rev-parse HEAD) || return 1
+  after_tree=$(git -C "$WORKFRAME_PREFIX" rev-parse "$after^{tree}") || return 1
   version=$(cat "$WORKFRAME_PREFIX/VERSION" 2>/dev/null || printf 'unknown')
   if [ "$before" = "$after" ]; then
     ok "Workframe $version is already current"
+  elif [ "$before_tree" = "$after_tree" ]; then
+    ok "Workframe $version is current (recovered onto $stable)"
   else
     ok "updated Workframe $version"
   fi

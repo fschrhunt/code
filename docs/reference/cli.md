@@ -173,10 +173,12 @@ applies removals.
 workframe update
 ```
 
-Fast-forwards the tracked branch of the Git checkout that provides the
-installed CLI. The update refuses dirty checkouts, detached HEADs, branches
-without an upstream, and non-fast-forward changes so local work is never
-discarded.
+Fetches the stable `main` branch from the Git remote that provides the checkout
+and fast-forwards the installed CLI. If a checkout came from a squash-merged
+topic branch that was later deleted, Workframe can recover it only when its
+program tree exactly matches a commit already published on `main`. Dirty,
+detached, unpublished, and otherwise divergent checkouts are refused so local
+work is never discarded.
 
 The command updates program files only. It does not inspect or modify
 `WORKFRAME.md`, configuration, repositories, workspaces, archived contexts, or

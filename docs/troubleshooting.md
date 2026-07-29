@@ -28,10 +28,12 @@ Ensure the installation directory is on `PATH`.
 
 ## Update refuses the checkout
 
-`workframe update` only fast-forwards a clean, tracked Git branch. In the
-checkout reported by `readlink ~/.local/bin/workframe`, commit or stash local
-changes, switch away from a detached HEAD, or configure the branch upstream.
-Then rerun:
+`workframe update` only moves a clean Git checkout onto commits published on
+the remote's stable `main` branch. It automatically recovers a deleted
+pull-request branch when the installed program tree exactly matches published
+history. In the checkout reported by `readlink ~/.local/bin/workframe`, commit
+or stash local changes, switch away from a detached HEAD, or reconcile
+unpublished commits before rerunning:
 
 ```bash
 workframe update
