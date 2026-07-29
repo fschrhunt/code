@@ -25,6 +25,8 @@ setup() {
   git -C "$UPDATE_SOURCE" push -q -u origin main
   git -C "$UPDATE_ORIGIN" symbolic-ref HEAD refs/heads/main
   git clone -q "$UPDATE_ORIGIN" "$UPDATE_CHECKOUT"
+  git -C "$UPDATE_CHECKOUT" config user.email t@example.com
+  git -C "$UPDATE_CHECKOUT" config user.name tester
 
   mkdir -p "$UPDATE_STORE/system/config"
   cat > "$UPDATE_STORE/system/config/workframe.conf" <<'EOF'
