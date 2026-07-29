@@ -11,7 +11,7 @@ load helper
   local expected_root
   mkdir -p "$user_home" "$volume/development"
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$user_home" WORKFRAME_COLOR=0 \
     "$WORKFRAME" setup --local --root "$store" \
       --agent Codex --agent claude --editor code --org example
@@ -30,7 +30,7 @@ load helper
   grep -q '^agents = codex, claude$' "$store/system/config/workframe.conf"
   expected_root=$(cd "$store" && pwd -P)
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$user_home" WORKFRAME_COLOR=0 bash -c '
       . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
       printf "ROOT=%s\nCONFIG=%s\nAGENTS=%s\n" "$ROOT" "$WORKFRAME_USER_CONFIG" "$VALID_AGENTS"
@@ -47,10 +47,10 @@ load helper
   local store="$BATS_TEST_TMPDIR/store"
   mkdir -p "$user_home" "$store"
 
-  env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" WORKFRAME_COLOR=0 \
+  env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" WORKFRAME_COLOR=0 \
     "$WORKFRAME" setup --local --root "$store" --agent codex >/dev/null
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" WORKFRAME_COLOR=0 \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" WORKFRAME_COLOR=0 \
     "$WORKFRAME" setup --local --agent nova
 
   [ "$status" -eq 0 ]
@@ -66,7 +66,7 @@ load helper
   printf 'type = local\neditor = cursor\nagents = codex\n' > "$store/system/config/workframe.conf"
   ln -s "$store" "$user_home/workframe"
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$user_home" WORKFRAME_COLOR=0 \
     "$WORKFRAME" setup --local --root "$store" --agent nova
 
@@ -80,7 +80,7 @@ load helper
   local user_home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$user_home"
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$user_home" WORKFRAME_COLOR=0 \
     "$WORKFRAME" setup --local --root relative/workframe --agent codex
 
@@ -95,7 +95,7 @@ load helper
   mkdir -p "$user_home/.config/workframe"
   printf '%s\n' "$missing" > "$user_home/.config/workframe/root"
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$user_home" WORKFRAME_COLOR=0 "$WORKFRAME" status
 
   [ "$status" -ne 0 ]
@@ -109,7 +109,7 @@ load helper
   local store="$BATS_TEST_TMPDIR/override"
   mkdir -p "$user_home"
 
-  run env HOME="$user_home" WORKFRAME_HOME="$store" WORKFRAME_COLOR=0 \
+  run env -u XDG_CONFIG_HOME HOME="$user_home" WORKFRAME_HOME="$store" WORKFRAME_COLOR=0 \
     "$WORKFRAME" setup --local --agent codex
 
   [ "$status" -eq 0 ]
@@ -121,7 +121,7 @@ load helper
   local user_home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$user_home"
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$user_home" WORKFRAME_COLOR=0 "$WORKFRAME" init --help
 
   [ "$status" -eq 0 ]

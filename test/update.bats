@@ -104,7 +104,7 @@ EOF
   mkdir -p "$UPDATE_HOME/.config/workframe"
   printf '%s\n' "$missing_store" > "$UPDATE_HOME/.config/workframe/root"
 
-  run env -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
     HOME="$UPDATE_HOME" WORKFRAME_COLOR=0 \
     "$UPDATE_CHECKOUT/bin/workframe" update
 
