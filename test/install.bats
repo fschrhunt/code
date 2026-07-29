@@ -40,3 +40,22 @@
   [[ "$output" == *"WORKFRAME_BOX_ADDR"* ]]
   [[ "$output" == *"~/workframe/config"* ]]
 }
+
+@test "mount helper refuses a permissive credential seed" {
+  local user_home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$user_home" "$BATS_TEST_TMPDIR/mount"
+  printf 'not-a-real-password\n' > "$user_home/.workframe-cred.seed"
+  chmod 644 "$user_home/.workframe-cred.seed"
+
+  run env \
+    HOME="$user_home" \
+    WORKFRAME_SHARE_NAME=workframe \
+    WORKFRAME_BOX_USER=workframe \
+    WORKFRAME_MOUNT_PATH="$BATS_TEST_TMPDIR/mount" \
+    WORKFRAME_BOX_ADDR=192.0.2.10 \
+    bash "$BATS_TEST_DIRNAME/../contrib/mount-workframe.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"refusing credential seed"* ]]
+  [ -f "$user_home/.workframe-cred.seed" ]
+}

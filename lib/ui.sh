@@ -133,19 +133,33 @@ _progress_filter(){
 
 # Run a backend verb with a live progress bar; non-progress stdout → PROGRESS_OUT.
 # PROGRESS_OUT / SPIN_OUT are read by frontend callers (separate lint unit).
+_temp_output_file(){
+  local tmpdir=${TMPDIR:-/tmp}
+  [ -d "$tmpdir" ] || return 1
+  (umask 077; mktemp "$tmpdir/workframe.XXXXXX.out")
+}
+
 _progress_run(){
   local label=$1; shift
-  local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/workframe.$$.out")
+  local tmp
+  tmp=$(_temp_output_file 2>/dev/null) || {
+    err "could not create a secure temporary file"
+    return 1
+  }
   { "$@" 2>&1 | tr '\r' '\n' | _progress_filter "$label"; } >"$tmp"
   local rc=${PIPESTATUS[0]}
   # shellcheck disable=SC2034
-  PROGRESS_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"
+  PROGRESS_OUT=$(cat "$tmp" 2>/dev/null); rm -f -- "$tmp"
   return "$rc"
 }
 
-_spin_run(){ local msg=$1; shift; local tmp; tmp=$(mktemp 2>/dev/null || echo "/tmp/workframe.$$.out")
+_spin_run(){ local msg=$1; shift; local tmp
+  tmp=$(_temp_output_file 2>/dev/null) || {
+    err "could not create a secure temporary file"
+    return 1
+  }
   ( "$@" >"$tmp" 2>&1 ) & local pid=$! i=0 fr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
   if [ -t 1 ]; then printf '\e[?25l'; while kill -0 "$pid" 2>/dev/null; do printf '\r\e[2K  %s%s%s %s' "$GRN" "${fr:$((i%10)):1}" "$N" "$msg"; i=$((i+1)); sleep 0.08; done; printf '\r\e[2K\e[?25h'; fi
   wait "$pid"; local rc=$?
   # shellcheck disable=SC2034
-  SPIN_OUT=$(cat "$tmp" 2>/dev/null); rm -f "$tmp"; return $rc; }
+  SPIN_OUT=$(cat "$tmp" 2>/dev/null); rm -f -- "$tmp"; return $rc; }
