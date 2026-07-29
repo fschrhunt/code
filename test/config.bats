@@ -75,7 +75,11 @@ _load_cfg() {
   _save_user_config
 
   local mode
-  mode=$(stat -f '%Lp' "$WORKFRAME_USER_CONFIG" 2>/dev/null || stat -c '%a' "$WORKFRAME_USER_CONFIG")
+  if [ "$(uname -s)" = Darwin ]; then
+    mode=$(stat -f '%Lp' "$WORKFRAME_USER_CONFIG")
+  else
+    mode=$(stat -c '%a' "$WORKFRAME_USER_CONFIG")
+  fi
   [ "$mode" = 600 ]
   grep -q '^box_host = store.example$' "$WORKFRAME_USER_CONFIG"
 }
