@@ -184,7 +184,7 @@ _wizard_start_workspace(){
   if [ -z "$repos" ]; then
     _wizard_screen "Start a workspace" "A repository is needed before Workframe can create isolated work."
     choice=$(_choose "no repositories are available" "add a repository" "back") || return 0
-    [ "$choice" = "add a repository" ] && mac_clone
+    [ "$choice" = "add a repository" ] && mac_clone "$@"
     return 0
   fi
   mac_new "$@"
@@ -203,10 +203,10 @@ _wizard_lifecycle(){
       "permanently delete archived work" \
       "back") || return 0
     case "$choice" in
-      "browse active workspaces") mac_list;;
-      "rename a workspace") mac_rename;;
+      "browse active workspaces") mac_list "$@";;
+      "rename a workspace") mac_rename "$@";;
       "archive a workspace") mac_archive "$@";;
-      "restore archived work") mac_restore;;
+      "restore archived work") mac_restore "$@";;
       "browse archived work") mac_archived;;
       "permanently delete archived work") mac_rmbranch;;
       back) return 0;;
@@ -227,9 +227,9 @@ _wizard_repositories(){
       "permanently delete a repository" \
       "back") || return 0
     case "$choice" in
-      "add a repository") mac_clone;;
+      "add a repository") mac_clone "$@";;
       "browse repositories") banner "repositories"; _bx repos;;
-      "sync repositories") mac_sync;;
+      "sync repositories") mac_sync "$@";;
       "clean stale worktrees") mac_clean "$@";;
       "permanently delete a repository") mac_delrepo;;
       back) return 0;;
@@ -344,7 +344,7 @@ mac_wizard(){
       "exit workframe") || return 0
     case "$choice" in
       "start a new workspace") _wizard_start_workspace "$@";;
-      "continue working in a workspace") mac_ide;;
+      "continue working in a workspace") mac_ide "$@";;
       "manage workspace lifecycle") _wizard_lifecycle "$@";;
       "manage repositories") _wizard_repositories "$@";;
       "settings and agents") _wizard_settings;;
