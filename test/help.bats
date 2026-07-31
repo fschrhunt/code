@@ -18,18 +18,16 @@ EOF
   [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "bare workframe prints help" {
+@test "bare workframe presents the wizard guide when no terminal is attached" {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
   mkdir -p "$WORKFRAME_HOME/system/config"
   printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
   run bash -c "WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"START HERE"* ]]
-  [[ "$output" == *"WORKSPACES"* ]]
-  [[ "$output" == *"REPOSITORIES"* ]]
-  [[ "$output" == *"SYSTEM"* ]]
-  [[ "$output" == *"ide"* ]]
-  [[ "$output" == *"workframe new"* ]]
+  [[ "$output" == *"interactive workspace wizard"* ]]
+  [[ "$output" == *"Start with the outcome you want"* ]]
+  [[ "$output" == *"start or continue a workspace"* ]]
+  [[ "$output" != *"workframe new"* ]]
 }
 
 @test "help header uses the brace logo without adjacent metadata" {
@@ -52,15 +50,12 @@ EOF
   [[ "$output" != *$'\e[38;2;58;222;161m'* ]]
 }
 
-@test "paired help commands share a fixed right-hand column" {
+@test "help describes the wizard rather than a command catalogue" {
   run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help"
   [ "$status" -eq 0 ]
-  local command line prefix
-  for command in archive restore rename sync remove config status update; do
-    line=$(printf '%s\n' "$output" | grep -E "[[:space:]]${command}[[:space:]]")
-    prefix=${line%%"$command"*}
-    [ "${#prefix}" -eq 40 ]
-  done
+  [[ "$output" == *"The home screen guides you to:"* ]]
+  [[ "$output" == *"Support:"* ]]
+  [[ "$output" != *"START HERE"* ]]
 }
 
 @test "help works via -h and --help too" {

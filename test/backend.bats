@@ -34,6 +34,31 @@ setup() {
   [[ "$output" == *fix-login* ]]
 }
 
+@test "a store root with spaces keeps worktrees visible and deletion-safe" {
+  local old_root=$WORKFRAME_HOME
+  WORKFRAME_HOME="$BATS_TEST_TMPDIR/store with spaces"
+  mv "$old_root" "$WORKFRAME_HOME"
+  local ws; ws=$("$WORKFRAME" new codex demo spaced-root 2>/dev/null | _workspace_path)
+  [ -e "$ws/.git" ]
+
+  run "$WORKFRAME" worktrees
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'codex\tdemo\t'* ]]
+  [[ "$output" == *"$ws"* ]]
+
+  printf 'uncommitted\n' > "$ws/keep-me.txt"
+  run "$WORKFRAME" remove repo demo
+  [ "$status" -eq 3 ]
+  [[ "$output" == *REFUSED* ]]
+  [ -d "$WORKFRAME_HOME/repos/demo" ]
+  [ -e "$ws/.git" ]
+
+  run "$WORKFRAME" remove repo demo --force
+  [ "$status" -eq 0 ]
+  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
+  [ ! -e "$ws" ]
+}
+
 @test "archive removes the folder but keeps the branch; archived lists it" {
   local ws; ws=$("$WORKFRAME" new codex demo feat-x 2>/dev/null | _workspace_path)
   run "$WORKFRAME" archive "$ws"
@@ -141,6 +166,21 @@ setup() {
   run "$WORKFRAME" clean
   [ "$status" -eq 0 ]
   [[ "$output" == *"dry run"* ]]
+}
+
+@test "clean prunes metadata for an orphaned worktree" {
+  local ws; ws=$("$WORKFRAME" new codex demo orphaned 2>/dev/null | _workspace_path)
+  rm "$ws/.git"
+
+  run "$WORKFRAME" clean --yes
+  [ "$status" -eq 0 ]
+  [ ! -e "$ws" ]
+
+  run git -C "$WORKFRAME_HOME/repos/demo" worktree list --porcelain
+  [[ "$output" != *"$ws"* ]]
+  run "$WORKFRAME" archived
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'codex\tdemo\tcodex/orphaned'* ]]
 }
 
 @test "remove repo refuses path-traversal names" {

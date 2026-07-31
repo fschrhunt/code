@@ -22,7 +22,8 @@ one canonical clone
 
 Workframe 1.5.0 is a clean-start release. The command is `workframe`, product
 environment variables use `WORKFRAME_*`, and local state begins at
-`~/workframe`.
+`~/workframe`. It is a guided terminal wizard: run `workframe` and choose the
+next action instead of memorizing commands and flags.
 
 ## Start in 60 seconds
 
@@ -40,28 +41,15 @@ Or install from a Git checkout:
 git clone https://github.com/fschrhunt/workframe.git
 cd workframe
 ./install.sh
-
-workframe setup
-workframe clone owner/repo
-workframe new repo fix-login --agent codex
-workframe list
 ```
 
 Homebrew installations update with `brew upgrade workframe`. Checkout
 installations update with `workframe update`.
 
-Open the new workspace:
-
-```bash
-workframe ide repo/fix-login
-```
-
-When the work is parked:
-
-```bash
-workframe archive repo/fix-login --yes
-workframe restore repo codex/fix-login
-```
+Then run `workframe`. The first run sets up the store, agents, editor, and
+optional GitHub organization. From the same menu, choose **Manage
+repositories** to add a repository, then **Start a new workspace**. Return to
+**Continue working** or **Manage workspace lifecycle** as work progresses.
 
 ## The lifecycle
 
@@ -71,14 +59,14 @@ workframe restore repo codex/fix-login
 
 Workframe separates reversible lifecycle actions from destructive ones:
 
-| Intent | Command | Result |
+| Intent | Wizard path | Result |
 |---|---|---|
-| Start | `workframe new repo feature --agent codex` | Creates a branch and worktree |
-| Inspect | `workframe list` | Shows active worktrees |
-| Pause | `workframe archive <selector> --yes` | Removes the folder, keeps the branch |
-| Resume | `workframe restore repo agent/feature` | Recreates the worktree |
-| Delete branch | `workframe remove branch repo agent/feature --yes` | Permanently deletes an archived branch |
-| Delete repo | `workframe remove repo repo --yes` | Deletes the canonical clone when safe |
+| Start | Start a new workspace | Creates a branch and worktree |
+| Inspect | Manage workspace lifecycle → Browse active | Shows active worktrees |
+| Pause | Manage workspace lifecycle → Archive | Removes the folder, keeps the branch |
+| Resume | Manage workspace lifecycle → Restore | Recreates the worktree |
+| Delete branch | Manage workspace lifecycle → Permanently delete | Permanently deletes an archived branch |
+| Delete repo | Manage repositories → Permanently delete | Deletes the canonical clone when safe |
 
 ## Local or shared
 
@@ -96,7 +84,8 @@ Every store also receives a non-overwriting `WORKFRAME.md` safety contract for
 coding agents and agent launchers. Repository-local instructions remain the
 automatically discovered authority for tools that stop at the Git root.
 
-Run `workframe setup --shared` to configure a shared profile.
+Choose **Settings and agents → Profile** in the wizard to configure a shared
+profile.
 
 ## Find the right guide
 
@@ -107,7 +96,7 @@ Run `workframe setup --shared` to configure a shared profile.
 | Start, pause, resume, or remove work | [Workspace lifecycle](docs/guides/workspace-lifecycle.md) |
 | Choose local or shared operation | [Profiles](docs/guides/profiles.md) |
 | Configure agents and editors | [Agents and editors](docs/guides/agents-and-editors.md) |
-| Look up a command | [CLI reference](docs/reference/cli.md) |
+| Understand the wizard or automation interface | [Wizard reference](docs/reference/cli.md) |
 | Look up configuration or environment variables | [Configuration reference](docs/reference/configuration.md) |
 | Diagnose a problem | [Troubleshooting](docs/troubleshooting.md) |
 | Operate or release Workframe | [Operations](docs/operations.md) |
@@ -123,7 +112,7 @@ Workframe is a Bash CLI; there is no application server.
 
 ```bash
 make check
-bin/workframe help
+bin/workframe
 ```
 
 `make check` runs ShellCheck and the hermetic Bats suite. Tests never require a
