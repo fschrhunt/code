@@ -249,6 +249,10 @@ cmd_archive(){
     esac
   done
   [ -n "$worktree" ] || die "usage: archive <path> [--force]"
+  # $WORK is physical (see config.sh), so the argument must be too — otherwise a
+  # store reached through a symlink (an attached volume, /tmp on macOS) fails the
+  # containment check even though it names a managed worktree.
+  [ -d "$worktree" ] && worktree=$(cd -P "$worktree" 2>/dev/null && pwd -P || printf '%s' "$worktree")
   case "$worktree" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
   local rel=${worktree#"$WORK"/}; _is_agent "${rel%%/*}" || die "not a workframe-managed worktree"; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
   _prog "checking status" 25

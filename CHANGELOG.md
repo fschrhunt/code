@@ -5,6 +5,16 @@ Notable changes to Workframe are documented here. The project follows
 
 ## Unreleased
 
+- Fixed the wizard's **Start a new workspace** action, which always failed with
+  a non-interactive usage error. Prompting is now gated on stdin and stderr
+  rather than stdout, so a prompt whose result is captured with `$(…)` still
+  reaches the terminal.
+- `WORKFRAME_COLOR=0` now forces plain output as documented, including when a
+  terminal is attached.
+- A failed prompt program is no longer mistaken for typed input.
+- The first-run "next" hint now names the actual main-menu entries.
+- `archive` accepts a worktree path reached through a symlinked store root.
+- `workframe sync` output ends with a newline.
 - Security and community foundations for the public repository.
 - Homebrew installation through `fschrhunt/tap/workframe`.
 - Interactive `workframe setup` with persistent custom local roots and

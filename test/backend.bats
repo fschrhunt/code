@@ -354,3 +354,24 @@ _advance_origin() {
   [[ "$output" == *diverged* ]]
   [ ! -f "$WORKFRAME_HOME/repos/demo/upstream.txt" ]
 }
+
+@test "archive accepts a worktree path reached through a symlinked store root" {
+  # A store on an attached volume (or /tmp on macOS) is reached through a
+  # symlink, while $WORK is physical — the containment check must still match.
+  local ws; ws=$("$WORKFRAME" new codex demo linkpath | _workspace_path)
+  local link="$BATS_TEST_TMPDIR/link"
+  ln -s "$WORKFRAME_HOME" "$link"
+  # $ws is physical; take the agent/repo/city tail rather than assuming a prefix.
+  local via_link="$link/workspaces/${ws#*/workspaces/}"
+  [ -e "$via_link/.git" ]
+  run "$WORKFRAME" archive "$via_link"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"archived: codex/linkpath"* ]]
+  [ ! -d "$ws" ]
+}
+
+@test "archive still refuses a path outside the store" {
+  run "$WORKFRAME" archive "$BATS_TEST_TMPDIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not under workspaces/"* ]]
+}

@@ -47,6 +47,12 @@ _help(){
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----
+# Can we prompt? Prompts read stdin and render to stderr (gum draws its UI on
+# stderr; the plain fallback writes its menu there too). stdout is deliberately
+# NOT tested: prompting functions are routinely captured with $( ), which makes
+# stdout a pipe even in a fully interactive session. Rendering that targets
+# stdout (progress bars, spinners, cursor control) still checks `-t 1`.
+_interactive(){ [ -t 0 ] && [ -t 2 ]; }
 _has_gum(){ command -v gum >/dev/null 2>&1; }
 _gum_env(){ COLORTERM=truecolor CLICOLOR_FORCE=1 "$@"; }
 _choose(){ local h=$1; shift; local -a o=("$@")
@@ -63,7 +69,10 @@ _choose(){ local h=$1; shift; local -a o=("$@")
 _input(){
   local header=$1 default=${2:-} v
   if _has_gum; then
-    v=$(_gum_env gum input --header "$header" --placeholder "${default}" --prompt "❯ " --prompt.foreground "$GUMC") || true
+    # A non-zero exit means cancelled (Esc/Ctrl-C) or crashed. Discard whatever
+    # landed on stdout either way — a gum panic trace must never be mistaken for
+    # something the user typed.
+    v=$(_gum_env gum input --header "$header" --placeholder "${default}" --prompt "❯ " --prompt.foreground "$GUMC") || v=""
   else
     if [ -n "$default" ]; then
       printf '  %s%s%s %s[%s]%s ' "$B" "$header" "$N" "$DIM" "$default" "$N" >&2
@@ -79,7 +88,7 @@ _confirm(){ if _has_gum; then _gum_env gum confirm "$1"; else printf '  %s %s[y/
 _confirm_yes(){
   local msg=$1 flag=${2:-}
   [ "$flag" = "--yes" ] && return 0
-  if [ -t 0 ] && [ -t 1 ]; then
+  if _interactive; then
     _confirm "$msg"
   else
     die "refusing without --yes (non-interactive)"

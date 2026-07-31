@@ -102,7 +102,7 @@ _resolve_agent(){
   if ! _agents_configured; then
     die "no agents configured — add one from the Agents menu in the Workframe wizard"
   fi
-  if [ -t 0 ] && [ -t 1 ]; then
+  if _interactive; then
     _agents_array
     local sel
     sel=$(_choose "which agent?" "${AGENTS_ARR[@]}") || return 1

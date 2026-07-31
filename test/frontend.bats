@@ -463,3 +463,15 @@ EOF
   [[ "$output" == *"WORKFRAME_VALID_AGENTS=claude codex"* ]]
   [[ "$output" == *"/mnt/my workframe/system/bin/workframe"* ]]
 }
+
+@test "mac_sync output ends with a newline" {
+  _use_backend_store
+  _seed_repo demo
+  run bash -c '
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
+    unset WORKFRAME_BACKEND
+    "'"$WORKFRAME"'" sync | tail -c 1 | od -An -c | tr -d "[:space:]"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = '\n' ]
+}
