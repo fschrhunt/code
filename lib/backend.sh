@@ -286,15 +286,28 @@ cmd_list(){ local rows; rows=$(cmd_worktrees)
     if [ -n "$(git -C "$worktree" status --porcelain 2>/dev/null)" ]; then dv=yes; dc=$YEL; else dv="-"; dc=$DIM; fi; printf -v dcell '%-6s' "$dv"
     ab=$(git -C "$worktree" rev-list --left-right --count "origin/$base...HEAD" 2>/dev/null | awk '{printf "+%s/-%s",$2,$1}')
     printf '  %s%-8s%s %-12s %s%-22s%s %s%s%s %-9s %s%s%s\n' "$GRN" "$ag" "$N" "$repo" "$W" "$feat" "$N" "$dc" "$dcell" "$N" "${ab:-?}" "$DIM" "$city" "$N"; done; }
-cmd_status(){ local n; n=$(cmd_worktrees | wc -l | tr -d ' '); printf 'worktrees: %s\ncanonicals:\n' "$n"
+cmd_status(){ local n disk; n=$(cmd_worktrees | wc -l | tr -d ' '); printf 'worktrees: %s\ncanonicals:\n' "$n"
   local r; for r in $(_repos_all); do printf '  %-14s %s\n' "$r" "$(git -C "$(_canon "$r")" log -1 --format='%h %cr' 2>/dev/null)"; done
-  printf 'disk: %s\n' "$(df -h "$ROOT" 2>/dev/null | awk 'NR==2{print $3" used / "$2}')"; }
+  if [ ! -d "$ROOT" ]; then
+    printf 'disk: not initialized — run workframe setup\n'
+    return
+  fi
+  disk=$(df -h "$ROOT" 2>/dev/null | awk 'NR==2{print $3" used / "$2}')
+  printf 'disk: %s\n' "${disk:-unavailable}"; }
 cmd_doctor(){
-  local r missing=0
-  ok "store root  ${DIM}$ROOT${N}"
-  if _agents_configured; then ok "agents  ${DIM}$VALID_AGENTS${N}"; else warn "no agents configured — workframe agents add <name>"; fi
+  local r missing=0 initialized=1
+  if [ -d "$ROOT" ] && _user_config_exists; then
+    ok "store root  ${DIM}$ROOT${N}"
+  else
+    warn "store not initialized at $ROOT — run workframe setup"
+    initialized=0
+  fi
+  if [ "$initialized" = 1 ]; then
+    if _agents_configured; then ok "agents  ${DIM}$VALID_AGENTS${N}"; else warn "no agents configured — workframe agents add <name>"; fi
+  fi
   command -v git >/dev/null 2>&1 && ok "git available" || err "git missing"
   if command -v gh >/dev/null 2>&1; then ok "gh available"; else warn "gh not installed (optional)"; fi
+  [ "$initialized" = 1 ] || return 0
   # Shared/box path: probe remotes when we have canonicals (no fleet-specific remediations).
   if [ "${WORKFRAME_PROFILE_TYPE:-local}" != local ] && [ -z "${WORKFRAME_HOME:-}" ]; then
     local first; first=$(_repos_all | head -1)

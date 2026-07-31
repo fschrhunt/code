@@ -3,6 +3,25 @@
 
 load helper
 
+@test "fresh install diagnostics point to setup instead of reporting a healthy store" {
+  local user_home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$user_home"
+
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+    HOME="$user_home" WORKFRAME_COLOR=0 "$WORKFRAME" doctor
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"store not initialized at $user_home/workframe"* ]]
+  [[ "$output" == *"run workframe setup"* ]]
+  [[ "$output" != *"store root"* ]]
+
+  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND \
+    HOME="$user_home" WORKFRAME_COLOR=0 "$WORKFRAME" status
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"disk: not initialized — run workframe setup"* ]]
+}
+
 @test "setup remembers a custom root and configures multiple agents" {
   local user_home="$BATS_TEST_TMPDIR/home"
   local volume="$BATS_TEST_TMPDIR/Attached Volume"
