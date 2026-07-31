@@ -79,13 +79,21 @@ _pick_city(){
   printf '%s%s' "$(_gen_city_name)" "$(_city_rand)"
 }
 cmd_repos(){ _repos_all; }
+# Git's porcelain format puts the complete path after "worktree ".  Do not use
+# awk's $2 here: roots with spaces are valid and must remain one pathname.
+_worktree_paths(){
+  local d=$1 line
+  while IFS= read -r line; do
+    case "$line" in "worktree "*) printf '%s\n' "${line#worktree }";; esac
+  done < <(git -C "$d" worktree list --porcelain 2>/dev/null)
+}
 cmd_worktrees(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
-    git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r worktree; do
+    while IFS= read -r worktree; do
       case "$worktree" in "$WORK"/*) ;; *) continue;; esac; [ -e "$worktree/.git" ] || continue
       local rel=${worktree#"$WORK"/} ag city; ag=${rel%%/*}; city=${rel##*/}; _is_agent "$ag" || continue
       printf '%s\t%s\t%s\t%s\t%s\n' "$ag" "$r" "$city" "$worktree" "$(git -C "$worktree" branch --show-current 2>/dev/null)"
-    done; done; }
+    done < <(_worktree_paths "$d"); done; }
 cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   [ -n "$agent" ] && [ -n "$repo" ] && [ -n "$feature" ] || die "usage: new <agent> <repo> <feature>"
   _is_agent "$agent" || die "unknown agent '$agent' — configure with: workframe agents add $agent"
@@ -97,7 +105,7 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   # Archive keeps the branch; reuse needs restore, not a second -b create.
   if git -C "$d" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
     existing=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk -v want="refs/heads/$branch" '
-      /^worktree /{worktree=$2; next}
+      /^worktree /{sub(/^worktree /, ""); worktree=$0; next}
       /^branch /{ if ($2==want) { print worktree; exit } }
     ')
     if [ -n "$existing" ]; then
@@ -154,18 +162,19 @@ cmd_delrepo(){
   done
   [ -n "$repo" ] || die "usage: delrepo <repo> [--force]"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; local risky=0 worktree
+  local -a worktrees=()
+  while IFS= read -r worktree; do
+    [ "$worktree" = "$d" ] || worktrees+=("$worktree")
+  done < <(_worktree_paths "$d")
   _prog "checking worktrees" 10
-  for worktree in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
+  for worktree in "${worktrees[@]}"; do
     [ "$worktree" = "$d" ] && continue; [ -e "$worktree/.git" ] || continue
     local dirty unpushed; dirty=$(git -C "$worktree" status --porcelain 2>/dev/null | wc -l | tr -d ' '); unpushed=$(git -C "$worktree" log --branches --not --remotes --oneline 2>/dev/null | wc -l | tr -d ' ')
     if [ "$dirty" != 0 ] || [ "$unpushed" != 0 ]; then risky=$((risky+1)); printf '  at-risk: %s (dirty=%s unpushed=%s)\n' "${worktree#"$WORK"/}" "$dirty" "$unpushed"; fi; done
   _prog "checking worktrees" 30
   if [ "$risky" -gt 0 ] && [ "$force" != "--force" ]; then printf 'REFUSED: %s worktree(s) hold uncommitted/unpushed work\n' "$risky"; return 3; fi
-  local -a rm_worktrees=()
-  for worktree in $(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
-    [ "$worktree" = "$d" ] && continue; rm_worktrees+=("$worktree"); done
-  local n=${#rm_worktrees[@]} i=0
-  for worktree in "${rm_worktrees[@]}"; do
+  local n=${#worktrees[@]} i=0
+  for worktree in "${worktrees[@]}"; do
     i=$((i+1)); [ "$n" -gt 0 ] && _prog "removing worktrees" $(( 30 + i * 50 / n )) || _prog "removing worktrees" 50
     git -C "$d" worktree remove --force "$worktree" 2>/dev/null; rm -rf "$worktree" 2>/dev/null; done
   _prog "deleting repo" 90; rm -rf "$d"; _prog "finishing" 100
@@ -196,9 +205,16 @@ cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_r
   for r in "${repo_list[@]}"; do ri=$((ri+1)); local d; d=$(_canon "$r")
     [ "$n" -gt 0 ] && _prog "scanning repos" $(( ri * 100 / n )) || _prog "scanning $r" 50
     git -C "$d" fetch --prune --quiet 2>/dev/null || { warn "skip $r (fetch failed)"; continue; }
-    git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r worktree; do
+    while IFS= read -r worktree; do
       case "$worktree" in "$WORK"/*) ;; *) continue;; esac; local rel=${worktree#"$WORK"/}; _is_agent "${rel%%/*}" || continue
-      if [ ! -e "$worktree/.git" ]; then printf '  %sorphan%s   %s\n' "$YEL" "$N" "$worktree"; [ "$force" = "--yes" ] && rm -rf "$worktree"; continue; fi
+      if [ ! -e "$worktree/.git" ]; then
+        printf '  %sorphan%s   %s\n' "$YEL" "$N" "$worktree"
+        if [ "$force" = "--yes" ]; then
+          rm -rf "$worktree"
+          git -C "$d" worktree prune --expire=now || die "could not prune stale worktree metadata"
+        fi
+        continue
+      fi
       [ -n "$(git -C "$worktree" status --porcelain 2>/dev/null)" ] && continue
       local br up_remote up_merge rc unpushed; br=$(git -C "$worktree" branch --show-current 2>/dev/null)
       up_remote=$(git -C "$worktree" config --get "branch.$br.remote" 2>/dev/null || true)
@@ -219,7 +235,7 @@ cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_r
         printf '  %sremote gone%s  %s %s(%s)%s\n' "$GRN" "$N" "$worktree" "$DIM" "$br" "$N"
         [ "$force" = "--yes" ] && git -C "$d" worktree remove --force "$worktree" && git -C "$d" branch -D "$br" >/dev/null 2>&1 && printf '%s  removed %s (%s)\n' "$(date '+%F %T')" "$worktree" "$br" >> "$LOGDIR/workframe-clean.log" 2>/dev/null
       fi
-    done; done; [ "$force" = "--yes" ] || printf '  %s(dry run — workframe clean --yes to remove)%s\n' "$DIM" "$N"; }
+    done < <(_worktree_paths "$d"); done; [ "$force" = "--yes" ] || printf '  %s(dry run — workframe clean --yes to remove)%s\n' "$DIM" "$N"; }
 # archive: remove the worktree FOLDER but KEEP the branch (Conductor-style — restorable).
 # --force discards uncommitted work; --yes is not a discard flag (frontend confirm skip only).
 cmd_archive(){
