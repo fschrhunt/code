@@ -52,6 +52,10 @@ _bx_remote_cmd(){
 _BX_HAVE_WORKFRAME=0; _BX_CACHE_WORKFRAME=""
 _BX_HAVE_REPOS=0; _BX_CACHE_REPOS=""
 _bx_invalidate(){ _BX_HAVE_WORKFRAME=0; _BX_CACHE_WORKFRAME=""; _BX_HAVE_REPOS=0; _BX_CACHE_REPOS=""; }
+_activate_profile(){
+  _refresh_runtime_paths
+  _bx_invalidate
+}
 _bx_list(){
   case "$1" in
     worktrees)
@@ -120,10 +124,235 @@ ZF
 _print_next_steps(){
   printf '\n  %snext:%s\n' "$DIM" "$N"
   if ! _agents_configured; then
-    printf '    %sworkframe agents add <name>%s\n' "$GRN" "$N"
+    printf '    %sadd an agent in the Workframe wizard%s\n' "$GRN" "$N"
   fi
-  printf '    %sworkframe clone owner/repo%s\n' "$GRN" "$N"
-  printf '    %sworkframe new <repo> <feature>%s\n' "$GRN" "$N"
+  printf '    %schoose Repositories to add a repository%s\n' "$GRN" "$N"
+  printf '    %schoose Workspaces to create your first workspace%s\n' "$GRN" "$N"
+}
+
+# The product surface is a guided session. Individual mac_* functions remain
+# available for compatibility and automation, but normal interactive use starts
+# with an intent (start, continue, manage, configure), never a verb to recall.
+_wizard_screen(){
+  _header
+  printf '\n  %s%s%s\n' "$W" "$1" "$N"
+  [ -n "${2:-}" ] && printf '  %s%s%s\n' "$DIM" "$2" "$N"
+  printf '\n'
+}
+
+_wizard_profile_summary(){
+  if _is_local_store; then
+    printf '  %sLocal store%s  %s\n' "$GRN" "$N" "$ROOT"
+  else
+    printf '  %sShared store%s  %s → %s\n' "$GRN" "$N" "$BOX_HOST" "$MAC_ROOT"
+  fi
+}
+
+_wizard_agents(){
+  local choice name
+  while :; do
+    _wizard_screen "Agents" "Agents name branch namespaces and keep work isolated."
+    choice=$(_choose "manage agent identities" \
+      "show configured agents" \
+      "add an agent" \
+      "remove an agent" \
+      "back") || return 0
+    case "$choice" in
+      "show configured agents") agents_list;;
+      "add an agent")
+        name=$(_input "agent name (letters, numbers, . _ -)" "")
+        [ -n "$name" ] && agents_add "$name"
+        ;;
+      "remove an agent")
+        if ! _agents_configured; then
+          warn "no agents configured"
+          continue
+        fi
+        _agents_array
+        name=$(_choose "remove which agent?" "${AGENTS_ARR[@]}") || continue
+        _confirm "remove agent '$name'? Active workspaces prevent removal." && agents_remove "$name"
+        ;;
+      back) return 0;;
+    esac
+    printf '\n'
+  done
+}
+
+_wizard_start_workspace(){
+  local repos choice
+  repos=$(_bx_list repos) || return $?
+  if [ -z "$repos" ]; then
+    _wizard_screen "Start a workspace" "A repository is needed before Workframe can create isolated work."
+    choice=$(_choose "no repositories are available" "add a repository" "back") || return 0
+    [ "$choice" = "add a repository" ] && mac_clone
+    return 0
+  fi
+  mac_new "$@"
+}
+
+_wizard_lifecycle(){
+  local choice
+  while :; do
+    _wizard_screen "Workspace lifecycle" "Archive is reversible. Permanent deletion is kept separate."
+    choice=$(_choose "choose a workspace action" \
+      "browse active workspaces" \
+      "rename a workspace" \
+      "archive a workspace" \
+      "restore archived work" \
+      "browse archived work" \
+      "permanently delete archived work" \
+      "back") || return 0
+    case "$choice" in
+      "browse active workspaces") mac_list;;
+      "rename a workspace") mac_rename;;
+      "archive a workspace") mac_archive "$@";;
+      "restore archived work") mac_restore;;
+      "browse archived work") mac_archived;;
+      "permanently delete archived work") mac_rmbranch;;
+      back) return 0;;
+    esac
+    printf '\n'
+  done
+}
+
+_wizard_repositories(){
+  local choice
+  while :; do
+    _wizard_screen "Repositories" "Each repository has one canonical clone and any number of isolated workspaces."
+    choice=$(_choose "manage repositories" \
+      "add a repository" \
+      "browse repositories" \
+      "sync repositories" \
+      "clean stale worktrees" \
+      "permanently delete a repository" \
+      "back") || return 0
+    case "$choice" in
+      "add a repository") mac_clone;;
+      "browse repositories") banner "repositories"; _bx repos;;
+      "sync repositories") mac_sync;;
+      "clean stale worktrees") mac_clean "$@";;
+      "permanently delete a repository") mac_delrepo;;
+      back) return 0;;
+    esac
+    printf '\n'
+  done
+}
+
+_wizard_profile(){
+  local choice
+  _wizard_screen "Choose a profile" "Local keeps everything on this machine. Shared uses a remote store and mounted path."
+  choice=$(_choose "where should Workframe operate?" \
+    "local    this machine ($WORKFRAME_USER_DIR)" \
+    "shared   remote box and mounted workspace") || return 0
+  case "$choice" in
+    local*)
+      WORKFRAME_PROFILE_TYPE=local
+      _save_user_config || die "could not save Workframe configuration"
+      _activate_profile
+      ok "now using local store  ${DIM}$ROOT${N}"
+      ;;
+    shared*)
+      WORKFRAME_PROFILE_TYPE=shared
+      _ask_shared_stack
+      _save_user_config || die "could not save Workframe configuration"
+      _activate_profile
+      ok "now using shared store  ${DIM}$BOX_HOST${N}"
+      ;;
+  esac
+}
+
+_wizard_settings(){
+  local choice
+  while :; do
+    _wizard_screen "Settings" "Configure the store and the tools Workframe uses for your work."
+    _wizard_profile_summary
+    printf '\n'
+    choice=$(_choose "what would you like to configure?" \
+      "editor and github defaults" \
+      "agents" \
+      "profile (local or shared)" \
+      "shared connection details" \
+      "run setup again" \
+      "back") || return 0
+    case "$choice" in
+      "editor and github defaults")
+        _ask_prefs
+        _save_user_config || die "could not save Workframe configuration"
+        ok "preferences saved"
+        ;;
+      agents) _wizard_agents;;
+      "profile (local or shared)") _wizard_profile;;
+      "shared connection details")
+        WORKFRAME_PROFILE_TYPE=shared
+        _ask_shared_stack
+        _save_user_config || die "could not save Workframe configuration"
+        _activate_profile
+        ok "shared connection saved"
+        ;;
+      "run setup again") mac_setup;;
+      back) return 0;;
+    esac
+    printf '\n'
+  done
+}
+
+_wizard_health(){
+  local choice
+  while :; do
+    _wizard_screen "System health" "Use status for a quick check and diagnostics when something needs attention."
+    choice=$(_choose "choose a system task" \
+      "show status" \
+      "run diagnostics" \
+      "update workframe" \
+      "back") || return 0
+    case "$choice" in
+      "show status") mac_status;;
+      "run diagnostics") mac_doctor;;
+      "update workframe") mac_update "$@";;
+      back) return 0;;
+    esac
+    printf '\n'
+  done
+}
+
+mac_wizard(){
+  if ! { [ -t 0 ] && [ -t 1 ]; }; then
+    _help
+    return 0
+  fi
+
+  # A first run (or a selected root that is currently unavailable) begins with
+  # setup, then returns to this same guided session.
+  if ! _user_config_exists || { [ "${WORKFRAME_ROOT_SELECTED:-0}" = 1 ] && [ ! -d "$WORKFRAME_USER_DIR" ]; }; then
+    _wizard_screen "Welcome to Workframe" "Set up a home for repositories and isolated workspaces."
+    mac_setup || return $?
+    _user_config_exists || return 0
+  fi
+
+  local choice
+  while :; do
+    _wizard_screen "Workframe" "Choose the next outcome. Workframe will ask only for the details it needs."
+    _wizard_profile_summary
+    printf '\n'
+    choice=$(_choose "what do you want to do?" \
+      "start a new workspace" \
+      "continue working in a workspace" \
+      "manage workspace lifecycle" \
+      "manage repositories" \
+      "settings and agents" \
+      "system health" \
+      "exit workframe") || return 0
+    case "$choice" in
+      "start a new workspace") _wizard_start_workspace "$@";;
+      "continue working in a workspace") mac_ide;;
+      "manage workspace lifecycle") _wizard_lifecycle "$@";;
+      "manage repositories") _wizard_repositories "$@";;
+      "settings and agents") _wizard_settings;;
+      "system health") _wizard_health "$@";;
+      "exit workframe") return 0;;
+    esac
+    printf '\n'
+  done
 }
 
 # Shared opt-in: replace CACHE_DIRS with symlinks into ~/.workframe-cache (localdeps=1).
@@ -162,7 +391,7 @@ _setup_add_agents(){
 _ask_setup_agents(){
   local current entered
   current=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
-  printf '  %sAgent identities become branch namespaces and choices for %sworkframe new%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
+  printf '  %sAgent identities become branch namespaces and choices when creating a workspace.%s\n\n' "$DIM" "$N"
   entered=$(_input "agent names (comma separated)" "$current")
   [ -n "$entered" ] || die "need at least one agent name"
   VALID_AGENTS=""
@@ -311,6 +540,7 @@ mac_setup(){
     _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
     _save_root_pointer || die "could not remember Workframe root in $WORKFRAME_ROOT_POINTER"
     _set_local_root "$WORKFRAME_USER_DIR"
+    _activate_profile
     ok "local profile ready  ${DIM}$WORKFRAME_USER_DIR${N}"
     if [ "$moved" = 1 ] && { [ -f "$old_config" ] || [ -f "$old_legacy_config" ] \
       || [ -d "$old_root/repos" ] || [ -d "$old_root/workspaces" ]; }; then
@@ -338,23 +568,16 @@ mac_setup(){
   fi
   _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
   _save_root_pointer || die "could not remember Workframe root in $WORKFRAME_ROOT_POINTER"
-  ROOT="$MAC_ROOT"
-  # Used by backend modules after setup (linted separately from this file).
-  # shellcheck disable=SC2034
-  REPOS="$ROOT/repos"
-  # shellcheck disable=SC2034
-  WORK="$ROOT/workspaces"
-  # shellcheck disable=SC2034
-  LOGDIR="$ROOT/system/logs"
+  _activate_profile
   ok "shared profile saved  ${DIM}$WORKFRAME_USER_CONFIG${N}"
   if _box_reachable; then
     if _bx guide >/dev/null 2>&1; then
       ok "Workframe guide ready  ${DIM}$MAC_ROOT/WORKFRAME.md${N}"
     else
-      warn "Workframe guide pending — rerun: workframe setup --shared"
+      warn "Workframe guide pending — reopen Workframe once the box is reachable"
     fi
   else
-    warn "Workframe guide pending — rerun workframe setup --shared when the box is reachable"
+    warn "Workframe guide pending — reopen Workframe when the box is reachable"
   fi
   printf '  %smount:%s %s  %sbox:%s %s:%s\n' "$DIM" "$N" "$MAC_ROOT" "$DIM" "$N" "$BOX_HOST" "$BOX_ROOT"
   printf '  %sthen:%s mount the share and run %sworkframe doctor%s\n' "$DIM" "$N" "$GRN" "$N"
@@ -408,7 +631,7 @@ mac_new(){ local agent="" repo="" feature=""
   local all matches mcount
   all=$(_bx_list repos)
   if [ -z "$all" ]; then
-    die "no repos yet — clone first: workframe clone owner/repo"
+    die "no repositories yet — add one from the Repositories menu"
   fi
   if [ -z "$repo" ]; then
     if [ -t 0 ] && [ -t 1 ]; then repo=$(_choose "which repo?" $all) || return 0
@@ -421,7 +644,7 @@ mac_new(){ local agent="" repo="" feature=""
     if [ "$mcount" = 1 ]; then
       repo=$(printf '%s\n' "$matches" | sed '/^$/d' | head -1)
     elif [ "$mcount" = 0 ]; then
-      die "no repo matching '$repo' — clone first: workframe clone owner/repo"
+      die "no repository matching '$repo' — add one from the Repositories menu"
     else
       printf '  %sambiguous repo %s — matches:%s\n' "$YEL" "'$repo'" "$N" >&2
       printf '%s\n' "$matches" | sed '/^$/d' | sed 's/^/    /' >&2
@@ -734,19 +957,19 @@ mac_doctor(){ banner "doctor"
 }
 
 mac_config(){ banner "config"
-  local which
+  local which refresh_paths=0
   if [ -t 0 ] && [ -t 1 ]; then
     which=$(_choose "what to configure?" \
       "prefs     editor, github org" \
       "profile   local vs shared" \
       "shared    box host, mount, share name" \
-      "agents    (tip: use workframe agents)") || return 0
+      "agents    manage identities") || return 0
   else
     die "usage: workframe config   (interactive — editor, org, profile, shared stack)"
   fi
   case "$which" in
     prefs*)
-      printf '  %sEditor / org. Agents: %sworkframe agents%s.%s\n\n' "$DIM" "$GRN" "$N" "$N"
+      printf '  %sEditor / org. Agents are managed from the Agents menu.%s\n\n' "$DIM" "$N"
       _ask_agents_and_prefs
       _save_user_config
       ok "saved — editor ${GRN}$EDITOR_CMD${N}, org ${GRN}$DEFAULT_ORG${N}"
@@ -756,20 +979,24 @@ mac_config(){ banner "config"
       WORKFRAME_PROFILE_TYPE=$p
       if [ "$p" = shared ]; then _ask_shared_stack; fi
       _save_user_config
+      refresh_paths=1
       ok "profile ${GRN}$p${N}"
       ;;
     shared*)
       WORKFRAME_PROFILE_TYPE=shared
       _ask_shared_stack
       _save_user_config
+      refresh_paths=1
       ok "shared stack saved"
       printf '  %s%s @ %s → %s (share %s)%s\n' "$DIM" "$BOX_HOST" "$BOX_ROOT" "$MAC_ROOT" "$SHARE_NAME" "$N"
       ;;
     agents*)
-      printf '  %suse:%s workframe agents add|remove|list\n' "$DIM" "$N"
-      agents_list
+      _wizard_agents
       ;;
   esac
+  if [ "$refresh_paths" = 1 ]; then
+    _activate_profile
+  fi
   _offer_shell_cd_hook
 }
 

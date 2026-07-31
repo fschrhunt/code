@@ -354,6 +354,38 @@ EOF
   [[ "$output" == *"GIT_TERMINAL_PROMPT=0"* ]]
 }
 
+@test "activating local profile refreshes a long-lived wizard to its local store" {
+  local user_home="$BATS_TEST_TMPDIR/user-home"
+  local mount_path="$BATS_TEST_TMPDIR/mount"
+  local expected_root
+  mkdir -p "$user_home/workframe" "$mount_path"
+  expected_root=$(cd "$user_home/workframe" && pwd -P)
+  cat > "$user_home/workframe/config" <<EOF
+type = shared
+box_host = box.example
+box_user = workframe
+box_root = $BATS_TEST_TMPDIR/box-root
+mount_path = $mount_path
+share_name = workframe
+agents = codex
+EOF
+  run env -u WORKFRAME_BACKEND -u WORKFRAME_HOME HOME="$user_home" WORKFRAME_COLOR=0 bash -c '
+    . "'"$BATS_TEST_DIRNAME"'/../lib/config.sh"
+    . "'"$BATS_TEST_DIRNAME"'/../lib/palette.sh"
+    . "'"$BATS_TEST_DIRNAME"'/../lib/ui.sh"
+    . "'"$BATS_TEST_DIRNAME"'/../lib/agents.sh"
+    . "'"$BATS_TEST_DIRNAME"'/../lib/backend.sh"
+    . "'"$BATS_TEST_DIRNAME"'/../lib/frontend.sh"
+    WORKFRAME_PROFILE_TYPE=local
+    _activate_profile
+    printf "ROOT=%s\nREPOS=%s\nLOCAL=%s\n" "$ROOT" "$REPOS" "$(_is_local_store && echo yes || echo no)"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ROOT=$expected_root"* ]]
+  [[ "$output" == *"REPOS=$expected_root/repos"* ]]
+  [[ "$output" == *"LOCAL=yes"* ]]
+}
+
 @test "mac_localdeps is a no-op when localdeps is off" {
   _use_backend_store
   local worktree="$WORKFRAME_HOME/workspaces/codex/demo/fakecity"

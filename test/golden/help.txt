@@ -7,33 +7,14 @@
     ██  ████  ██
 
 
-  workframe <command> [options]
+  Workframe is an interactive workspace wizard.
+  Run workframe in a terminal. Start with the outcome you want, then answer only the needed prompts.
 
+  The home screen guides you to:
+    • start or continue a workspace
+    • manage its reversible lifecycle
+    • manage repositories, settings, and agents
+    • check health or update Workframe
 
-  START HERE
-
-  workframe setup                            Choose a root and agents
-  workframe clone owner/repo                 Add a repository
-  workframe new repo feature --agent nova    Create a workspace
-  workframe ide                              Open a workspace
-
-
-  WORKSPACES
-
-  new       Create a worktree           archive   Put one away
-  list      Browse worktrees            restore   Bring one back
-  ide       Open in cursor              rename    Rename its branch
-  cd        Print its path
-
-
-  REPOSITORIES
-
-  clone     Add a repository            sync      Fetch latest
-  clean     Find orphaned worktrees     remove    Delete permanently
-
-
-  SYSTEM
-
-  agents    Manage identities           config    Preferences
-  setup     Configure Workframe         status    Store overview
-  doctor    Run diagnostics             update    Refresh Workframe
+  Support:  workframe help  workframe version
+  Automation uses the internal backend interface; see the configuration reference.
