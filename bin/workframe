@@ -38,13 +38,10 @@ case "$cmd" in
   version|--version|-v) printf 'workframe %s\n' "$WORKFRAME_VERSION"; exit 0;;
 esac
 
-# No args → help.
-[ -z "$cmd" ] && { _help; exit 0; }
-
 if [ "${WORKFRAME_ROOT_SELECTED:-0}" = 1 ] && [ ! -d "$WORKFRAME_USER_DIR" ]; then
   case "$cmd" in
-    setup|init|update) ;;
-    *) die "selected Workframe root is unavailable: $WORKFRAME_USER_DIR (attach the volume or run: workframe setup)";;
+    ""|wizard|setup|init|update) ;;
+    *) die "selected Workframe root is unavailable: $WORKFRAME_USER_DIR (attach the volume or run: workframe)";;
   esac
 fi
 
@@ -87,6 +84,7 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
   esac
 else
   case "$cmd" in
+    ""|wizard)        mac_wizard "$@";;
     setup)            mac_setup "$@";;
     init)             mac_init "$@";;
     new)              mac_new "$@";;

@@ -272,28 +272,34 @@ if [ -n "${WORKFRAME_VALID_AGENTS:-}" ]; then
 fi
 
 # ---- data root + paths ----
-# Frontend (any OS) keeps the user's HOME and uses the local mount path.
-# Only the WORKFRAME_BACKEND=1 store process remaps HOME to BOX_HOME and disables
-# Git prompts for the shared box.
-if [ -n "${WORKFRAME_HOME:-}" ]; then
-  ROOT="$WORKFRAME_HOME"
-elif [ "$WORKFRAME_PROFILE_TYPE" = local ]; then
-  ROOT="$WORKFRAME_USER_DIR"
-elif [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
-  ROOT="${BOX_ROOT:-$WORKFRAME_USER_DIR}"
-  [ -n "$BOX_HOME" ] && export HOME="$BOX_HOME"
-  export GIT_TERMINAL_PROMPT=0
-else
-  ROOT="${MAC_ROOT:-$WORKFRAME_USER_DIR}"
-fi
-[ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
-# Used by backend/frontend modules (linted separately from this file).
-# shellcheck disable=SC2034
-REPOS="$ROOT/repos"
-# shellcheck disable=SC2034
-WORK="$ROOT/workspaces"
-# shellcheck disable=SC2034
-LOGDIR="$ROOT/system/logs"
+# Re-evaluate these whenever setup or the wizard changes profile. Keeping this
+# in one function prevents a long-lived wizard from using the previous store.
+_refresh_runtime_paths(){
+  _sync_box_home
+  # Frontend (any OS) keeps the user's HOME and uses the local mount path.
+  # Only the WORKFRAME_BACKEND=1 store process remaps HOME to BOX_HOME and
+  # disables Git prompts for the shared box.
+  if [ -n "${WORKFRAME_HOME:-}" ]; then
+    ROOT="$WORKFRAME_HOME"
+  elif [ "$WORKFRAME_PROFILE_TYPE" = local ]; then
+    ROOT="$WORKFRAME_USER_DIR"
+  elif [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
+    ROOT="${BOX_ROOT:-$WORKFRAME_USER_DIR}"
+    [ -n "$BOX_HOME" ] && export HOME="$BOX_HOME"
+    export GIT_TERMINAL_PROMPT=0
+  else
+    ROOT="${MAC_ROOT:-$WORKFRAME_USER_DIR}"
+  fi
+  [ -d "$ROOT" ] && ROOT=$(cd "$ROOT" 2>/dev/null && pwd -P || printf '%s' "$ROOT")
+  # Used by backend/frontend modules (linted separately from this file).
+  # shellcheck disable=SC2034
+  REPOS="$ROOT/repos"
+  # shellcheck disable=SC2034
+  WORK="$ROOT/workspaces"
+  # shellcheck disable=SC2034
+  LOGDIR="$ROOT/system/logs"
+}
+_refresh_runtime_paths
 
 _is_local_store(){
   [ "${WORKFRAME_PROFILE_TYPE}" = local ]

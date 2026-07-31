@@ -1,215 +1,55 @@
-# CLI reference
+# Wizard reference
 
-All commands use the user-facing frontend. Internal backend syntax is reserved
-for tests and shared-store execution through `WORKFRAME_BACKEND=1`.
-
-## Global forms
+Workframe is a guided terminal application. For normal use, run:
 
 ```text
 workframe
+```
+
+The first run opens setup. Later runs return to the main menu. You can cancel
+any picker or prompt without changing state.
+
+## Main menu
+
+| Choose | To |
+|---|---|
+| **Start a new workspace** | Choose a repository, agent identity, and feature name |
+| **Continue working** | Choose and open an existing workspace |
+| **Manage workspace lifecycle** | Browse, rename, archive, restore, or permanently delete archived work |
+| **Manage repositories** | Add, browse, sync, clean, or safely delete canonical repositories |
+| **Settings and agents** | Change editor, organization, profile, shared connection details, or agent identities |
+| **System health** | See status, run diagnostics, or safely update a checkout installation |
+
+## Setup
+
+The setup flow asks whether the store is local or shared, then asks only for
+the details needed for that profile. A local profile offers `~/workframe` and
+accepts another absolute path. A shared profile asks for the remote box and
+local mount details. It also creates `WORKFRAME.md` when missing without
+overwriting an existing guide.
+
+## Safety
+
+The wizard asks for a selection before acting. Archive keeps the branch;
+restoring recreates its worktree. Permanent operations are kept in their own
+menus, require confirmation, and unsafe dirty work needs an additional
+explicit confirmation.
+
+## Support interface
+
+```text
 workframe help
 workframe version
 ```
 
-Bare `workframe`, `-h`, and `--help` print help. `-v` and `--version` print the
-version.
-
-## Setup and configuration
-
-### `setup`
-
-```text
-workframe setup [--local|--shared] [--root <path>] [--agent <name>]
-                [--editor <command>] [--org <name>]
-```
-
-Creates or updates the selected profile. Local is the default. Interactive
-setup chooses the local root, one or more agent identities, editor, and default
-GitHub organization. `--agent` may be repeated for non-interactive setup.
-`--root` accepts an absolute local path other than `/`.
-
-Setup also provisions the store-level `WORKFRAME.md` when it is missing; an
-existing file is never overwritten. The former `init` command remains a
-compatibility alias and directs users to `setup`.
-
-### `config`
-
-```text
-workframe config
-```
-
-Interactively changes editor, organization shortcut, agent identities,
-profile, and shared connection settings.
-
-### `agents`
-
-```text
-workframe agents [list]
-workframe agents add <name>
-workframe agents remove <name>
-```
-
-Lists and manages branch identity namespaces.
-
-## Repositories and workspaces
-
-### `clone`
-
-```text
-workframe clone <owner/repo|url|path>
-```
-
-Adds a canonical repository to the store.
-
-### `new`
-
-```text
-workframe new <repo> <feature> [--agent <name>]
-```
-
-Creates an isolated worktree and `<agent>/<feature>` branch.
-
-### `rename`
-
-```text
-workframe rename <selector> <new-feature>
-```
-
-Renames the current branch while retaining its agent namespace.
-
-### `ide`
-
-```text
-workframe ide [<selector>]
-workframe open [<selector>]
-```
-
-Opens a worktree in the configured editor.
-
-### `cd`
-
-```text
-workframe cd [<selector>]
-```
-
-Prints the selected worktree path. Shell integration can turn this into a
-current-shell directory change.
-
-### `list`
-
-```text
-workframe list
-workframe list archived
-```
-
-Lists active worktrees or archived branches.
-
-### `repos` and `worktrees`
-
-```text
-workframe repos
-workframe worktrees
-```
-
-Print machine-friendly repository names or tab-separated active-worktree
-records. These are useful for diagnostics and scripts.
-
-### `archive`
-
-```text
-workframe archive <worktree|repo/feature|city> [--yes] [--force]
-```
-
-Removes the worktree while keeping its branch. `--yes` answers the confirmation
-prompt. `--force` additionally permits discarding dirty work.
-
-### `restore`
-
-```text
-workframe restore <repo> <branch>
-```
-
-Recreates a worktree for an archived branch.
-
-## Maintenance
-
-### `sync`
-
-```text
-workframe sync [<repo>]
-```
-
-Fetches canonicals and safely fast-forwards clean repositories.
-
-### `status`
-
-```text
-workframe status
-```
-
-Prints a quick store summary.
-
-### `doctor`
-
-```text
-workframe doctor
-```
-
-Runs deeper profile, connection, mount, repository, worktree, agent, and editor
-checks.
-
-### `clean`
-
-```text
-workframe clean [--yes]
-```
-
-Finds safe orphan cleanup candidates. The default is a dry run; `--yes`
-applies removals.
-
-### `update`
-
-```text
-workframe update
-```
-
-Fetches the stable `main` branch from the Git remote that provides the checkout
-and fast-forwards the installed CLI. If a checkout came from a squash-merged
-topic branch that was later deleted, Workframe can recover it only when its
-program tree exactly matches a commit already published on `main`. Dirty,
-detached, unpublished, and otherwise divergent checkouts are refused so local
-work is never discarded.
-
-The command updates program files only. It does not inspect or modify
-`WORKFRAME.md`, configuration, repositories, workspaces, archived contexts, or
-other store data. Use `sync`, `doctor`, and `setup` explicitly for those
-separate operations.
-
-## Permanent removal
-
-### `remove branch`
-
-```text
-workframe remove branch <repo> <branch> [--yes]
-```
-
-Permanently deletes an archived branch. Active branches must be archived first.
-
-### `remove repo`
-
-```text
-workframe remove repo <repo> [--force] [--yes]
-```
-
-Deletes a canonical clone. Workframe refuses unsafe state unless the explicit
-force path is used.
-
-## Selectors and automation
-
-Commands accepting `<selector>` support an exact workspace path,
-`repo/feature`, or city label. Interactive selection is available when a TTY
-and `gum` are present.
-
-Automation should set `WORKFRAME_AGENT`, `WORKFRAME_HOME`, and
-`WORKFRAME_COLOR` as needed. See the
+`help`, `-h`, and `--help` describe the wizard. `version`, `-v`, and
+`--version` print the installed version.
+
+## Automation compatibility
+
+The previous direct-action verbs remain available for existing scripts and for
+the internal local/shared backend. They are not needed for interactive use and
+are deliberately omitted from the wizard-facing documentation. Automation
+should set `WORKFRAME_BACKEND=1`, `WORKFRAME_HOME`, `WORKFRAME_AGENT`, and
+`WORKFRAME_COLOR` as appropriate; see the
 [configuration reference](configuration.md).

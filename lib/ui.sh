@@ -31,40 +31,19 @@ _header(){
   done
 }
 
-# Help layout: onboarding followed by fixed-width command groups.
+# Help layout: the interactive product surface with its small support interface.
 _help(){
   _header
-  sec(){ printf '\n\n  %s%s%s\n\n' "$W" "$1" "$N"; }
-  start(){ printf '  %s%-43s%s%s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
-  pair(){
-    printf '  %s%-10s%s%s%-28s%s%s%-10s%s%s%s%s\n' \
-      "$GRN" "$1" "$N" "$DIM" "$2" "$N" \
-      "$GRN" "$3" "$N" "$DIM" "$4" "$N"
-  }
-  single(){ printf '  %s%-10s%s%s%s%s\n' "$GRN" "$1" "$N" "$DIM" "$2" "$N"; }
-
-  printf '\n\n  %sworkframe%s %s<command> [options]%s\n' "$W" "$N" "$DIM" "$N"
-
-  sec "START HERE"
-  start "workframe setup"                          "Choose a root and agents"
-  start "workframe clone owner/repo"               "Add a repository"
-  start "workframe new repo feature --agent nova" "Create a workspace"
-  start "workframe ide"                            "Open a workspace"
-
-  sec WORKSPACES
-  pair new  "Create a worktree" archive "Put one away"
-  pair list "Browse worktrees"   restore "Bring one back"
-  pair ide  "Open in ${EDITOR_CMD:-editor}" rename "Rename its branch"
-  single cd "Print its path"
-
-  sec REPOSITORIES
-  pair clone "Add a repository"       sync   "Fetch latest"
-  pair clean "Find orphaned worktrees" remove "Delete permanently"
-
-  sec SYSTEM
-  pair agents "Manage identities" config "Preferences"
-  pair setup  "Configure Workframe" status "Store overview"
-  pair doctor "Run diagnostics"   update "Refresh Workframe"
+  printf '\n\n  %sWorkframe is an interactive workspace wizard.%s\n' "$W" "$N"
+  printf '  %sRun %sworkframe%s in a terminal. Start with the outcome you want, then answer only the needed prompts.%s\n' "$DIM" "$GRN" "$N" "$N"
+  printf '\n  %sThe home screen guides you to:%s\n' "$W" "$N"
+  printf '    %s•%s start or continue a workspace\n' "$GRN" "$N"
+  printf '    %s•%s manage its reversible lifecycle\n' "$GRN" "$N"
+  printf '    %s•%s manage repositories, settings, and agents\n' "$GRN" "$N"
+  printf '    %s•%s check health or update Workframe\n' "$GRN" "$N"
+  printf '\n  %sSupport:%s  %sworkframe help%s  %sworkframe version%s\n' \
+    "$DIM" "$N" "$GRN" "$N" "$GRN" "$N"
+  printf '  %sAutomation uses the internal backend interface; see the configuration reference.%s\n' "$DIM" "$N"
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----

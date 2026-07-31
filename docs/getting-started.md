@@ -41,11 +41,11 @@ To choose another binary directory:
 ./install.sh /usr/local/bin
 ```
 
-Confirm the installation:
+Confirm the installation, then start the wizard:
 
 ```bash
 workframe version
-workframe help
+workframe
 ```
 
 Checkout installations can be updated from anywhere with:
@@ -65,24 +65,11 @@ into a directory already on `PATH`.
 
 ## Set up a local profile
 
-```bash
-workframe setup
-```
-
-Setup asks where the Workframe store should live, which agent identities to
-create, which editor to use, and an optional default GitHub organization. The
-suggested local root is `~/workframe`, but any absolute path is supported,
-including a folder on an attached volume.
-
-For a non-interactive setup:
-
-```bash
-workframe setup --local \
-  --root /Volumes/v0/development/workframe \
-  --agent codex \
-  --agent claude \
-  --editor cursor
-```
+On its first run, Workframe opens setup automatically. It asks where the
+Workframe store should live, which agent identities to create, which editor to
+use, and an optional default GitHub organization. The suggested local root is
+`~/workframe`, but any absolute path is supported, including a folder on an
+attached volume.
 
 The selected store contains `system/config/workframe.conf` and `WORKFRAME.md`.
 Workframe remembers its location in
@@ -96,45 +83,18 @@ An agent identity is a branch namespace, not a vendor lock-in. Names such as
 
 ## Create your first workspace
 
-Add a canonical repository:
-
-```bash
-workframe clone owner/repo
-```
-
-Start an isolated worktree:
-
-```bash
-workframe new repo fix-login --agent codex
-```
-
-Workframe prints the workspace path, branch, and generated city label. Open it
-in the configured editor:
-
-```bash
-workframe ide repo/fix-login
-```
-
-See all active work:
-
-```bash
-workframe list
-```
+Choose **Manage repositories → Add a repository**, enter the repository URL or
+`owner/repo`, then choose **Start a new workspace**. The wizard asks for the
+agent, repository, and feature name, and prints the workspace path, branch,
+and generated city label. Use **Continue working** to open a workspace, or
+**Manage workspace lifecycle → Browse active workspaces** to inspect work.
 
 ## Pause and resume
 
-Archive removes the worktree folder but preserves its branch:
-
-```bash
-workframe archive repo/fix-login --yes
-workframe list archived
-```
-
-Restore recreates the worktree from that branch:
-
-```bash
-workframe restore repo codex/fix-login
-```
+Choose **Manage workspace lifecycle → Archive a workspace** to remove the
+folder while keeping its branch. Choose **Restore archived work** to bring it
+back. The wizard always asks for the target and keeps permanent deletion in a
+separate, confirmed action.
 
 ## Next steps
 
@@ -142,4 +102,4 @@ workframe restore repo codex/fix-login
 - Follow the full [workspace lifecycle](guides/workspace-lifecycle.md).
 - Configure [agents and editors](guides/agents-and-editors.md).
 - Review [local and shared profiles](guides/profiles.md).
-- Keep the [CLI reference](reference/cli.md) nearby.
+- Keep the [wizard reference](reference/cli.md) nearby.
