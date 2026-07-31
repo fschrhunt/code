@@ -79,7 +79,14 @@ _tomac(){
   fi
   printf '%s' "$1" | sed "s#^$BOX_ROOT#$MAC_ROOT#"
 }
-_pick_worktree(){ local rows; rows=$(_bx_list worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
+# Pickers return 2 for "no terminal to prompt with" and 1 for cancelled/none, so
+# a caller can treat an interactive cancel as success while a missing selector
+# under automation stays an error. `die` cannot be used: pickers are captured
+# with $( ), where exit only ends the subshell.
+_PICK_NOTTY=2
+_pick_worktree(){ local rows
+  _interactive || { err "no selector given and no terminal to prompt — pass <worktree|repo/feature|city|agent/feature>"; return $_PICK_NOTTY; }
+  rows=$(_bx_list worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
   local -a labels=() paths=(); while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; local f=${br#*/}; [ -n "$f" ] || f=$city; labels+=("$repo / $f   ·   $ag"); paths+=("$path"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
 _resolve_worktree(){ local sel=$1 rows matches count
@@ -671,7 +678,7 @@ mac_new(){ local agent="" repo="" feature=""
   if _interactive && command -v "$EDITOR_CMD" >/dev/null 2>&1 && _confirm "open in $EDITOR_CMD?"; then _editor_open "$macpath"; fi; }
 mac_rename(){ local sel="${1:-}" feature="${2:-}" worktree
   if [ -n "$sel" ]; then worktree=$(_resolve_worktree "$sel") || return 1
-  else worktree=$(_pick_worktree "rename which worktree?") || return 0; fi
+  else worktree=$(_pick_worktree "rename which worktree?") || { [ $? = "$_PICK_NOTTY" ] && return 1; return 0; }; fi
   [ -z "$feature" ] && feature=$(_input "new feature name (e.g. dark-mode)" "")
   [ -n "$feature" ] || { warn "cancelled"; return 0; }
   _spin_run "renaming branch" _bx rename "$worktree" "$feature" || return 1
@@ -679,14 +686,15 @@ mac_rename(){ local sel="${1:-}" feature="${2:-}" worktree
   _is_local_store || printf '  %s(box is authoritative; local git may show the old name briefly — SMB cache)%s\n' "$DIM" "$N"
   ok "renamed to ${GRN}$feature${N}"; }
 mac_ide(){ local worktree="${1:-}"
-  if [ -z "$worktree" ]; then worktree=$(_pick_worktree "open in $EDITOR_CMD") || return 0
+  if [ -z "$worktree" ]; then worktree=$(_pick_worktree "open in $EDITOR_CMD") || { [ $? = "$_PICK_NOTTY" ] && return 1; return 0; }
   else worktree=$(_resolve_worktree "$worktree") || return 1; fi
   worktree=$(_tomac "$worktree")
   _editor_open "$worktree"; ok "opened $worktree"; }
 mac_cdpath(){ local worktree="${1:-}"
   if [ -z "$worktree" ]; then worktree=$(_pick_worktree "jump to") || return 1
   else worktree=$(_resolve_worktree "$worktree") || return 1; fi
-  _tomac "$worktree"; }
+  # Newline-terminated: $( ) strips it, and redirected output stays well-formed.
+  _tomac "$worktree"; printf '\n'; }
 mac_archive(){
   local sel="" yes="" force=""
   while [ $# -gt 0 ]; do
@@ -747,7 +755,9 @@ mac_archived(){ banner "archived"; local rows; rows=$(_bx archived)
   printf '  %s%-8s %-12s %-24s %s%s\n' "$W" AGENT REPO BRANCH WHEN "$N"
   printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
     printf '  %s%-8s%s %-12s %s%-24s%s %s%s%s\n' "$GRN" "$ag" "$N" "$repo" "$W" "${br#*/}" "$N" "$DIM" "$when" "$N"; done; }
-_pick_archived(){ local rows; rows=$(_bx archived); [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N" >&2; return 1; }
+_pick_archived(){ local rows
+  _interactive || { err "no selector given and no terminal to prompt — pass <repo> <branch>"; return $_PICK_NOTTY; }
+  rows=$(_bx archived); [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N" >&2; return 1; }
   A_LABELS=(); A_REPOS=(); A_BRANCHES=(); local ag repo br when
   while IFS=$'\t' read -r ag repo br when; do [ -n "$br" ] || continue; A_LABELS+=("$repo / ${br#*/}   ·   $ag   ${DIM}$when${N}"); A_REPOS+=("$repo"); A_BRANCHES+=("$br"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-archived worktree}" "${A_LABELS[@]}") || return 1
@@ -910,16 +920,16 @@ mac_clean(){
   done
   banner "clean"
   if [ "$yes" = "--yes" ]; then
-    _progress_run "cleaning worktrees" _bx clean --yes; printf '%s' "$PROGRESS_OUT"
+    _progress_run "cleaning worktrees" _bx clean --yes; printf '%s\n' "$PROGRESS_OUT"
     _bx_invalidate
     return 0
   fi
-  _progress_run "scanning repos" _bx clean; printf '%s' "$PROGRESS_OUT"
+  _progress_run "scanning repos" _bx clean; printf '%s\n' "$PROGRESS_OUT"
   if _interactive; then
     case "$PROGRESS_OUT" in
       *orphan*|*remote\ gone*)
         _confirm_yes "apply clean (delete listed orphans / remote-gone worktrees)?" "" || { warn "cancelled"; return 0; }
-        _progress_run "cleaning worktrees" _bx clean --yes; printf '%s' "$PROGRESS_OUT"
+        _progress_run "cleaning worktrees" _bx clean --yes; printf '%s\n' "$PROGRESS_OUT"
         _bx_invalidate
         ;;
     esac

@@ -5,6 +5,19 @@ Notable changes to Workframe are documented here. The project follows
 
 ## Unreleased
 
+- Scripts and coding agents now have a discoverable command surface with the
+  same capabilities as the wizard. `workframe help --agent` prints the full
+  non-interactive catalogue, and the new
+  [automation reference](docs/reference/automation.md) documents selectors,
+  exit codes, and the safety rules automation must respect. The store's
+  `WORKFRAME.md` contract points agents at both.
+- Added `workframe path <selector>`, the stable way to resolve a workspace
+  directory. The optional shell integration wraps `workframe` so that
+  `workframe cd` changes directory instead of printing, which made
+  `$(workframe cd …)` empty in scripts; `path` is never intercepted.
+- `rename`, `open`, and `cd` now fail with a clear message when given no
+  selector and no terminal, instead of a raw prompt-program error and exit 0.
+- `workframe clean` and `workframe cd` output ends with a newline.
 - Fixed the wizard's **Start a new workspace** action, which always failed with
   a non-interactive usage error. Prompting is now gated on stdin and stderr
   rather than stdout, so a prompt whose result is captured with `$(…)` still

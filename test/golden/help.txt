@@ -17,4 +17,4 @@
     • check health or update Workframe
 
   Support:  workframe help  workframe version
-  Automation uses the internal backend interface; see the configuration reference.
+  Scripts and coding agents:  workframe help --agent

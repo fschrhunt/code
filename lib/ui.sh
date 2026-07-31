@@ -43,7 +43,55 @@ _help(){
   printf '    %s•%s check health or update Workframe\n' "$GRN" "$N"
   printf '\n  %sSupport:%s  %sworkframe help%s  %sworkframe version%s\n' \
     "$DIM" "$N" "$GRN" "$N" "$GRN" "$N"
-  printf '  %sAutomation uses the internal backend interface; see the configuration reference.%s\n' "$DIM" "$N"
+  printf '  %sScripts and coding agents:%s  %sworkframe help --agent%s\n' "$DIM" "$N" "$GRN" "$N"
+}
+
+# The non-interactive surface, in full. Coding agents and scripts get the same
+# capabilities as a person driving the wizard; this is where they discover them.
+# Keep it accurate — it is the only command catalogue Workframe ships.
+_help_agent(){
+  printf '\n  %sWorkframe — non-interactive interface%s\n' "$W" "$N"
+  printf '  %sEvery wizard action has a command form. Set WORKFRAME_COLOR=0 for plain output.%s\n' "$DIM" "$N"
+
+  printf '\n  %sSet up%s\n' "$W" "$N"
+  printf '    %sworkframe setup --local --root <path> --agent <name> [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
+  printf '    %sworkframe agents [list | add <name> | remove <name>]%s\n' "$GRN" "$N"
+
+  printf '\n  %sRepositories%s\n' "$W" "$N"
+  printf '    %sworkframe clone <owner/repo | url | path>%s\n' "$GRN" "$N"
+  printf '    %sworkframe repos%s                        %sone canonical repo name per line%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe sync [<repo> | --all]%s\n' "$GRN" "$N"
+  printf '    %sworkframe remove repo <repo> --yes [--force]%s\n' "$GRN" "$N"
+
+  printf '\n  %sWorkspaces%s\n' "$W" "$N"
+  printf '    %sworkframe new <repo> <feature> --agent <name>%s\n' "$GRN" "$N"
+  printf '    %sworkframe list [archived]%s\n' "$GRN" "$N"
+  printf '    %sworkframe worktrees%s                    %sTSV: agent, repo, city, path, branch%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe path <selector>%s              %sprints the workspace path%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe rename <selector> <feature>%s\n' "$GRN" "$N"
+  printf '    %sworkframe open <selector>%s              %sopens the configured editor%s\n' "$GRN" "$N" "$DIM" "$N"
+
+  printf '\n  %sLifecycle%s  %s(archive is reversible; the rest are permanent)%s\n' "$W" "$N" "$DIM" "$N"
+  printf '    %sworkframe archive <selector> --yes [--force]%s  %s--force discards uncommitted work%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe restore <repo> <branch>%s\n' "$GRN" "$N"
+  printf '    %sworkframe remove branch <repo> <branch> --yes%s\n' "$GRN" "$N"
+  printf '    %sworkframe clean [--yes]%s                %sno --yes is a dry run%s\n' "$GRN" "$N" "$DIM" "$N"
+
+  printf '\n  %sHealth%s\n' "$W" "$N"
+  printf '    %sworkframe status%s  %sworkframe doctor%s  %sworkframe update%s  %sworkframe version%s\n' \
+    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+
+  printf '\n  %sSelectors%s  %s(a workspace, named any of these ways)%s\n' "$W" "$N" "$DIM" "$N"
+  printf '    %s<city>%s  %s<repo>/<feature>%s  %s<agent>/<feature>%s  %s<agent>/<repo>/<city>%s  %s<absolute path>%s\n' \
+    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+
+  printf '\n  %sNotes%s\n' "$W" "$N"
+  printf '    %s• Destructive verbs require --yes without a terminal; they never assume consent.%s\n' "$DIM" "$N"
+  printf '    %s• --agent is required for new; WORKFRAME_AGENT sets it for a whole session.%s\n' "$DIM" "$N"
+  printf '    %s• Exit 0 success, 3 refused-because-dirty, other non-zero failure.%s\n' "$DIM" "$N"
+  printf '    %s• Use path, not cd: the optional shell integration makes cd change%s\n' "$DIM" "$N"
+  printf '      %sdirectory instead of printing. path is never intercepted.%s\n' "$DIM" "$N"
+  printf '    %s• Full reference: docs/reference/automation.md%s\n' "$DIM" "$N"
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----

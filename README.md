@@ -96,7 +96,8 @@ profile.
 | Start, pause, resume, or remove work | [Workspace lifecycle](docs/guides/workspace-lifecycle.md) |
 | Choose local or shared operation | [Profiles](docs/guides/profiles.md) |
 | Configure agents and editors | [Agents and editors](docs/guides/agents-and-editors.md) |
-| Understand the wizard or automation interface | [Wizard reference](docs/reference/cli.md) |
+| Understand the wizard | [Wizard reference](docs/reference/cli.md) |
+| Drive Workframe from a script or coding agent | [Automation reference](docs/reference/automation.md) |
 | Look up configuration or environment variables | [Configuration reference](docs/reference/configuration.md) |
 | Diagnose a problem | [Troubleshooting](docs/troubleshooting.md) |
 | Operate or release Workframe | [Operations](docs/operations.md) |
