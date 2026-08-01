@@ -32,7 +32,7 @@ agents follow it so work stays compatible and safe.
 
 Workframe 1.5.0 is the current clean-start product surface:
 
-- CLI: `workframe`
+- CLI: `workframe` (also installed as the short name `wf`)
 - Local root: `~/workframe`
 - Profiles: `local|shared`
 
@@ -48,7 +48,7 @@ make check      # lint + test (run this before every PR)
 make lint       # shellcheck entry, installer, libraries, and mount helper
 make test       # bats -r test
 bin/workframe help
-./install.sh    # symlink bin/workframe into ~/.local/bin
+./install.sh    # symlink bin/workframe into ~/.local/bin as workframe + wf
 ```
 
 Requirements: `bash`, `git`, `shellcheck`, `bats`. `gum` is optional (pretty UI;

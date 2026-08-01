@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-@test "installer links only the Workframe command" {
+@test "installer links only the Workframe command and its short name" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   local old_name expected
   old_name=$(printf '%s%s' w t)
@@ -11,9 +11,27 @@
   [ "$status" -eq 0 ]
   [ -L "$bindir/workframe" ]
   [ "$(readlink "$bindir/workframe")" = "$expected" ]
+  [ -L "$bindir/wf" ]
+  [ "$(readlink "$bindir/wf")" = "$expected" ]
   [ ! -e "$bindir/$old_name" ]
   [[ "$output" == *"linked $bindir/workframe"* ]]
+  [[ "$output" == *"linked $bindir/wf"* ]]
   [[ "$output" == *"next:   workframe setup"* ]]
+}
+
+@test "the short name runs the same command" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  local store="$BATS_TEST_TMPDIR/store"
+
+  "$BATS_TEST_DIRNAME/../install.sh" "$bindir" >/dev/null
+  run env WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" "$bindir/wf" version
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "workframe $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
+
+  run env WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" "$bindir/wf" help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"interactive workspace wizard"* ]]
 }
 
 @test "installed command can provision the shipped store guide" {
@@ -35,13 +53,17 @@
   expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workframe"
   mkdir -p "$bindir" "$old_target"
   ln -s "$old_target" "$bindir/workframe"
+  ln -s "$old_target" "$bindir/wf"
 
   run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
 
   [ "$status" -eq 0 ]
   [ -L "$bindir/workframe" ]
   [ "$(readlink "$bindir/workframe")" = "$expected" ]
+  [ -L "$bindir/wf" ]
+  [ "$(readlink "$bindir/wf")" = "$expected" ]
   [ ! -e "$old_target/workframe" ]
+  [ ! -e "$old_target/wf" ]
 }
 
 @test "installer refuses to write inside a directory at the command path" {
@@ -54,6 +76,20 @@
   [[ "$output" == *"refusing to replace directory"* ]]
   [ -d "$bindir/workframe" ]
   [ ! -e "$bindir/workframe/workframe" ]
+  [ ! -e "$bindir/wf" ]
+}
+
+@test "installer refuses a directory at the short-name path before linking anything" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$bindir/wf"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"refusing to replace directory"* ]]
+  [ -d "$bindir/wf" ]
+  [ ! -e "$bindir/wf/workframe" ]
+  [ ! -e "$bindir/workframe" ]
 }
 
 @test "mount helper names every required Workframe setting" {

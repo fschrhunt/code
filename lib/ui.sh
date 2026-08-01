@@ -35,7 +35,7 @@ _header(){
 _help(){
   _header
   printf '\n\n  %sWorkframe is an interactive workspace wizard.%s\n' "$W" "$N"
-  printf '  %sRun %sworkframe%s in a terminal. Start with the outcome you want, then answer only the needed prompts.%s\n' "$DIM" "$GRN" "$N" "$N"
+  printf '  %sRun %sworkframe%s or %swf%s in a terminal. Start with the outcome you want, then answer only the needed prompts.%s\n' "$DIM" "$GRN" "$N" "$GRN" "$N" "$N"
   printf '\n  %sThe home screen guides you to:%s\n' "$W" "$N"
   printf '    %s•%s start or continue a workspace\n' "$GRN" "$N"
   printf '    %s•%s manage its reversible lifecycle\n' "$GRN" "$N"
