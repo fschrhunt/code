@@ -8,7 +8,7 @@
 
 
   Workframe is an interactive workspace wizard.
-  Run workframe in a terminal. Start with the outcome you want, then answer only the needed prompts.
+  Run workframe or wf in a terminal. Start with the outcome you want, then answer only the needed prompts.
 
   The home screen guides you to:
     • start or continue a workspace

@@ -6,6 +6,9 @@ Workframe is a guided terminal application. For normal use, run:
 workframe
 ```
 
+`wf` is a short name for the same executable, so `wf` and any `wf <command>`
+behave exactly like the `workframe` form used throughout this documentation.
+
 The first run opens setup. Later runs return to the main menu. You can cancel
 any picker or prompt without changing state.
 

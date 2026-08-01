@@ -12,10 +12,11 @@ mount, repository, worktree, agent, and editor dependencies.
 
 ## Command not found
 
-Check the installed link:
+Check the installed links — `workframe` and `wf` point at the same executable:
 
 ```bash
 readlink ~/.local/bin/workframe
+readlink ~/.local/bin/wf
 ```
 
 Reinstall from the intended checkout:
