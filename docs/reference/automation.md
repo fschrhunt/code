@@ -107,11 +107,13 @@ supplies every unambiguous form.
 | Code | Meaning |
 |---|---|
 | `0` | Success |
-| `3` | Refused because the worktree has uncommitted changes |
+| `3` | Refused to destroy something — nothing was changed |
 | other non-zero | Failure — the reason is on stderr |
 
 Exit `3` is worth handling separately: it means the work is intact and the
-command declined to destroy it. Commit, or pass `--force` to discard.
+command declined to destroy it. It is returned when a worktree has uncommitted
+or unpushed work, and when `remove repo` finds worktrees outside the store.
+The message on stdout says which.
 
 ## Safety rules that automation must respect
 
@@ -119,6 +121,9 @@ command declined to destroy it. Commit, or pass `--force` to discard.
   they refuse rather than assume consent.
 - `--force` on `archive` discards uncommitted work. `--force` on
   `remove repo` deletes a canonical clone that still has workspaces.
+- Workframe only deletes worktrees under `workspaces/`. If a repository has a
+  worktree somewhere else, `remove repo` refuses; with `--force` it deletes the
+  repository and leaves those files on disk.
 - Nothing is deleted implicitly. `archive` keeps the branch; only
   `remove branch` and `remove repo` destroy anything.
 

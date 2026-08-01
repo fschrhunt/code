@@ -5,6 +5,18 @@ Notable changes to Workframe are documented here. The project follows
 
 ## Unreleased
 
+- **Data loss fixed:** `workframe remove repo` deleted worktrees that lived
+  outside the store. A clean, fully pushed worktree added by hand elsewhere was
+  removed with `rm -rf` and no warning. Workframe now only deletes worktrees
+  under `workspaces/`; `remove repo` refuses when others exist, and `--force`
+  deletes the repository while leaving their files in place.
+- **Store containment fixed:** an agent could be named `.` or `..`, which made
+  `workframe new` create directories outside `workspaces/`. Agent names now
+  follow the same rules as repository names, and the check is applied wherever
+  a name is used, so a hand-edited config cannot reintroduce it.
+- Feature names are validated. `workframe new <repo> "   "` previously created
+  the branch `<agent>/---`, and names git rejects surfaced a raw `fatal:`
+  instead of an explanation. Spaces and slashes still work as before.
 - Scripts and coding agents now have a discoverable command surface with the
   same capabilities as the wizard. `workframe help --agent` prints the full
   non-interactive catalogue, and the new

@@ -11,6 +11,30 @@ _repo_name_ok(){
   esac
   return 0
 }
+# A feature is the second half of the branch name `<agent>/<feature>`. Slashes
+# are allowed so `sub/feat` keeps working, but every segment must be a usable
+# ref component: git rejects "..", a ".lock" suffix, and empty segments, and a
+# leading dash makes the branch look like a flag. Without this, `new <repo> "   "`
+# normalized to the branch `<agent>/---`, and anything git refused surfaced as a
+# raw `fatal:` instead of an explanation.
+_feature_name_ok(){
+  local feature=$1 seg
+  case "$feature" in
+    ''|/*|*/) return 1;;
+    *[!a-z0-9._/-]*) return 1;;
+    *//*) return 1;;
+  esac
+  local rest=$feature
+  while [ -n "$rest" ]; do
+    seg=${rest%%/*}
+    case "$rest" in */*) rest=${rest#*/};; *) rest="";; esac
+    case "$seg" in
+      ''|'.'|'..'|*.lock) return 1;;
+      [!a-z0-9]*) return 1;;
+    esac
+  done
+  return 0
+}
 _canon(){
   _repo_name_ok "$1" || die "invalid repo name '$1'"
   # REPOS is assigned in config.sh (linted as a separate top-level file).
@@ -98,6 +122,7 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   [ -n "$agent" ] && [ -n "$repo" ] && [ -n "$feature" ] || die "usage: new <agent> <repo> <feature>"
   _is_agent "$agent" || die "unknown agent '$agent' — configure with: workframe agents add $agent"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+  _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
   local d; d=$(_canon "$repo")
   [ -d "${d}/.git" ] || die "no repo '$repo' — clone first: workframe clone owner/repo"
   _ensure_relpaths "$repo"
@@ -124,7 +149,9 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
 cmd_rename(){ local worktree="${1:-}" feature="${2:-}"; [ -n "$worktree" ] && [ -n "$feature" ] || die "usage: rename <path> <feature>"
   case "$worktree" in "$WORK"/*) ;; *) die "not a workframe worktree: $worktree";; esac; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
   local rel=${worktree#"$WORK"/} agent repo; agent=${rel%%/*}; repo=$(printf '%s' "$rel" | cut -d/ -f2); _is_agent "$agent" || die "not a workframe-managed worktree"
-  feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]'); local oldbr newbr="$agent/$feature"; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+  _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
+  local oldbr newbr="$agent/$feature"; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
   git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
 cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo|url|path>"; local url repo
@@ -162,21 +189,40 @@ cmd_delrepo(){
   done
   [ -n "$repo" ] || die "usage: delrepo <repo> [--force]"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; local risky=0 worktree
-  local -a worktrees=()
+  # Partition the canonical's worktrees. This function rm -rf's what it is given,
+  # so only paths under $WORK are ever deleted: a worktree the user added by hand
+  # somewhere else is theirs, not Workframe's, and was previously wiped without
+  # warning. `clean` and `worktrees` already apply the same containment rule.
+  local -a worktrees=() external=()
   while IFS= read -r worktree; do
-    [ "$worktree" = "$d" ] || worktrees+=("$worktree")
+    [ "$worktree" = "$d" ] && continue
+    case "$worktree" in
+      "$WORK"/*) worktrees+=("$worktree");;
+      *) external+=("$worktree");;
+    esac
   done < <(_worktree_paths "$d")
   _prog "checking worktrees" 10
-  for worktree in "${worktrees[@]}"; do
-    [ "$worktree" = "$d" ] && continue; [ -e "$worktree/.git" ] || continue
+  for worktree in "${worktrees[@]}" ${external[@]+"${external[@]}"}; do
+    [ -e "$worktree/.git" ] || continue
     local dirty unpushed; dirty=$(git -C "$worktree" status --porcelain 2>/dev/null | wc -l | tr -d ' '); unpushed=$(git -C "$worktree" log --branches --not --remotes --oneline 2>/dev/null | wc -l | tr -d ' ')
     if [ "$dirty" != 0 ] || [ "$unpushed" != 0 ]; then risky=$((risky+1)); printf '  at-risk: %s (dirty=%s unpushed=%s)\n' "${worktree#"$WORK"/}" "$dirty" "$unpushed"; fi; done
   _prog "checking worktrees" 30
   if [ "$risky" -gt 0 ] && [ "$force" != "--force" ]; then printf 'REFUSED: %s worktree(s) hold uncommitted/unpushed work\n' "$risky"; return 3; fi
+  if [ ${#external[@]} -gt 0 ]; then
+    for worktree in "${external[@]}"; do printf '  outside the store: %s\n' "$worktree"; done
+    if [ "$force" != "--force" ]; then
+      printf 'REFUSED: %s worktree(s) live outside workspaces/ — remove them yourself, or pass --force to delete the repository and leave their files in place\n' "${#external[@]}"
+      return 3
+    fi
+    printf 'note: leaving %s worktree(s) outside workspaces/ on disk\n' "${#external[@]}"
+  fi
   local n=${#worktrees[@]} i=0
   for worktree in "${worktrees[@]}"; do
     i=$((i+1)); [ "$n" -gt 0 ] && _prog "removing worktrees" $(( 30 + i * 50 / n )) || _prog "removing worktrees" 50
-    git -C "$d" worktree remove --force "$worktree" 2>/dev/null; rm -rf "$worktree" 2>/dev/null; done
+    git -C "$d" worktree remove --force "$worktree" 2>/dev/null
+    # Belt and braces: the partition above already guarantees containment, but
+    # this is the line that recursively deletes, so it re-checks before doing so.
+    case "$worktree" in "$WORK"/*) rm -rf "${worktree:?}" 2>/dev/null;; esac; done
   _prog "deleting repo" 90; rm -rf "$d"; _prog "finishing" 100
   printf 'deleted repo: %s\n' "$repo"; }
 # Fast-forward a canonical's checked-out branch to its upstream, but only when it

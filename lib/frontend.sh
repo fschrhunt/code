@@ -388,7 +388,7 @@ _setup_add_agents(){
   raw=$(printf '%s' "$raw" | tr ',;' '  ')
   for name in $raw; do
     name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
-    _agent_name_ok "$name" || die "invalid agent name '$name' (use [a-z0-9._-]+)"
+    _agent_name_ok "$name" || die "invalid agent name '$name' (use letters, numbers, . _ - starting with a letter or number)"
     _is_agent "$name" && continue
     VALID_AGENTS=$(printf '%s %s' "$VALID_AGENTS" "$name" | tr -s ' ')
     VALID_AGENTS=${VALID_AGENTS# }
@@ -870,9 +870,11 @@ mac_delrepo(){
     # --yes only skips the soft confirm; at-risk worktrees still need --force.
     # (force already on the first call never returns 3 — this is the confirm path.)
     if _interactive; then
-      _confirm "force delete anyway (loses that work)?" || { warn "cancelled"; return 0; }
+      _confirm "force delete anyway?" || { warn "cancelled"; return 0; }
     else
-      err "refusing — pass --force to delete at-risk worktrees"; return 3
+      # The backend printed the specific reason above. --force discards at-risk
+      # work in the store, but never deletes worktrees outside it.
+      err "refusing — pass --force to proceed"; return 3
     fi
     if _progress_run "deleting $repo" _bx delrepo "$repo" --force; then
       _bx_invalidate
