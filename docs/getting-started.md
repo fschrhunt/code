@@ -41,11 +41,14 @@ To choose another binary directory:
 ./install.sh /usr/local/bin
 ```
 
+The installer links two names for the same executable: `workframe` and the
+short `wf`. Every example in the documentation accepts either.
+
 Confirm the installation, then start the wizard:
 
 ```bash
 workframe version
-workframe
+wf
 ```
 
 Checkout installations can be updated from anywhere with:
@@ -60,8 +63,8 @@ branch was squash-merged and deleted, but refuses unpublished or divergent
 work. Homebrew installations remain package-manager-owned and use
 `brew upgrade workframe` instead.
 
-If the shell cannot find `workframe`, add `~/.local/bin` to `PATH` or install
-into a directory already on `PATH`.
+If the shell cannot find `workframe` or `wf`, add `~/.local/bin` to `PATH` or
+install into a directory already on `PATH`.
 
 ## Set up a local profile
 

@@ -20,10 +20,10 @@ one canonical clone
 └── cursor/cache-fix     → workspaces/cursor/api/dakar
 ```
 
-Workframe 1.5.0 is a clean-start release. The command is `workframe`, product
-environment variables use `WORKFRAME_*`, and local state begins at
-`~/workframe`. It is a guided terminal wizard: run `workframe` and choose the
-next action instead of memorizing commands and flags.
+Workframe 1.5.0 is a clean-start release. The command is `workframe` — also
+installed as `wf` — product environment variables use `WORKFRAME_*`, and local
+state begins at `~/workframe`. It is a guided terminal wizard: run `workframe`
+and choose the next action instead of memorizing commands and flags.
 
 ## Start in 60 seconds
 
@@ -46,10 +46,11 @@ cd workframe
 Homebrew installations update with `brew upgrade workframe`. Checkout
 installations update with `workframe update`.
 
-Then run `workframe`. The first run sets up the store, agents, editor, and
-optional GitHub organization. From the same menu, choose **Manage
-repositories** to add a repository, then **Start a new workspace**. Return to
-**Continue working** or **Manage workspace lifecycle** as work progresses.
+Then run `workframe`, or its short name `wf`. The first run sets up the store,
+agents, editor, and optional GitHub organization. From the same menu, choose
+**Manage repositories** to add a repository, then **Start a new workspace**.
+Return to **Continue working** or **Manage workspace lifecycle** as work
+progresses.
 
 ## The lifecycle
 
