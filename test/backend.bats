@@ -354,3 +354,100 @@ _advance_origin() {
   [[ "$output" == *diverged* ]]
   [ ! -f "$WORKFRAME_HOME/repos/demo/upstream.txt" ]
 }
+
+@test "archive accepts a worktree path reached through a symlinked store root" {
+  # A store on an attached volume (or /tmp on macOS) is reached through a
+  # symlink, while $WORK is physical — the containment check must still match.
+  local ws; ws=$("$WORKFRAME" new codex demo linkpath | _workspace_path)
+  local link="$BATS_TEST_TMPDIR/link"
+  ln -s "$WORKFRAME_HOME" "$link"
+  # $ws is physical; take the agent/repo/city tail rather than assuming a prefix.
+  local via_link="$link/workspaces/${ws#*/workspaces/}"
+  [ -e "$via_link/.git" ]
+  run "$WORKFRAME" archive "$via_link"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"archived: codex/linkpath"* ]]
+  [ ! -d "$ws" ]
+}
+
+@test "archive still refuses a path outside the store" {
+  run "$WORKFRAME" archive "$BATS_TEST_TMPDIR"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not under workspaces/"* ]]
+}
+
+@test "an agent name cannot escape the store" {
+  # `..` as an agent made mkdir -p "$WORK/../<repo>" create a directory beside
+  # workspaces/, outside everything Workframe manages.
+  run "$WORKFRAME" agents add ".."
+  [ "$status" -ne 0 ]
+  run "$WORKFRAME" agents add "."
+  [ "$status" -ne 0 ]
+  run "$WORKFRAME" agents add "-x"
+  [ "$status" -ne 0 ]
+}
+
+@test "a hand-edited config cannot reintroduce a traversing agent" {
+  printf 'type = local\nagents = codex, ..\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
+  run "$WORKFRAME" new .. demo escape
+  [ "$status" -ne 0 ]
+  [ ! -e "$WORKFRAME_HOME/demo" ]
+}
+
+@test "feature names must be usable ref components" {
+  local bad
+  for bad in "   " "-x" ".." "x.lock" 'a"b' "a//b" "/lead" "trail/"; do
+    run "$WORKFRAME" new codex demo "$bad"
+    [ "$status" -ne 0 ] || { echo "accepted bad feature: [$bad]"; false; }
+    [[ "$output" == *"invalid feature name"* ]] || { echo "[$bad] -> $output"; false; }
+  done
+}
+
+@test "ordinary feature names still work, including slashes and spaces" {
+  run "$WORKFRAME" new codex demo "My Feature"
+  [ "$status" -eq 0 ]
+  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/my-feature
+  [ -n "$output" ]
+  run "$WORKFRAME" new codex demo "sub/feat"
+  [ "$status" -eq 0 ]
+  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/sub/feat
+  [ -n "$output" ]
+}
+
+@test "rename validates the new feature name" {
+  local ws; ws=$("$WORKFRAME" new codex demo renameme | _workspace_path)
+  run "$WORKFRAME" rename "$ws" ".."
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid feature name"* ]]
+  run "$WORKFRAME" rename "$ws" "fine-name"
+  [ "$status" -eq 0 ]
+}
+
+@test "delrepo never deletes a worktree outside the store" {
+  # A worktree the user added by hand, elsewhere: clean and fully pushed, so the
+  # at-risk check does not flag it. It used to be rm -rf'd without warning.
+  local outside="$BATS_TEST_TMPDIR/outside/precious"
+  git -C "$WORKFRAME_HOME/repos/demo" worktree add -q -b sidework "$outside"
+  git -C "$outside" push -q -u origin sidework
+  "$WORKFRAME" new codex demo inside >/dev/null
+
+  run "$WORKFRAME" delrepo demo --yes
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"outside the store"* ]]
+  [ -f "$outside/README.md" ]
+  [ -d "$WORKFRAME_HOME/repos/demo/.git" ]
+
+  # --force deletes the repository but still leaves the external files alone.
+  run "$WORKFRAME" delrepo demo --yes --force
+  [ "$status" -eq 0 ]
+  [ -f "$outside/README.md" ]
+  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
+}
+
+@test "delrepo still removes in-store worktrees" {
+  local ws; ws=$("$WORKFRAME" new codex demo inside | _workspace_path)
+  run "$WORKFRAME" delrepo demo --yes
+  [ "$status" -eq 0 ]
+  [ ! -e "$ws" ]
+  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
+}

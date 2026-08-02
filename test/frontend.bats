@@ -463,3 +463,86 @@ EOF
   [[ "$output" == *"WORKFRAME_VALID_AGENTS=claude codex"* ]]
   [[ "$output" == *"/mnt/my workframe/system/bin/workframe"* ]]
 }
+
+@test "mac_sync output ends with a newline" {
+  _use_backend_store
+  _seed_repo demo
+  run bash -c '
+    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
+    unset WORKFRAME_BACKEND
+    "'"$WORKFRAME"'" sync | tail -c 1 | od -An -c | tr -d "[:space:]"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = '\n' ]
+}
+
+@test "verbs needing a selector fail cleanly without a terminal" {
+  _use_backend_store
+  _seed_repo demo
+  local verb
+  for verb in rename open cd; do
+    run bash -c '
+      export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
+      unset WORKFRAME_BACKEND
+      "'"$WORKFRAME"'" '"$verb"'
+    '
+    [ "$status" -ne 0 ] || { echo "$verb exited 0 with no selector and no terminal"; false; }
+    [[ "$output" == *"no selector given"* ]] || { echo "$verb: $output"; false; }
+  done
+}
+
+@test "mac_clean dry run output ends with a newline" {
+  _use_backend_store
+  _seed_repo demo
+  run bash -c '
+    export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
+    unset WORKFRAME_BACKEND
+    "'"$WORKFRAME"'" clean | tail -c 1 | od -An -c | tr -d "[:space:]"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = '\n' ]
+}
+
+@test "cd prints a newline-terminated path" {
+  _use_backend_store
+  _seed_repo demo
+  WORKFRAME_BACKEND=1 "$WORKFRAME" new codex demo cdpath >/dev/null
+  run bash -c '
+    export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
+    unset WORKFRAME_BACKEND
+    "'"$WORKFRAME"'" cd demo/cdpath | tail -c 1 | od -An -c | tr -d "[:space:]"
+  '
+  [ "$status" -eq 0 ]
+  [ "$output" = '\n' ]
+}
+
+@test "path survives the shell integration that intercepts cd" {
+  _use_backend_store
+  _seed_repo demo
+  WORKFRAME_BACKEND=1 "$WORKFRAME" new codex demo shellhook >/dev/null
+  # Reproduce both functions the shell integration installs. `workframe`
+  # swallows `cd` (changing directory instead of printing) and `wf` delegates to
+  # it, so the short name inherits the interception. Every other verb passes
+  # through under either name.
+  run bash -c '
+    export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
+    unset WORKFRAME_BACKEND
+    workframe() {
+      if [ "$1" = "cd" ]; then
+        local d; d="$(command "'"$WORKFRAME"'" __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"
+        return
+      fi
+      command "'"$WORKFRAME"'" "$@"
+    }
+    wf() { workframe "$@"; }
+    printf "cd=[%s]\npath=[%s]\nwfcd=[%s]\nwfpath=[%s]\n" \
+      "$(workframe cd demo/shellhook)" "$(workframe path demo/shellhook)" \
+      "$(wf cd demo/shellhook)" "$(wf path demo/shellhook)"
+  '
+  [ "$status" -eq 0 ]
+  # cd is swallowed under both names — this is exactly why `path` exists.
+  [[ "$output" == *"cd=[]"* ]]
+  [[ "$output" == *"wfcd=[]"* ]]
+  [[ "$output" == *"path=["*"/workspaces/codex/demo/"*"]"* ]]
+  [[ "$output" == *"wfpath=["*"/workspaces/codex/demo/"*"]"* ]]
+}

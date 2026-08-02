@@ -1,10 +1,23 @@
 #!/usr/bin/env bash
 # Agent registry + editor launch helpers (shared by frontend and backend).
 
-_is_agent(){ [ -n "$1" ] && echo " $VALID_AGENTS " | grep -qF " $1 "; }
+# The gate every consumer uses before treating a string as an agent. Names are
+# re-validated here, not just at `agents add`: a hand-edited config or an
+# injected WORKFRAME_VALID_AGENTS would otherwise reintroduce a name like ".."
+# that escapes the store.
+_is_agent(){ _agent_name_ok "$1" && echo " $VALID_AGENTS " | grep -qF " $1 "; }
 
+# An agent name becomes both a directory under workspaces/ and a branch prefix,
+# so it needs the same containment rules as a repo name (see _repo_name_ok).
+# "." and ".." in particular escape the store: `new .. <repo> <feature>` makes
+# mkdir -p "$WORK/../<repo>" create a directory beside workspaces/. A leading
+# dash would also turn the name into a flag for the tools that consume it.
 _agent_name_ok(){
-  case "$1" in ''|*[!a-z0-9._-]*) return 1;; esac
+  case "$1" in
+    ''|'.'|'..') return 1;;
+    *[!a-z0-9._-]*) return 1;;
+    [!a-z0-9]*) return 1;;
+  esac
   return 0
 }
 
@@ -38,7 +51,7 @@ agents_add(){
   local name="${1:-}"
   [ -n "$name" ] || die "usage: workframe agents add <name>"
   name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
-  _agent_name_ok "$name" || die "invalid agent name '$name' (use [a-z0-9._-]+)"
+  _agent_name_ok "$name" || die "invalid agent name '$name' (use letters, numbers, . _ - starting with a letter or number)"
   _is_agent "$name" && { ok "already configured: $name"; return 0; }
   VALID_AGENTS=$(printf '%s %s' "$VALID_AGENTS" "$name" | tr -s ' ')
   VALID_AGENTS=${VALID_AGENTS# }
@@ -102,7 +115,7 @@ _resolve_agent(){
   if ! _agents_configured; then
     die "no agents configured — add one from the Agents menu in the Workframe wizard"
   fi
-  if [ -t 0 ] && [ -t 1 ]; then
+  if _interactive; then
     _agents_array
     local sel
     sel=$(_choose "which agent?" "${AGENTS_ARR[@]}") || return 1

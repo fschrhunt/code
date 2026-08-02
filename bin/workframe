@@ -34,7 +34,12 @@ WORKFRAME_VERSION=$(cat "$WORKFRAME_PREFIX/VERSION" 2>/dev/null || echo "0.0.0")
 cmd="${1:-}"; [ $# -gt 0 ] && shift || true
 
 case "$cmd" in
-  help|-h|--help)       _help; exit 0;;
+  help|-h|--help)
+    case "${1:-}" in
+      --agent|-a|agent|automation) _help_agent;;
+      *) _help;;
+    esac
+    exit 0;;
   version|--version|-v) printf 'workframe %s\n' "$WORKFRAME_VERSION"; exit 0;;
 esac
 
@@ -91,7 +96,11 @@ else
     rename)           mac_rename "$@";;
     ide|open)         mac_ide "$@";;
 
-    # Print the path (cd "$(workframe cd …)"). Shell integration uses __cdpath.
+    # `path` is the stable spelling for scripts and coding agents: the optional
+    # shell integration wraps `workframe` in a function that intercepts `cd` and
+    # changes directory instead of printing, so `$(workframe cd …)` is empty for
+    # anyone who accepted the hook. The function passes every other verb through.
+    path)             mac_cdpath "$@";;
     cd)               mac_cdpath "$@";;
     __cdpath)         mac_cdpath "$@";;
     archive)          mac_archive "$@";;

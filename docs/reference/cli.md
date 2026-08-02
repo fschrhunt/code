@@ -45,14 +45,21 @@ workframe help
 workframe version
 ```
 
+```text
+workframe help --agent
+```
+
 `help`, `-h`, and `--help` describe the wizard. `version`, `-v`, and
-`--version` print the installed version.
+`--version` print the installed version. `help --agent` prints the
+non-interactive command catalogue.
 
-## Automation compatibility
+## Automation and coding agents
 
-The previous direct-action verbs remain available for existing scripts and for
-the internal local/shared backend. They are not needed for interactive use and
-are deliberately omitted from the wizard-facing documentation. Automation
-should set `WORKFRAME_BACKEND=1`, `WORKFRAME_HOME`, `WORKFRAME_AGENT`, and
-`WORKFRAME_COLOR` as appropriate; see the
-[configuration reference](configuration.md).
+Every wizard action also has a command form, so scripts and coding agents have
+the same capabilities as a person at the keyboard: creating workspaces, cloning
+repositories, and managing the full lifecycle. These verbs are kept out of the
+wizard-facing pages to keep interactive use free of commands to memorize, not
+because they are unsupported.
+
+Run `workframe help --agent`, or read the
+[automation reference](automation.md).

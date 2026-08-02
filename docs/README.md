@@ -15,7 +15,8 @@ lands on the shortest path to it.
 | Pause work without deleting its branch | [Archive](guides/workspace-lifecycle.md#archive-work) |
 | Bring archived work back | [Restore](guides/workspace-lifecycle.md#restore-work) |
 | Delete a branch or canonical repo | [Permanent removal](guides/workspace-lifecycle.md#permanent-removal) |
-| Understand the wizard or automation interface | [Wizard reference](reference/cli.md) |
+| Understand the wizard | [Wizard reference](reference/cli.md) |
+| Drive Workframe from a script or coding agent | [Automation reference](reference/automation.md) |
 | Configure paths, profiles, or environment variables | [Configuration reference](reference/configuration.md) |
 | Understand the on-disk layout | [Filesystem reference](reference/filesystem.md) |
 | Fix a broken setup | [Troubleshooting](troubleshooting.md) |

@@ -70,6 +70,15 @@ docs/               guides — start at docs/README.md
 test/               bats tests + golden fixtures
 ```
 
+## Prompting
+
+Gate every prompt on `_interactive` (stdin + stderr), never on `[ -t 1 ]`.
+Prompt helpers render to stderr and their results are routinely captured with
+`$(…)`, which makes stdout a pipe in a fully interactive session — gating on
+stdout silently turns the wizard into its non-interactive error path. Checks
+that guard *rendering to stdout* (progress bar, spinner, cursor control) still
+use `[ -t 1 ]`.
+
 ## Test seams
 
 - `WORKFRAME_BACKEND=1` — force the backend role on any OS (frontend is the default CLI).

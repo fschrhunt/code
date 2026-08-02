@@ -43,10 +43,65 @@ _help(){
   printf '    %s•%s check health or update Workframe\n' "$GRN" "$N"
   printf '\n  %sSupport:%s  %sworkframe help%s  %sworkframe version%s\n' \
     "$DIM" "$N" "$GRN" "$N" "$GRN" "$N"
-  printf '  %sAutomation uses the internal backend interface; see the configuration reference.%s\n' "$DIM" "$N"
+  printf '  %sScripts and coding agents:%s  %sworkframe help --agent%s\n' "$DIM" "$N" "$GRN" "$N"
+}
+
+# The non-interactive surface, in full. Coding agents and scripts get the same
+# capabilities as a person driving the wizard; this is where they discover them.
+# Keep it accurate — it is the only command catalogue Workframe ships.
+_help_agent(){
+  printf '\n  %sWorkframe — non-interactive interface%s\n' "$W" "$N"
+  printf '  %sEvery wizard action has a command form. Set WORKFRAME_COLOR=0 for plain output.%s\n' "$DIM" "$N"
+  printf '  %swf is the same executable — every command below works under either name.%s\n' "$DIM" "$N"
+
+  printf '\n  %sSet up%s\n' "$W" "$N"
+  printf '    %sworkframe setup --local --root <path> --agent <name> [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
+  printf '    %sworkframe agents [list | add <name> | remove <name>]%s\n' "$GRN" "$N"
+
+  printf '\n  %sRepositories%s\n' "$W" "$N"
+  printf '    %sworkframe clone <owner/repo | url | path>%s\n' "$GRN" "$N"
+  printf '    %sworkframe repos%s                        %sone canonical repo name per line%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe sync [<repo> | --all]%s\n' "$GRN" "$N"
+  printf '    %sworkframe remove repo <repo> --yes [--force]%s\n' "$GRN" "$N"
+
+  printf '\n  %sWorkspaces%s\n' "$W" "$N"
+  printf '    %sworkframe new <repo> <feature> --agent <name>%s\n' "$GRN" "$N"
+  printf '    %sworkframe list [archived]%s\n' "$GRN" "$N"
+  printf '    %sworkframe worktrees%s                    %sTSV: agent, repo, city, path, branch%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe path <selector>%s              %sprints the workspace path%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe rename <selector> <feature>%s\n' "$GRN" "$N"
+  printf '    %sworkframe open <selector>%s              %sopens the configured editor%s\n' "$GRN" "$N" "$DIM" "$N"
+
+  printf '\n  %sLifecycle%s  %s(archive is reversible; the rest are permanent)%s\n' "$W" "$N" "$DIM" "$N"
+  printf '    %sworkframe archive <selector> --yes [--force]%s  %s--force discards uncommitted work%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe restore <repo> <branch>%s\n' "$GRN" "$N"
+  printf '    %sworkframe remove branch <repo> <branch> --yes%s\n' "$GRN" "$N"
+  printf '    %sworkframe clean [--yes]%s                %sno --yes is a dry run%s\n' "$GRN" "$N" "$DIM" "$N"
+
+  printf '\n  %sHealth%s\n' "$W" "$N"
+  printf '    %sworkframe status%s  %sworkframe doctor%s  %sworkframe update%s  %sworkframe version%s\n' \
+    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+
+  printf '\n  %sSelectors%s  %s(a workspace, named any of these ways)%s\n' "$W" "$N" "$DIM" "$N"
+  printf '    %s<city>%s  %s<repo>/<feature>%s  %s<agent>/<feature>%s  %s<agent>/<repo>/<city>%s  %s<absolute path>%s\n' \
+    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+
+  printf '\n  %sNotes%s\n' "$W" "$N"
+  printf '    %s• Destructive verbs require --yes without a terminal; they never assume consent.%s\n' "$DIM" "$N"
+  printf '    %s• --agent is required for new; WORKFRAME_AGENT sets it for a whole session.%s\n' "$DIM" "$N"
+  printf '    %s• Exit 0 success, 3 refused-because-dirty, other non-zero failure.%s\n' "$DIM" "$N"
+  printf '    %s• Use path, not cd: the optional shell integration makes cd change%s\n' "$DIM" "$N"
+  printf '      %sdirectory instead of printing, under both names. path is never intercepted.%s\n' "$DIM" "$N"
+  printf '    %s• Full reference: docs/reference/automation.md%s\n' "$DIM" "$N"
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----
+# Can we prompt? Prompts read stdin and render to stderr (gum draws its UI on
+# stderr; the plain fallback writes its menu there too). stdout is deliberately
+# NOT tested: prompting functions are routinely captured with $( ), which makes
+# stdout a pipe even in a fully interactive session. Rendering that targets
+# stdout (progress bars, spinners, cursor control) still checks `-t 1`.
+_interactive(){ [ -t 0 ] && [ -t 2 ]; }
 _has_gum(){ command -v gum >/dev/null 2>&1; }
 _gum_env(){ COLORTERM=truecolor CLICOLOR_FORCE=1 "$@"; }
 _choose(){ local h=$1; shift; local -a o=("$@")
@@ -63,7 +118,10 @@ _choose(){ local h=$1; shift; local -a o=("$@")
 _input(){
   local header=$1 default=${2:-} v
   if _has_gum; then
-    v=$(_gum_env gum input --header "$header" --placeholder "${default}" --prompt "❯ " --prompt.foreground "$GUMC") || true
+    # A non-zero exit means cancelled (Esc/Ctrl-C) or crashed. Discard whatever
+    # landed on stdout either way — a gum panic trace must never be mistaken for
+    # something the user typed.
+    v=$(_gum_env gum input --header "$header" --placeholder "${default}" --prompt "❯ " --prompt.foreground "$GUMC") || v=""
   else
     if [ -n "$default" ]; then
       printf '  %s%s%s %s[%s]%s ' "$B" "$header" "$N" "$DIM" "$default" "$N" >&2
@@ -79,7 +137,7 @@ _confirm(){ if _has_gum; then _gum_env gum confirm "$1"; else printf '  %s %s[y/
 _confirm_yes(){
   local msg=$1 flag=${2:-}
   [ "$flag" = "--yes" ] && return 0
-  if [ -t 0 ] && [ -t 1 ]; then
+  if _interactive; then
     _confirm "$msg"
   else
     die "refusing without --yes (non-interactive)"

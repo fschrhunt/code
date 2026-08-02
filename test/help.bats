@@ -70,3 +70,50 @@ EOF
   [ "$status" -eq 0 ]
   [ "$output" = "workframe $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }
+
+@test "help points scripts and agents at the automation catalogue" {
+  run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"workframe help --agent"* ]]
+}
+
+@test "help --agent lists the non-interactive interface" {
+  run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help --agent"
+  [ "$status" -eq 0 ]
+  # Parity with the wizard: creating workspaces and cloning must be reachable.
+  [[ "$output" == *"workframe new <repo> <feature> --agent <name>"* ]]
+  [[ "$output" == *"workframe clone"* ]]
+  [[ "$output" == *"workframe setup --local"* ]]
+  [[ "$output" == *"workframe archive"* ]]
+  [[ "$output" == *"workframe restore"* ]]
+  [[ "$output" == *"workframe worktrees"* ]]
+}
+
+@test "help --agent is reachable by every documented spelling" {
+  local form
+  for form in --agent -a agent automation; do
+    run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help $form"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"non-interactive interface"* ]] || {
+      echo "help $form did not print the agent catalogue"; false
+    }
+  done
+}
+
+@test "every command in the agent catalogue is a real verb" {
+  # The catalogue is the only command reference Workframe ships; it must not
+  # drift from the dispatcher.
+  local verbs verb count=0
+  verbs=$(sed -n '/^else$/,/^fi$/p' "$BATS_TEST_DIRNAME/../bin/workframe" \
+    | sed -n 's/^    \([a-z|_]*\)).*/\1/p' | tr '|' '\n' | sort -u)
+  run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help --agent"
+  [ "$status" -eq 0 ]
+  while read -r verb; do
+    [ -n "$verb" ] || continue
+    count=$((count + 1))
+    printf '%s\n' "$verbs" | grep -qxF "$verb" \
+      || { echo "agent catalogue advertises a verb the CLI does not dispatch: $verb"; false; }
+  done < <(printf '%s\n' "$output" | sed -n 's/^ *workframe \([a-z]*\).*/\1/p' | sort -u)
+  # Guard against the extractor silently matching nothing.
+  [ "$count" -ge 12 ]
+}
