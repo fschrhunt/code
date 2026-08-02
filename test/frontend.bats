@@ -520,8 +520,10 @@ EOF
   _use_backend_store
   _seed_repo demo
   WORKFRAME_BACKEND=1 "$WORKFRAME" new codex demo shellhook >/dev/null
-  # Reproduce the wrapper `workframe cd` shell integration installs. It swallows
-  # `cd` (changing directory instead of printing); every other verb passes through.
+  # Reproduce both functions the shell integration installs. `workframe`
+  # swallows `cd` (changing directory instead of printing) and `wf` delegates to
+  # it, so the short name inherits the interception. Every other verb passes
+  # through under either name.
   run bash -c '
     export WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
     unset WORKFRAME_BACKEND
@@ -532,12 +534,15 @@ EOF
       fi
       command "'"$WORKFRAME"'" "$@"
     }
-    viacd=$(workframe cd demo/shellhook)
-    viapath=$(workframe path demo/shellhook)
-    printf "cd=[%s]\npath=[%s]\n" "$viacd" "$viapath"
+    wf() { workframe "$@"; }
+    printf "cd=[%s]\npath=[%s]\nwfcd=[%s]\nwfpath=[%s]\n" \
+      "$(workframe cd demo/shellhook)" "$(workframe path demo/shellhook)" \
+      "$(wf cd demo/shellhook)" "$(wf path demo/shellhook)"
   '
   [ "$status" -eq 0 ]
-  # cd is swallowed by the wrapper — this is exactly why `path` exists.
+  # cd is swallowed under both names — this is exactly why `path` exists.
   [[ "$output" == *"cd=[]"* ]]
+  [[ "$output" == *"wfcd=[]"* ]]
   [[ "$output" == *"path=["*"/workspaces/codex/demo/"*"]"* ]]
+  [[ "$output" == *"wfpath=["*"/workspaces/codex/demo/"*"]"* ]]
 }

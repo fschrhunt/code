@@ -109,20 +109,36 @@ _resolve_worktree(){ local sel=$1 rows matches count
   die "'$sel' matches multiple worktrees — use agent/repo/city"
 }
 _offer_shell_cd_hook(){
-  local shell_rc=""
+  local shell_rc="" has_hook=0 has_short=0
   case "${SHELL:-}" in
     */zsh) shell_rc="$HOME/.zshrc";;
     */bash) shell_rc="$HOME/.bashrc";;
   esac
   [ -n "$shell_rc" ] || return 0
-  grep -q 'workframe cd shell integration' "$shell_rc" 2>/dev/null && return 0
+  grep -q 'workframe cd shell integration' "$shell_rc" 2>/dev/null && has_hook=1
+  grep -q 'wf() { workframe' "$shell_rc" 2>/dev/null && has_short=1
+  [ "$has_hook" = 1 ] && [ "$has_short" = 1 ] && return 0
   _interactive || return 0
   echo
+  # An earlier install may carry the wrapper without the short name; top it up
+  # rather than defining `workframe` twice in the same rc file.
+  if [ "$has_hook" = 1 ]; then
+    if _confirm "add the 'wf' shortcut to $shell_rc?"; then
+      cat >> "$shell_rc" <<'ZF'
+
+# workframe cd shell integration (short name)
+wf() { workframe "$@"; }
+ZF
+      ok "added — restart your shell or: source $shell_rc"
+    fi
+    return 0
+  fi
   if _confirm "add the 'workframe cd' shortcut to $shell_rc?"; then
     cat >> "$shell_rc" <<'ZF'
 
 # workframe cd shell integration
 workframe() { if [ "$1" = "cd" ]; then local d; d="$(command workframe __cdpath "${@:2}")" && [ -d "$d" ] && cd "$d"; return; fi; command workframe "$@"; }
+wf() { workframe "$@"; }
 ZF
     ok "added — restart your shell or: source $shell_rc"
   fi

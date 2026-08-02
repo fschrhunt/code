@@ -10,6 +10,9 @@ The command catalogue ships with the tool:
 workframe help --agent
 ```
 
+`wf` is a short name for the same executable, so every command on this page
+works under either name.
+
 Set `WORKFRAME_COLOR=0` for output without ANSI escapes.
 
 ## Set up a store
@@ -63,6 +66,7 @@ people.
 Workframe offers to install a shell integration that wraps `workframe` in a
 function so that `workframe cd <selector>` changes the shell's directory. Where
 that hook is installed, `cd` prints nothing and `$(workframe cd …)` is empty.
+`wf` is defined in terms of that same function, so `wf cd` behaves the same way.
 
 `workframe path <selector>` is the stable spelling. The shell function passes it
 through untouched, so it behaves identically whether or not the hook is present:

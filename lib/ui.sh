@@ -35,7 +35,7 @@ _header(){
 _help(){
   _header
   printf '\n\n  %sWorkframe is an interactive workspace wizard.%s\n' "$W" "$N"
-  printf '  %sRun %sworkframe%s in a terminal. Start with the outcome you want, then answer only the needed prompts.%s\n' "$DIM" "$GRN" "$N" "$N"
+  printf '  %sRun %sworkframe%s or %swf%s in a terminal. Start with the outcome you want, then answer only the needed prompts.%s\n' "$DIM" "$GRN" "$N" "$GRN" "$N" "$N"
   printf '\n  %sThe home screen guides you to:%s\n' "$W" "$N"
   printf '    %s•%s start or continue a workspace\n' "$GRN" "$N"
   printf '    %s•%s manage its reversible lifecycle\n' "$GRN" "$N"
@@ -52,6 +52,7 @@ _help(){
 _help_agent(){
   printf '\n  %sWorkframe — non-interactive interface%s\n' "$W" "$N"
   printf '  %sEvery wizard action has a command form. Set WORKFRAME_COLOR=0 for plain output.%s\n' "$DIM" "$N"
+  printf '  %swf is the same executable — every command below works under either name.%s\n' "$DIM" "$N"
 
   printf '\n  %sSet up%s\n' "$W" "$N"
   printf '    %sworkframe setup --local --root <path> --agent <name> [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
@@ -90,7 +91,7 @@ _help_agent(){
   printf '    %s• --agent is required for new; WORKFRAME_AGENT sets it for a whole session.%s\n' "$DIM" "$N"
   printf '    %s• Exit 0 success, 3 refused-because-dirty, other non-zero failure.%s\n' "$DIM" "$N"
   printf '    %s• Use path, not cd: the optional shell integration makes cd change%s\n' "$DIM" "$N"
-  printf '      %sdirectory instead of printing. path is never intercepted.%s\n' "$DIM" "$N"
+  printf '      %sdirectory instead of printing, under both names. path is never intercepted.%s\n' "$DIM" "$N"
   printf '    %s• Full reference: docs/reference/automation.md%s\n' "$DIM" "$N"
 }
 

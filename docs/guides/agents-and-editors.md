@@ -76,4 +76,5 @@ cd "$(workframe cd <selector>)"
 
 Interactive `setup` and `config` can offer a shell wrapper. The wrapper handles
 `workframe cd` in the current shell and delegates every other command to the
-installed executable.
+installed executable. It also defines `wf`, so `wf cd <selector>` changes
+directory in the same way.

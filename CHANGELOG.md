@@ -48,6 +48,8 @@ Notable changes to Workframe are documented here. The project follows
   automatic migration from the former top-level file.
 - `workframe update` now updates program files only; store maintenance remains
   under explicit setup, sync, and doctor commands.
+- `wf` is installed alongside `workframe` as a short name for the same command,
+  including in the optional `cd` shell wrapper.
 
 ## 1.5.0
 
