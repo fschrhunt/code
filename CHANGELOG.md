@@ -5,6 +5,41 @@ Notable changes to Workframe are documented here. The project follows
 
 ## Unreleased
 
+- **Data loss fixed:** `workframe remove repo` deleted worktrees that lived
+  outside the store. A clean, fully pushed worktree added by hand elsewhere was
+  removed with `rm -rf` and no warning. Workframe now only deletes worktrees
+  under `workspaces/`; `remove repo` refuses when others exist, and `--force`
+  deletes the repository while leaving their files in place.
+- **Store containment fixed:** an agent could be named `.` or `..`, which made
+  `workframe new` create directories outside `workspaces/`. Agent names now
+  follow the same rules as repository names, and the check is applied wherever
+  a name is used, so a hand-edited config cannot reintroduce it.
+- Feature names are validated. `workframe new <repo> "   "` previously created
+  the branch `<agent>/---`, and names git rejects surfaced a raw `fatal:`
+  instead of an explanation. Spaces and slashes still work as before.
+- Scripts and coding agents now have a discoverable command surface with the
+  same capabilities as the wizard. `workframe help --agent` prints the full
+  non-interactive catalogue, and the new
+  [automation reference](docs/reference/automation.md) documents selectors,
+  exit codes, and the safety rules automation must respect. The store's
+  `WORKFRAME.md` contract points agents at both.
+- Added `workframe path <selector>`, the stable way to resolve a workspace
+  directory. The optional shell integration wraps `workframe` so that
+  `workframe cd` changes directory instead of printing, which made
+  `$(workframe cd …)` empty in scripts; `path` is never intercepted.
+- `rename`, `open`, and `cd` now fail with a clear message when given no
+  selector and no terminal, instead of a raw prompt-program error and exit 0.
+- `workframe clean` and `workframe cd` output ends with a newline.
+- Fixed the wizard's **Start a new workspace** action, which always failed with
+  a non-interactive usage error. Prompting is now gated on stdin and stderr
+  rather than stdout, so a prompt whose result is captured with `$(…)` still
+  reaches the terminal.
+- `WORKFRAME_COLOR=0` now forces plain output as documented, including when a
+  terminal is attached.
+- A failed prompt program is no longer mistaken for typed input.
+- The first-run "next" hint now names the actual main-menu entries.
+- `archive` accepts a worktree path reached through a symlinked store root.
+- `workframe sync` output ends with a newline.
 - Security and community foundations for the public repository.
 - Homebrew installation through `fschrhunt/tap/workframe`.
 - Interactive `workframe setup` with persistent custom local roots and

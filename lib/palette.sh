@@ -15,7 +15,21 @@ GUM_WHITE="#ffffff"
 GUM_ACID="#f0fb29"
 GUMC="$GUM_ACID"
 
-if [ -t 1 ] || [ "${WORKFRAME_COLOR:-0}" = 1 ]; then
+# Detection is captured once, at source time, so the decision below stays a pure
+# function of (WORKFRAME_COLOR, stdout-is-a-terminal) and can be tested without a
+# TTY.
+_WF_STDOUT_TTY=0; [ -t 1 ] && _WF_STDOUT_TTY=1
+# WORKFRAME_COLOR forces color off (0) or on (1) regardless of the TTY; unset
+# falls back to detection. An explicit 0 must win over an attached terminal so
+# agents and log capture can get clean, escape-free output.
+_color_on(){
+  case "${WORKFRAME_COLOR:-}" in
+    0) return 1;;
+    1) return 0;;
+  esac
+  [ "$_WF_STDOUT_TTY" = 1 ]
+}
+if _color_on; then
   B=$'\e[1m'; N=$'\e[0m'
   # Direct truecolor — do not go through 256-color approximation
   DIM=$'\e[38;2;170;170;170m'
