@@ -1,57 +1,156 @@
-# WORKFRAME.md — agent contract
+# WORKFRAME.md — guide to this Workframe store
 
-You are operating inside a Workframe-managed Git store. Follow this contract
-for all work below this directory.
+This directory is a Workframe store: a safe place to keep one canonical clone
+of each repository and a separate Git worktree for each task. Read this guide
+before creating, changing, or cleaning up work here.
 
-## Establish context before editing
+## The short version
 
-- Confirm the current working directory and Git branch.
-- Work only inside an active path shaped like
-  `workspaces/<agent>/<repo>/<city>/`.
-- If the current directory is a canonical clone under `repos/`, stop and move
-  the task into an isolated worktree.
-- Read and follow the current repository's own agent instructions. Instructions
-  closer to the code are more specific than this store-level contract.
+1. Find or create a **task workspace**, not a clone in `repos/`.
+2. Do the work only in that workspace and follow its repository instructions.
+3. Inspect before acting; use reversible lifecycle commands by default.
+4. Commit, validate, and clearly report what remains when handing work off.
 
-## Drive Workframe by command
+Run `workframe help` for the everyday command map, or
+`workframe help --agent` for the complete non-interactive interface. `wf` is
+the same command when it is installed.
 
-- Run `workframe help --agent` for the full command reference. You can create
-  workspaces, clone repositories, and manage their lifecycle directly.
-- Use `workframe worktrees` and `workframe repos` when you need to parse the
-  store; `workframe list` is formatted for people.
-- Use `workframe path <selector>` to resolve a workspace directory. Do not use
-  `workframe cd` in a script: a shell integration may wrap it so that it changes
-  directory instead of printing.
-- Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` for output without ANSI escapes.
-- Exit `3` means a command refused because a worktree has uncommitted changes.
-  The work is intact — commit it or ask before discarding.
+## Know where you are
 
-## Work only in the current worktree
+```text
+<store>/
+├── WORKFRAME.md                 this guide
+├── repos/<repo>/                canonical clones — do not develop here
+├── workspaces/<repo>/<city>/    active task worktrees
+└── system/                      configuration and operational state
+```
 
-- Keep changes scoped to the assigned task.
-- Preserve unrelated and pre-existing changes.
-- Do not edit or inspect sibling workspaces unless the task explicitly requires
-  it.
+Some older stores use `workspaces/<agent>/<repo>/<city>/`. Treat those as
+active worktrees too; do not reorganize them merely to match the newer layout.
+
+Before editing, confirm the directory and branch:
+
+```bash
+pwd
+git branch --show-current
+workframe current                 # when already inside a Workframe workspace
+```
+
+Only edit an active worktree under `workspaces/`. `repos/` holds the canonical
+clone from which worktrees are made. Do not implement task work in `repos/`.
+`system/` can contain private configuration and operational state, so do not
+put project work there or disclose its contents.
+
+Repository-local instructions such as `AGENTS.md`, `CONTRIBUTING.md`, and test
+documentation still apply. Read them before changing code. They are more
+specific than this store-level guide.
+
+## Start or find a task workspace
+
+Use these commands to see what already exists:
+
+```bash
+workframe list                    # readable summary of active work
+workframe list --dirty            # active work with uncommitted changes
+workframe list archived           # branches that can be restored
+workframe repos                   # canonical repository names
+workframe path <selector>         # print one active workspace path
+```
+
+A selector may be a city name, `repo/feature`, a branch name, the full
+workspace path, or (where applicable) `agent/repo/city`. Workframe refuses an
+ambiguous selector instead of guessing.
+
+When the task calls for a new workspace, create one from a repository already
+in the store:
+
+```bash
+workframe clone <owner/repo | url | path>   # only when the repo is absent
+workframe new <repo> <task>
+```
+
+`new` creates a task branch and an isolated worktree, then prints its path.
+Use that printed path (or `workframe path <selector>`) to enter the workspace.
+Do not use `workframe cd` in automation: optional shell integration can make it
+change the caller's directory instead of printing a path.
+
+```bash
+workspace=$(workframe path <selector>)
+cd "$workspace"
+```
+
+If the branch already exists but has no active workspace, restore it instead of
+creating another branch:
+
+```bash
+workframe restore <repo> <branch>
+```
+
+Do not initialize, reconfigure, or switch a store simply to complete a coding
+task. Commands such as `workframe init`, `setup`, and `config` change the
+operator's environment and need an explicit request.
+
+## Work and hand off safely
+
+Inside the assigned workspace:
+
+- Keep changes limited to the assigned task and preserve pre-existing changes.
+- Do not inspect, edit, or use sibling workspaces to finish the task unless the
+  task explicitly requires it.
 - Do not move, replace, or delete the worktree's `.git` file.
-- Do not modify another worktree or branch to complete the current task.
+- Run the repository's documented formatter, build, tests, and review checks.
+- Commit only when that is within the task's requested workflow; do not assume
+  permission to push, open a pull request, or change another branch.
 
-## Respect store boundaries
+At handoff, report the workspace path, branch, validation performed, and any
+uncommitted or unpushed changes. If work is paused rather than finished,
+archive it only when appropriate:
 
-- `repos/` contains canonical clones managed by Workframe. Do not implement
-  changes there.
-- `workspaces/` contains isolated working state. Treat sibling workspaces as
-  private.
-- `system/` contains Workframe configuration, program files, and operational
-  state. Do not place project files there or expose its contents.
+```bash
+workframe archive <selector> --yes
+```
 
-## Validate and hand off
+Archive removes the worktree folder but keeps the branch, so it can be resumed
+with `workframe restore <repo> <branch>`. It refuses dirty work unless
+`--force` is given. `--force` discards uncommitted changes; use it only with
+explicit authorization to lose those changes.
 
-- Use the repository's documented build, test, and review commands.
-- Do not run destructive lifecycle commands such as `workframe archive
-  --force`, `workframe clean --yes`, or `workframe remove` unless the task
-  explicitly requires that exact action. Reversible actions — `new`, `clone`,
-  `list`, `sync`, `archive` without `--force`, `restore` — need no such
-  permission.
-- Never recursively delete store, repository, or workspace paths.
-- Report the workspace path, branch, validation performed, and any uncommitted
-  or unpushed work when handing off.
+## Use the CLI safely in scripts and agents
+
+For stable, machine-readable discovery, prefer:
+
+```bash
+workframe worktrees               # TSV: agent, repo, city, path, branch
+workframe repos                   # one repository name per line
+workframe path <selector>         # one resolved workspace path
+workframe run <selector> -- <command> [args...]
+```
+
+`workframe list` is intentionally formatted for people. Set `WORKFRAME_COLOR=0`
+or `NO_COLOR=1` when plain output is needed. In a non-interactive session,
+supply every required argument rather than expecting a prompt.
+
+An exit status of `3` means Workframe refused a potentially destructive action
+and left the work intact—for example, a dirty workspace during archive. Inspect
+the state, commit or preserve the work, and ask before discarding anything.
+
+## Lifecycle boundaries
+
+These operations have different consequences:
+
+| Goal | Command | What happens |
+|---|---|---|
+| Inspect active work | `workframe list` | No changes |
+| Pause work | `workframe archive <selector> --yes` | Removes folder, keeps branch |
+| Resume work | `workframe restore <repo> <branch>` | Recreates a worktree |
+| Remove an archived branch | `workframe remove branch <repo> <branch> --yes` | Permanently deletes branch |
+| Remove a repository | `workframe remove repo <repo> --yes` | Permanently deletes canonical clone when safe |
+| Clear safe stale state | `workframe clean` | Dry run unless `--yes` is supplied |
+
+Never run `workframe archive --force`, `workframe clean --yes`, `workframe
+remove`, or recursive deletion commands unless the task explicitly authorizes
+that exact destructive action. Do not delete a store, canonical repository, or
+workspace path with a raw recursive-delete command.
+
+When in doubt, stop after inspection and ask the task owner which workspace or
+lifecycle action they intend.
