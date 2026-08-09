@@ -1,0 +1,39 @@
+name: release unsigned macOS cask
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: validate tag version
+        run: test "${GITHUB_REF_NAME#v}" = "$(tr -d '[:space:]' < VERSION)"
+      - name: install checks
+        run: brew install bats-core shellcheck
+      - name: validate
+        run: make check
+      - name: package unsigned app
+        run: |
+          make menubar-package
+          release_version=$(tr -d '[:space:]' < VERSION)
+          archive=".build/Workframe-$release_version.zip"
+          WORKFRAME_UNSIGNED=1 scripts/write-homebrew-cask.sh "$(shasum -a 256 "$archive" | awk '{print $1}')" > .build/workframe.rb
+      - name: publish unsigned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_version=$(tr -d '[:space:]' < VERSION)
+          archive=".build/Workframe-$release_version.zip"
+          gh release create "$GITHUB_REF_NAME" \
+            "$archive" \
+            .build/workframe.rb \
+            --title "Workframe $GITHUB_REF_NAME (unsigned)" \
+            --notes "This macOS app is unsigned and not notarized. macOS will show a security warning before opening it; install only if you trust this project and release artifact."

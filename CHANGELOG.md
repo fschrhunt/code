@@ -3,7 +3,7 @@
 Notable changes to Workframe are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.5.1
 
 - **Data loss fixed:** `workframe remove repo` deleted worktrees that lived
   outside the store. A clean, fully pushed worktree added by hand elsewhere was
