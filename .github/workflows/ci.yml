@@ -43,3 +43,9 @@ jobs:
         run: git config --global init.defaultBranch main
       - name: bats
         run: bats -r test
+      - name: menubar app
+        if: runner.os == 'macOS'
+        run: |
+          make menubar-test
+          make menubar-build
+          test -x .build/Workframe.app/Contents/MacOS/Workframe
