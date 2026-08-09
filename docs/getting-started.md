@@ -14,16 +14,28 @@ Contributors also need `shellcheck` and `bats`.
 
 ## Install
 
-Install the current release with Homebrew:
+On macOS, install the native menubar app and its matching command-line tools
+in one step with the Homebrew cask:
 
 ```bash
-brew install fschrhunt/tap/workframe
+brew install --cask fschrhunt/tap/workframe
 ```
 
-Upgrade a Homebrew installation with:
+The cask installs `Workframe.app` and exposes its bundled CLI as both
+`workframe` and `wf`. Upgrade both together with:
 
 ```bash
-brew upgrade workframe
+brew upgrade --cask fschrhunt/tap/workframe
+```
+
+The menubar app checks the cask for updates and offers the same upgrade from
+its Update pill. It does not download or run an unverified updater itself.
+
+For the CLI-only formula (macOS or Linux), use:
+
+```bash
+brew install --formula fschrhunt/tap/workframe
+brew upgrade --formula fschrhunt/tap/workframe
 ```
 
 To install from source instead, clone the repository and link the executable
@@ -60,8 +72,8 @@ workframe update
 The command safely updates the checkout used by the installed executable from
 its stable `main` branch. It can recover a clean checkout whose pull-request
 branch was squash-merged and deleted, but refuses unpublished or divergent
-work. Homebrew installations remain package-manager-owned and use
-`brew upgrade workframe` instead.
+work. Homebrew installations remain package-manager-owned and use the matching
+`brew upgrade` command above instead.
 
 If the shell cannot find `workframe` or `wf`, add `~/.local/bin` to `PATH` or
 install into a directory already on `PATH`.

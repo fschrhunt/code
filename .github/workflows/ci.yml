@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          shellcheck -x bin/workframe install.sh lib/*.sh contrib/mount-workframe.sh
+          shellcheck -x bin/workframe install.sh lib/*.sh contrib/mount-workframe.sh assets/build.sh scripts/*.sh
 
   test:
     strategy:
