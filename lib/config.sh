@@ -272,8 +272,8 @@ if [ -n "${WORKFRAME_VALID_AGENTS:-}" ]; then
 fi
 
 # ---- data root + paths ----
-# Re-evaluate these whenever setup or the wizard changes profile. Keeping this
-# in one function prevents a long-lived wizard from using the previous store.
+# Re-evaluate these whenever setup or config changes profile. Keeping this in
+# one function prevents an interactive session from using the previous store.
 _refresh_runtime_paths(){
   _sync_box_home
   # Frontend (any OS) keeps the user's HOME and uses the local mount path.

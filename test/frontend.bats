@@ -354,7 +354,7 @@ EOF
   [[ "$output" == *"GIT_TERMINAL_PROMPT=0"* ]]
 }
 
-@test "activating local profile refreshes a long-lived wizard to its local store" {
+@test "activating local profile refreshes an interactive session to its local store" {
   local user_home="$BATS_TEST_TMPDIR/user-home"
   local mount_path="$BATS_TEST_TMPDIR/mount"
   local expected_root
