@@ -1,4 +1,4 @@
-.PHONY: check lint test install
+.PHONY: check lint test install menubar-build menubar-test
 
 check: lint test
 
@@ -10,3 +10,9 @@ test:
 
 install:
 	./install.sh
+
+menubar-build:
+	./scripts/build-menubar-app.sh
+
+menubar-test:
+	swift test

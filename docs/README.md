@@ -54,6 +54,7 @@ operates a secured box and mounted filesystem.
 
 - [Root product overview](../README.md)
 - [Operations and release safety](operations.md)
+- [Menubar app](menubar.md)
 - [Contributor workflow](../CONTRIBUTING.md)
 - [Security policy](../SECURITY.md)
 - [Support](../SUPPORT.md)
