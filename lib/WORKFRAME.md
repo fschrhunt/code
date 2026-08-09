@@ -15,15 +15,14 @@ for all work below this directory.
 
 ## Drive Workframe by command
 
-- Run `workframe help --agent` for the full non-interactive interface. Every
-  action available in the wizard has a command form, so you can create
+- Run `workframe help --agent` for the full command reference. You can create
   workspaces, clone repositories, and manage their lifecycle directly.
 - Use `workframe worktrees` and `workframe repos` when you need to parse the
   store; `workframe list` is formatted for people.
 - Use `workframe path <selector>` to resolve a workspace directory. Do not use
   `workframe cd` in a script: a shell integration may wrap it so that it changes
   directory instead of printing.
-- Set `WORKFRAME_COLOR=0` for output without ANSI escapes.
+- Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` for output without ANSI escapes.
 - Exit `3` means a command refused because a worktree has uncommitted changes.
   The work is intact — commit it or ask before discarding.
 

@@ -16,7 +16,8 @@
   [ ! -e "$bindir/$old_name" ]
   [[ "$output" == *"linked $bindir/workframe"* ]]
   [[ "$output" == *"linked $bindir/wf"* ]]
-  [[ "$output" == *"next:   workframe setup"* ]]
+  [[ "$output" == *"next:   workframe help"* ]]
+  [[ "$output" == *"workframe completion bash"* ]]
 }
 
 @test "the short name runs the same command" {
@@ -31,7 +32,7 @@
 
   run env WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" "$bindir/wf" help
   [ "$status" -eq 0 ]
-  [[ "$output" == *"interactive workspace wizard"* ]]
+  [[ "$output" == *"isolated Git worktrees for parallel work"* ]]
 }
 
 @test "installed command can provision the shipped store guide" {

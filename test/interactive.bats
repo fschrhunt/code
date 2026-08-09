@@ -3,9 +3,9 @@
 #
 # Every prompt helper renders to stderr and reads stdin, so a caller may capture
 # its result with $( ) — which makes stdout a pipe even in a fully interactive
-# session. Gating on stdout made `workframe new` (and the wizard's "start a new
-# workspace") refuse to prompt for an agent and die with the non-interactive
-# usage error. These tests pin the seam without needing a real terminal.
+# session. Gating on stdout made `workframe new` refuse to prompt for an agent
+# and die with the non-interactive usage error. These tests pin the seam without
+# needing a real terminal.
 
 load helper
 
@@ -33,7 +33,7 @@ _load_libs() {
 @test "resolve_agent prompts when its result is captured by command substitution" {
   _load_libs
   VALID_AGENTS="alpha beta"
-  # Stand in for a terminal; the picker itself is exercised by the wizard.
+  # Stand in for a terminal; the picker itself is exercised by command helpers.
   _interactive() { return 0; }
   _choose() { printf 'beta'; }
   # The regression: stdout here is a pipe, exactly as in `agent=$(_resolve_agent …)`.
@@ -102,6 +102,7 @@ _load_libs() {
 @test "unset WORKFRAME_COLOR falls back to terminal detection" {
   _load_libs
   unset WORKFRAME_COLOR
+  unset NO_COLOR
   _WF_STDOUT_TTY=1
   run _color_on
   [ "$status" -eq 0 ]
@@ -110,16 +111,37 @@ _load_libs() {
   [ "$status" -ne 0 ]
 }
 
-@test "first-run next steps name real main-menu entries" {
+@test "NO_COLOR disables automatic color but an explicit setting wins" {
+  _load_libs
+  _WF_STDOUT_TTY=1
+  unset WORKFRAME_COLOR
+  NO_COLOR=1
+  run _color_on
+  [ "$status" -ne 0 ]
+  WORKFRAME_COLOR=1
+  run _color_on
+  [ "$status" -eq 0 ]
+}
+
+@test "light and dark themes select distinct accessible truecolor palettes" {
+  local lib="${BATS_TEST_DIRNAME}/../lib/palette.sh"
+  run bash -c "WORKFRAME_COLOR=1 WORKFRAME_THEME=light . '$lib'; printf '%s|%s|%s' \"\$W\" \"\$GRN\" \"\$ACID_BG\""
+  [ "$status" -eq 0 ]
+  [ "$output" = $'\e[1;38;2;17;24;39m|\e[38;2;83;96;0m|\e[48;2;83;96;0m' ]
+  run bash -c "WORKFRAME_COLOR=1 WORKFRAME_THEME=dark . '$lib'; printf '%s|%s|%s' \"\$W\" \"\$GRN\" \"\$ACID_BG\""
+  [ "$status" -eq 0 ]
+  [ "$output" = $'\e[1;38;2;255;255;255m|\e[38;2;240;251;41m|\e[48;2;240;251;41m' ]
+}
+
+@test "first-run next steps name real command forms" {
   local frontend="${BATS_TEST_DIRNAME}/../lib/frontend.sh"
-  # Whatever the hint tells a new user to choose must be a real menu entry, and
-  # the hint must quote its entries so this stays checkable.
   local hint found=0
   while read -r hint; do
+    [ -n "$hint" ] || continue
     found=$((found + 1))
-    grep -qF "\"$hint\") " "$frontend" \
-      || { echo "next-steps hint names a missing menu entry: $hint"; return 1; }
+    [[ "$hint" == workframe\ * ]] \
+      || { echo "next-steps hint is not a command: $hint"; return 1; }
   done < <(awk '/^_print_next_steps\(\)/{f=1} f&&/^}/{f=0} f' "$frontend" \
-    | sed -n 's/.*choose "\([^"]*\)".*/\1/p')
-  [ "$found" -eq 2 ]
+    | sed -n 's/.*%s\(workframe [^%]*\)%s.*/\1/p')
+  [ "$found" -eq 3 ]
 }

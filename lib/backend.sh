@@ -80,7 +80,8 @@ _gen_city_name(){
 # Unique folder label under $WORK/<agent>/<repo>/. Samples lib/cities.txt
 # (world place names); on collision exhaustion, syllable names, then a suffix.
 _pick_city(){
-  local dir="$WORK/$1/$2"
+  local dir="$WORK/$1"
+  [ -z "${2:-}" ] || dir="$dir/$2"
   local file="${WORKFRAME_LIB:-}/cities.txt"
   local n c t=0 idx
   if [ -f "$file" ]; then
@@ -115,18 +116,29 @@ cmd_worktrees(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
     while IFS= read -r worktree; do
       case "$worktree" in "$WORK"/*) ;; *) continue;; esac; [ -e "$worktree/.git" ] || continue
-      local rel=${worktree#"$WORK"/} ag city; ag=${rel%%/*}; city=${rel##*/}; _is_agent "$ag" || continue
-      printf '%s\t%s\t%s\t%s\t%s\n' "$ag" "$r" "$city" "$worktree" "$(git -C "$worktree" branch --show-current 2>/dev/null)"
+      local rel=${worktree#"$WORK"/} city legacy=""
+      case "$rel" in
+        "$r"/*) city=${rel#"$r"/}; case "$city" in */*) continue;; esac;;
+        */"$r"/*) city=${rel##*/}; legacy=${rel%%/*};;
+        *) continue;;
+      esac
+      # Keep five columns during the transition. `task` is a layout marker,
+      # never an agent identity; legacy records retain their former prefix.
+      [ -n "$legacy" ] || legacy=task
+      printf '%s\t%s\t%s\t%s\t%s\n' "$legacy" "$r" "$city" "$worktree" "$(git -C "$worktree" branch --show-current 2>/dev/null)"
     done < <(_worktree_paths "$d"); done; }
-cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
-  [ -n "$agent" ] && [ -n "$repo" ] && [ -n "$feature" ] || die "usage: new <agent> <repo> <feature>"
-  _is_agent "$agent" || die "unknown agent '$agent' — configure with: workframe agents add $agent"
+cmd_new(){ local repo feature agent="" legacy=0
+  if [ $# -eq 2 ]; then repo=$1; feature=$2
+  elif [ $# -eq 3 ]; then agent=$1; repo=$2; feature=$3; legacy=1
+  else die "usage: new <repo> <task>"; fi
+  [ "$legacy" = 0 ] || _is_agent "$agent" || die "unknown agent '$agent'"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
   local d; d=$(_canon "$repo")
   [ -d "${d}/.git" ] || die "no repo '$repo' — clone first: workframe clone owner/repo"
   _ensure_relpaths "$repo"
-  local city branch="$agent/$feature" worktree_dir existing
+  local city branch="$feature" worktree_dir existing
+  [ "$legacy" = 0 ] || branch="$agent/$feature"
   # Archive keeps the branch; reuse needs restore, not a second -b create.
   if git -C "$d" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
     existing=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk -v want="refs/heads/$branch" '
@@ -138,7 +150,7 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
     fi
     die "branch '$branch' is archived — restore with: workframe restore $repo $branch"
   fi
-  city=$(_pick_city "$agent" "$repo"); worktree_dir="$WORK/$agent/$repo/$city"
+  if [ "$legacy" = 1 ]; then city=$(_pick_city "$agent" "$repo"); worktree_dir="$WORK/$agent/$repo/$city"; else city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"; fi
   # New feature branches should not track the default branch. Tracking is set
   # when the user first pushes their feature branch with `git push -u`.
   mkdir -p "$(dirname "$worktree_dir")"
@@ -146,12 +158,14 @@ cmd_new(){ local agent="${1:-}" repo="${2:-}" feature="${3:-}"
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
   printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$worktree_dir" "$branch" "$city"; }
-cmd_rename(){ local worktree="${1:-}" feature="${2:-}"; [ -n "$worktree" ] && [ -n "$feature" ] || die "usage: rename <path> <feature>"
+cmd_rename(){ local worktree="${1:-}" feature="${2:-}"; [ -n "$worktree" ] && [ -n "$feature" ] || die "usage: rename <path> <task>"
   case "$worktree" in "$WORK"/*) ;; *) die "not a workframe worktree: $worktree";; esac; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
-  local rel=${worktree#"$WORK"/} agent repo; agent=${rel%%/*}; repo=$(printf '%s' "$rel" | cut -d/ -f2); _is_agent "$agent" || die "not a workframe-managed worktree"
+  local rel=${worktree#"$WORK"/} agent="" repo
+  repo=${rel%%/*}
+  if [ ! -d "$REPOS/$repo/.git" ]; then agent=$repo; repo=$(printf '%s' "$rel" | cut -d/ -f2); _is_agent "$agent" || die "not a Workframe workspace"; fi
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
-  local oldbr newbr="$agent/$feature"; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  local oldbr newbr="$feature"; [ -z "$agent" ] || newbr="$agent/$feature"; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
   git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
 cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo|url|path>"; local url repo
@@ -300,30 +314,31 @@ cmd_archive(){
   # containment check even though it names a managed worktree.
   [ -d "$worktree" ] && worktree=$(cd -P "$worktree" 2>/dev/null && pwd -P || printf '%s' "$worktree")
   case "$worktree" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
-  local rel=${worktree#"$WORK"/}; _is_agent "${rel%%/*}" || die "not a workframe-managed worktree"; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
+  local rel=${worktree#"$WORK"/} repo; repo=${rel%%/*}; if [ ! -d "$REPOS/$repo/.git" ]; then _is_agent "$repo" || die "not a Workframe workspace"; repo=$(printf '%s' "$rel" | cut -d/ -f2); fi; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
   _prog "checking status" 25
   [ -n "$(git -C "$worktree" status --porcelain 2>/dev/null)" ] && [ "$force" != "--force" ] && {
     printf 'DIRTY: uncommitted changes — commit first, or archive --force to discard them\n'
     return 3
   }
-  local repo; repo=$(printf '%s' "$rel" | cut -d/ -f2); local br; br=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  local br; br=$(git -C "$worktree" branch --show-current 2>/dev/null)
   _prog "archiving worktree" 70
   git -C "$(_canon "$repo")" worktree remove --force "$worktree" || die "worktree remove failed"; _prog "finishing" 100
   printf 'archived: %s\n' "$br"; }
 # archived: branches with an agent prefix that have NO worktree (the "archive" list).
 cmd_archived(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
-    local checked; checked=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}')
+    local checked base; checked=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}'); base=$(_default_branch "$r")
     git -C "$d" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null | while read -r br; do
-      _is_agent "${br%%/*}" || continue; printf '%s\n' "$checked" | grep -qxF "$br" && continue
+      [ "$br" = "$base" ] && continue; printf '%s\n' "$checked" | grep -qxF "$br" && continue
       printf '%s\t%s\t%s\t%s\n' "${br%%/*}" "$r" "$br" "$(git -C "$d" log -1 --format='%cr' "$br" 2>/dev/null)"
     done; done; }
 # restore: recreate a worktree on an EXISTING (archived) branch, in a fresh city folder.
 cmd_restore(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$branch" ] || die "usage: restore <repo> <branch>"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"
   git -C "$d" show-ref --verify --quiet "refs/heads/$branch" || die "no such branch: $branch"
-  local agent=${branch%%/*}; _is_agent "$agent" || die "not an agent branch: $branch"; _ensure_relpaths "$repo"
-  local city; city=$(_pick_city "$agent" "$repo"); local worktree_dir="$WORK/$agent/$repo/$city"
+  local agent=${branch%%/*} city worktree_dir
+  _ensure_relpaths "$repo"
+  if _is_agent "$agent"; then city=$(_pick_city "$agent" "$repo"); worktree_dir="$WORK/$agent/$repo/$city"; else city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"; fi
   mkdir -p "$(dirname "$worktree_dir")"; git -C "$d" worktree add "$worktree_dir" "$branch" >&2 || die "worktree add failed"
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done

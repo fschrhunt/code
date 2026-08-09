@@ -31,32 +31,46 @@ _header(){
   done
 }
 
-# Help layout: the interactive product surface with its small support interface.
+# Help is the primary product surface: commands first, prompts when helpful.
 _help(){
   _header
-  printf '\n\n  %sWorkframe is an interactive workspace wizard.%s\n' "$W" "$N"
-  printf '  %sRun %sworkframe%s or %swf%s in a terminal. Start with the outcome you want, then answer only the needed prompts.%s\n' "$DIM" "$GRN" "$N" "$GRN" "$N" "$N"
-  printf '\n  %sThe home screen guides you to:%s\n' "$W" "$N"
-  printf '    %s•%s start or continue a workspace\n' "$GRN" "$N"
-  printf '    %s•%s manage its reversible lifecycle\n' "$GRN" "$N"
-  printf '    %s•%s manage repositories, settings, and agents\n' "$GRN" "$N"
-  printf '    %s•%s check health or update Workframe\n' "$GRN" "$N"
-  printf '\n  %sSupport:%s  %sworkframe help%s  %sworkframe version%s\n' \
-    "$DIM" "$N" "$GRN" "$N" "$GRN" "$N"
-  printf '  %sScripts and coding agents:%s  %sworkframe help --agent%s\n' "$DIM" "$N" "$GRN" "$N"
+  printf '\n\n  %sWorkframe — isolated Git worktrees for parallel work.%s\n' "$W" "$N"
+  printf '  %sUse %sworkframe%s or %swf%s. Commands prompt for omitted safe details when you are at a terminal.%s\n' "$DIM" "$GRN" "$N" "$GRN" "$N" "$N"
+
+  printf '\n  %sStart here%s\n' "$W" "$N"
+  printf '    %sworkframe init%s                          %sbootstrap a local store%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe setup --local%s                 %screate or update a local store%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe clone <owner/repo | url | path>%s\n' "$GRN" "$N"
+  printf '    %sworkframe new <repo> <task>%s\n' "$GRN" "$N"
+
+  printf '\n  %sDaily work%s\n' "$W" "$N"
+  printf '    %sworkframe list%s                         %sshow active workspaces%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe open <selector>%s              %sopen a workspace in the configured editor%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe path <selector>%s              %sprint a workspace path%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe current%s                      %sshow the current workspace context%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe resume <selector>%s            %sopen active work or restore it%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe archive <selector> --yes%s     %spause work; branch is kept%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe restore <repo> <branch>%s\n' "$GRN" "$N"
+
+  printf '\n  %sManage%s\n' "$W" "$N"
+  printf '    %sworkframe repos%s  %sworkframe sync [<repo> | --all]%s\n' "$GRN" "$N" "$GRN" "$N"
+  printf '    %sworkframe status%s  %sworkframe doctor%s  %sworkframe config%s\n' "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+  printf '    %sworkframe dashboard%s                    %sactive work and next actions%s\n' "$GRN" "$N" "$DIM" "$N"
+
+  printf '\n  %sMore%s  %sworkframe help --agent%s  %sfull command reference and scripting notes%s\n' \
+    "$W" "$N" "$GRN" "$N" "$DIM" "$N"
 }
 
-# The non-interactive surface, in full. Coding agents and scripts get the same
-# capabilities as a person driving the wizard; this is where they discover them.
-# Keep it accurate — it is the only command catalogue Workframe ships.
+# The complete command surface. Keep it accurate — this is the detailed
+# reference for scripts and coding agents.
 _help_agent(){
   printf '\n  %sWorkframe — non-interactive interface%s\n' "$W" "$N"
-  printf '  %sEvery wizard action has a command form. Set WORKFRAME_COLOR=0 for plain output.%s\n' "$DIM" "$N"
+  printf '  %sSet WORKFRAME_COLOR=0 or NO_COLOR=1 for plain output. WORKFRAME_THEME=light|dark selects a color theme.%s\n' "$DIM" "$N"
   printf '  %swf is the same executable — every command below works under either name.%s\n' "$DIM" "$N"
 
   printf '\n  %sSet up%s\n' "$W" "$N"
-  printf '    %sworkframe setup --local --root <path> --agent <name> [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
-  printf '    %sworkframe agents [list | add <name> | remove <name>]%s\n' "$GRN" "$N"
+  printf '    %sworkframe setup --local --root <path> [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
+  printf '    %sworkframe init [--root <path>] [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
 
   printf '\n  %sRepositories%s\n' "$W" "$N"
   printf '    %sworkframe clone <owner/repo | url | path>%s\n' "$GRN" "$N"
@@ -65,33 +79,40 @@ _help_agent(){
   printf '    %sworkframe remove repo <repo> --yes [--force]%s\n' "$GRN" "$N"
 
   printf '\n  %sWorkspaces%s\n' "$W" "$N"
-  printf '    %sworkframe new <repo> <feature> --agent <name>%s\n' "$GRN" "$N"
+  printf '    %sworkframe new <repo> <task>%s\n' "$GRN" "$N"
   printf '    %sworkframe list [archived]%s\n' "$GRN" "$N"
-  printf '    %sworkframe worktrees%s                    %sTSV: agent, repo, city, path, branch%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe list [archived] [--repo <name>] [--dirty] [--json]%s\n' "$GRN" "$N"
+  printf '    %sworkframe worktrees [--json]%s           %sTSV by default: repo, city, path, branch%s\n' "$GRN" "$N" "$DIM" "$N"
   printf '    %sworkframe path <selector>%s              %sprints the workspace path%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe current [--json]%s             %sshows current-directory workspace context%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe run <selector> -- <command>%s  %sruns a command inside a workspace%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe resume <selector>%s            %sopens active work or restores archived work%s\n' "$GRN" "$N" "$DIM" "$N"
   printf '    %sworkframe rename <selector> <feature>%s\n' "$GRN" "$N"
   printf '    %sworkframe open <selector>%s              %sopens the configured editor%s\n' "$GRN" "$N" "$DIM" "$N"
 
   printf '\n  %sLifecycle%s  %s(archive is reversible; the rest are permanent)%s\n' "$W" "$N" "$DIM" "$N"
-  printf '    %sworkframe archive <selector> --yes [--force]%s  %s--force discards uncommitted work%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe restore <repo> <branch>%s\n' "$GRN" "$N"
+  printf '    %sworkframe archive <selector> --yes [--force] [--json]%s  %s--force discards uncommitted work%s\n' "$GRN" "$N" "$DIM" "$N"
+  printf '    %sworkframe restore [--json] <repo> <branch>%s\n' "$GRN" "$N"
   printf '    %sworkframe remove branch <repo> <branch> --yes%s\n' "$GRN" "$N"
   printf '    %sworkframe clean [--yes]%s                %sno --yes is a dry run%s\n' "$GRN" "$N" "$DIM" "$N"
 
   printf '\n  %sHealth%s\n' "$W" "$N"
   printf '    %sworkframe status%s  %sworkframe doctor%s  %sworkframe update%s  %sworkframe version%s\n' \
     "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+  printf '    %sworkframe dashboard%s  %sworkframe doctor --fix%s  %sworkframe completion <bash|zsh|fish>%s\n' \
+    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
 
   printf '\n  %sSelectors%s  %s(a workspace, named any of these ways)%s\n' "$W" "$N" "$DIM" "$N"
-  printf '    %s<city>%s  %s<repo>/<feature>%s  %s<agent>/<feature>%s  %s<agent>/<repo>/<city>%s  %s<absolute path>%s\n' \
-    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
+  printf '    %s<city>%s  %s<repo>/<task>%s  %s<repo>/<city>%s  %s<absolute path>%s\n' \
+    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
 
   printf '\n  %sNotes%s\n' "$W" "$N"
   printf '    %s• Destructive verbs require --yes without a terminal; they never assume consent.%s\n' "$DIM" "$N"
-  printf '    %s• --agent is required for new; WORKFRAME_AGENT sets it for a whole session.%s\n' "$DIM" "$N"
+  printf '    %s• A workspace is task-owned; choose the agent harness inside the workspace.%s\n' "$DIM" "$N"
   printf '    %s• Exit 0 success, 3 refused-because-dirty, other non-zero failure.%s\n' "$DIM" "$N"
   printf '    %s• Use path, not cd: the optional shell integration makes cd change%s\n' "$DIM" "$N"
   printf '      %sdirectory instead of printing, under both names. path is never intercepted.%s\n' "$DIM" "$N"
+  printf '    %s• status, repos, worktrees, list, archive, and restore offer JSON where documented.%s\n' "$DIM" "$N"
   printf '    %s• Full reference: docs/reference/automation.md%s\n' "$DIM" "$N"
 }
 
