@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# workframe — agent worktree control plane.
+# workframe — task worktree control plane.
 #
 # Canonical repos live in a store (local: selected by `workframe setup`; shared: box +
 # mount via SSH). Agents get isolated worktrees at
-# workspaces/<agent>/<repo>/<city> on branch <agent>/<feature>.
+# workspaces/<repo>/<city> on the task branch.
 #
 # User-facing CLI is the frontend (any OS). WORKFRAME_BACKEND=1 selects the store
 # verbs used by tests and the SSH box process.
@@ -89,10 +89,15 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
   esac
 else
   case "$cmd" in
-    ""|wizard)        mac_wizard "$@";;
+    "")                _help;;
+    wizard)             warn "'workframe wizard' was removed; use 'workframe help'"; _help;;
     setup)            mac_setup "$@";;
     init)             mac_init "$@";;
     new)              mac_new "$@";;
+    resume)           mac_resume "$@";;
+    current)          mac_current "$@";;
+    run)              mac_run "$@";;
+    dashboard)        mac_dashboard "$@";;
     rename)           mac_rename "$@";;
     ide|open)         mac_ide "$@";;
 
@@ -115,8 +120,10 @@ else
     clone)            mac_clone "$@";;
     sync)             mac_sync "$@";;
     clean)            mac_clean "$@";;
-    repos|worktrees)  _bx "$cmd" "$@";;
+    repos)            mac_repos "$@";;
+    worktrees)        mac_worktrees "$@";;
     status)           mac_status "$@";;
+    completion|completions) mac_completion "$@";;
     *)                die "unknown command: $cmd (try: workframe help)";;
   esac
 fi

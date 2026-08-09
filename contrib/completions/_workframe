@@ -1,0 +1,38 @@
+#compdef workframe wf
+_workframe() {
+  local -a commands
+  commands=(
+    'init:initialize a local store'
+    'setup:configure a store'
+    'clone:add a canonical repository'
+    'new:create a workspace'
+    'resume:open or restore a workspace'
+    'current:show the current workspace'
+    'run:run a command in a workspace'
+    'dashboard:show workspace summary'
+    'list:list workspaces'
+    'open:open a workspace'
+    'path:print a workspace path'
+    'archive:archive a workspace'
+    'restore:restore archived work'
+    'remove:permanently remove a branch or repo'
+    'repos:list repositories'
+    'worktrees:machine-readable workspace listing'
+    'agents:manage agents'
+    'status:show store status'
+    'doctor:diagnose or repair a local store'
+    'config:configure preferences'
+    'sync:update repositories'
+    'clean:clean stale worktrees'
+    'update:update Workframe'
+    'completion:print shell completion'
+  )
+  if (( CURRENT == 2 )); then _describe -t commands 'workframe command' commands; return; fi
+  case $words[2] in
+    (list) _arguments '--agent[filter by agent]:agent:' '--repo[filter by repo]:repo:' '--dirty[only dirty worktrees]' '--json[JSON output]' 'archived[show archived work]' ;;
+    (status|repos|worktrees) _arguments '--json[JSON output]' ;;
+    (doctor) _arguments '--fix[apply safe local repairs]' ;;
+    (completion) _values 'shell' bash zsh fish ;;
+  esac
+}
+_workframe "$@"

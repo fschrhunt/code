@@ -44,11 +44,11 @@ To choose another binary directory:
 The installer links two names for the same executable: `workframe` and the
 short `wf`. Every example in the documentation accepts either.
 
-Confirm the installation, then start the wizard:
+Confirm the installation, then view the command map:
 
 ```bash
 workframe version
-wf
+wf help
 ```
 
 Checkout installations can be updated from anywhere with:
@@ -68,11 +68,16 @@ install into a directory already on `PATH`.
 
 ## Set up a local profile
 
-On its first run, Workframe opens setup automatically. It asks where the
-Workframe store should live, which agent identities to create, which editor to
-use, and an optional default GitHub organization. The suggested local root is
-`~/workframe`, but any absolute path is supported, including a folder on an
-attached volume.
+Create a local store explicitly. The suggested local root is `~/workframe`, but
+any absolute path is supported, including a folder on an attached volume:
+
+```bash
+workframe init --agent codex
+# Optional: --root /Volumes/workframe --editor cursor --org owner
+```
+
+`setup` prompts for omitted safe details in an interactive terminal; scripts
+and coding agents should pass the flags they need.
 
 The selected store contains `system/config/workframe.conf` and `WORKFRAME.md`.
 Workframe remembers its location in
@@ -86,18 +91,21 @@ An agent identity is a branch namespace, not a vendor lock-in. Names such as
 
 ## Create your first workspace
 
-Choose **Manage repositories → Add a repository**, enter the repository URL or
-`owner/repo`, then choose **Start a new workspace**. The wizard asks for the
-agent, repository, and feature name, and prints the workspace path, branch,
-and generated city label. Use **Continue working** to open a workspace, or
-**Manage workspace lifecycle → Browse active workspaces** to inspect work.
+Clone a repository, then create a workspace. Workframe prints its path, branch,
+and generated city label:
+
+```bash
+workframe clone owner/repo
+workframe new repo feature-name --agent codex
+workframe list
+workframe open repo/feature-name
+```
 
 ## Pause and resume
 
-Choose **Manage workspace lifecycle → Archive a workspace** to remove the
-folder while keeping its branch. Choose **Restore archived work** to bring it
-back. The wizard always asks for the target and keeps permanent deletion in a
-separate, confirmed action.
+Use `workframe archive <selector>` to remove the folder while keeping its
+branch, then `workframe restore <repo> <branch>` to bring it back. Permanent
+removal is separate and requires confirmation.
 
 ## Next steps
 
@@ -105,4 +113,4 @@ separate, confirmed action.
 - Follow the full [workspace lifecycle](guides/workspace-lifecycle.md).
 - Configure [agents and editors](guides/agents-and-editors.md).
 - Review [local and shared profiles](guides/profiles.md).
-- Keep the [wizard reference](reference/cli.md) nearby.
+- Keep the [CLI reference](reference/cli.md) nearby.

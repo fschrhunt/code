@@ -5,6 +5,9 @@ Workframe preferences live in
 `~/workframe`; `workframe setup` can persist any absolute local path.
 `WORKFRAME_HOME` replaces the selected root for the current process.
 
+For a one-command local bootstrap, use `workframe init`. It is deliberately
+non-interactive and adds a neutral `default` agent unless `--agent` is given.
+
 The file is parsed as values-only configuration. It is never sourced as shell
 code. Unknown keys and unsafe values are ignored.
 
@@ -60,6 +63,8 @@ segments, and unsafe characters are discarded.
 | `WORKFRAME_HOME` | Override the data root and config directory |
 | `WORKFRAME_AGENT` | Choose an agent for non-interactive `new` |
 | `WORKFRAME_COLOR` | Force color off with `0` or on with `1` |
+| `WORKFRAME_THEME` | Select `dark`, `light`, or `auto` (default) terminal colors |
+| `NO_COLOR` | Disable color when `WORKFRAME_COLOR` is unset |
 | `WORKFRAME_BACKEND` | Select internal backend mode; intended for tests and shared execution |
 | `WORKFRAME_VALID_AGENTS` | Forward the authoritative agent list to a shared backend |
 | `WORKFRAME_SHARE_NAME` | Override mount-helper share name |

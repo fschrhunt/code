@@ -136,7 +136,7 @@ load helper
   [ ! -e "$user_home/.config/workframe/root" ]
 }
 
-@test "init remains a compatibility alias for setup" {
+@test "init exposes the non-interactive bootstrap command" {
   local user_home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$user_home"
 
@@ -144,6 +144,6 @@ load helper
     HOME="$user_home" WORKFRAME_COLOR=0 "$WORKFRAME" init --help
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"renamed to 'workframe setup'"* ]]
-  [[ "$output" == *"usage: workframe setup"* ]]
+  [[ "$output" == *"usage: workframe init"* ]]
+  [[ "$output" == *"--root <path>"* ]]
 }

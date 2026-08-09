@@ -22,8 +22,9 @@ one canonical clone
 
 Workframe 1.5.0 is a clean-start release. The command is `workframe` — also
 installed as `wf` — product environment variables use `WORKFRAME_*`, and local
-state begins at `~/workframe`. It is a guided terminal wizard: run `workframe`
-and choose the next action instead of memorizing commands and flags.
+state begins at `~/workframe`. It is a command-line tool: run `workframe help`
+for the everyday command map, or `workframe help --agent` for the complete
+scriptable interface.
 
 ## Start in 60 seconds
 
@@ -46,28 +47,37 @@ cd workframe
 Homebrew installations update with `brew upgrade workframe`. Checkout
 installations update with `workframe update`.
 
-Then run `workframe`, or its short name `wf`. The first run sets up the store,
-agents, editor, and optional GitHub organization. From the same menu, choose
-**Manage repositories** to add a repository, then **Start a new workspace**.
-Return to **Continue working** or **Manage workspace lifecycle** as work
-progresses.
+Then create a store, add a repository, and make a workspace:
+
+```bash
+workframe init --agent codex
+workframe clone owner/repo
+workframe new repo feature-name --agent codex
+```
+
+`init` is non-interactive and also supports `--root`, `--editor`, and `--org`;
+run
+`workframe init --help` for its options. `setup` remains available for profile
+configuration, including shared stores. Commands offer terminal prompts only
+when safe details are omitted, so the same interface works for people, scripts,
+and coding agents.
 
 ## The lifecycle
 
 <p align="center">
-  <img src="docs/images/workspace-lifecycle.png" alt="Workspace lifecycle: clone a canonical repository, create an agent worktree, work on an isolated branch, then archive and resume it or open a pull request and safely remove it." width="713" height="270">
+  <img src="docs/images/workspace-lifecycle.png" alt="Workspace lifecycle: clone a canonical repository, create a task workspace, work on an isolated branch, then archive and resume it or open a pull request and safely remove it." width="713" height="270">
 </p>
 
 Workframe separates reversible lifecycle actions from destructive ones:
 
-| Intent | Wizard path | Result |
+| Intent | Command | Result |
 |---|---|---|
-| Start | Start a new workspace | Creates a branch and worktree |
-| Inspect | Manage workspace lifecycle → Browse active | Shows active worktrees |
-| Pause | Manage workspace lifecycle → Archive | Removes the folder, keeps the branch |
-| Resume | Manage workspace lifecycle → Restore | Recreates the worktree |
-| Delete branch | Manage workspace lifecycle → Permanently delete | Permanently deletes an archived branch |
-| Delete repo | Manage repositories → Permanently delete | Deletes the canonical clone when safe |
+| Start | `workframe new` | Creates a branch and worktree |
+| Inspect | `workframe list` | Shows active worktrees |
+| Pause | `workframe archive` | Removes the folder, keeps the branch |
+| Resume | `workframe restore` | Recreates the worktree |
+| Delete branch | `workframe remove branch` | Permanently deletes an archived branch |
+| Delete repo | `workframe remove repo` | Deletes the canonical clone when safe |
 
 ## Local or shared
 
@@ -75,8 +85,8 @@ Workframe separates reversible lifecycle actions from destructive ones:
   <img src="docs/images/profile-layout.png" alt="Profile layout: the Workframe command uses either a local profile rooted at ~/workframe or a shared profile using a mounted store and SSH backend; both contain canonical repositories and agent worktrees." width="713" height="340">
 </p>
 
-- **Local** is the default. Setup offers `~/workframe` and lets you choose any
-  absolute path, including a folder on an attached volume.
+- **Local** is the default. `workframe setup --local` uses `~/workframe` unless
+  `--root <absolute-path>` selects another location.
 - **Shared** keeps the store on a remote box and exposes worktrees through a
   mounted path. Connection details live in
   `system/config/workframe.conf`, never in the repository.
@@ -85,8 +95,7 @@ Every store also receives a non-overwriting `WORKFRAME.md` safety contract for
 coding agents and agent launchers. Repository-local instructions remain the
 automatically discovered authority for tools that stop at the Git root.
 
-Choose **Settings and agents → Profile** in the wizard to configure a shared
-profile.
+Use `workframe setup --shared` to configure a shared profile.
 
 ## Find the right guide
 
@@ -97,7 +106,7 @@ profile.
 | Start, pause, resume, or remove work | [Workspace lifecycle](docs/guides/workspace-lifecycle.md) |
 | Choose local or shared operation | [Profiles](docs/guides/profiles.md) |
 | Configure agents and editors | [Agents and editors](docs/guides/agents-and-editors.md) |
-| Understand the wizard | [Wizard reference](docs/reference/cli.md) |
+| Look up a command | [CLI reference](docs/reference/cli.md) |
 | Drive Workframe from a script or coding agent | [Automation reference](docs/reference/automation.md) |
 | Look up configuration or environment variables | [Configuration reference](docs/reference/configuration.md) |
 | Diagnose a problem | [Troubleshooting](docs/troubleshooting.md) |

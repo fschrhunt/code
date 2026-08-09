@@ -24,7 +24,7 @@ absolute path, and `WORKFRAME_HOME` replaces it for the current process.
 |---|---|
 | `WORKFRAME.md` | Store safety guidance for coding agents and launchers |
 | `repos/<repo>` | Canonical Git clone |
-| `workspaces/<agent>/<repo>/<city>` | Active Git worktree |
+| `workspaces/<repo>/<city>` | Active Git worktree |
 | `system/config/workframe.conf` | User profile and preferences |
 | `system/logs` | Maintenance logs |
 
@@ -39,7 +39,7 @@ without a symlink.
 
 ## Branches and folders
 
-Branches use `<agent>/<feature>`. Folder names use generated city labels so
+Branches use the task slug. Folder names use generated city labels so
 paths remain short and stable while branch names remain descriptive.
 
 Archive removes the city folder but leaves the branch in the canonical clone.

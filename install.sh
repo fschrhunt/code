@@ -32,7 +32,8 @@ for name in $NAMES; do
   echo "linked $BINDIR/$name -> $PREFIX/bin/workframe"
 done
 echo "docs:   $PREFIX/docs/   (start: docs/README.md)"
-echo "next:   workframe setup"
+echo "next:   workframe help"
+echo "shell:  source <(workframe completion bash)"
 
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
