@@ -13,11 +13,16 @@ final class WorkframeStore: ObservableObject {
     @Published var errorMessage: String?
     @Published var archiveCandidate: Workspace?
     @Published var showingNewWorkspace = false
+    @Published private(set) var availableUpdate: HomebrewCaskUpdate?
+    @Published private(set) var isCheckingForUpdate = false
+    @Published private(set) var isUpdating = false
+    @Published private(set) var updateInstalled = false
 
     var commandPath: String? { WorkframeCommand.resolve()?.executable }
 
     init() {
         refresh()
+        checkForUpdate()
     }
 
     var nextAction: String {
@@ -56,6 +61,67 @@ final class WorkframeStore: ObservableObject {
                     self.errorMessage = error.localizedDescription
                 }
             }
+        }
+    }
+
+    func checkForUpdate() {
+        guard let brew = HomebrewCommand.resolve(), !isCheckingForUpdate, !isUpdating else { return }
+        isCheckingForUpdate = true
+        Task.detached {
+            do {
+                let result = try brew.run(["outdated", "--cask", "--json=v2", "workframe"])
+                let update = result.status == 0
+                    ? HomebrewOutput.caskUpdate(result.output, token: "workframe")
+                    : nil
+                await MainActor.run {
+                    self.isCheckingForUpdate = false
+                    self.availableUpdate = update
+                }
+            } catch {
+                await MainActor.run {
+                    self.isCheckingForUpdate = false
+                }
+            }
+        }
+    }
+
+    func installUpdate() {
+        guard let brew = HomebrewCommand.resolve(), let update = availableUpdate else { return }
+        isUpdating = true
+        errorMessage = nil
+        Task.detached {
+            do {
+                // The cask owns both Workframe.app and its bundled CLI, so one
+                // upgrade is an atomic product update rather than two packages
+                // that can drift apart.
+                let result = try brew.run(["upgrade", "--cask", update.token])
+                await MainActor.run {
+                    self.isUpdating = false
+                    if result.status == 0 {
+                        self.availableUpdate = nil
+                        self.updateInstalled = true
+                    } else {
+                        self.errorMessage = "Workframe update failed.\n\n\(Self.message(for: result))"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isUpdating = false
+                    self.errorMessage = "Workframe update failed.\n\n\(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    func relaunchAfterUpdate() {
+        let launch = Process()
+        launch.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        launch.arguments = ["-n", Bundle.main.bundleURL.path]
+        do {
+            try launch.run()
+            NSApplication.shared.terminate(nil)
+        } catch {
+            errorMessage = "Workframe was updated, but could not relaunch automatically. Quit and reopen it to finish the update."
         }
     }
 
@@ -210,7 +276,19 @@ struct WorkframeMenu: View {
                 Text(store.nextAction).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
-            if store.isLoading { ProgressView().controlSize(.small) }
+            if store.isLoading || store.isCheckingForUpdate { ProgressView().controlSize(.small) }
+            if let update = store.availableUpdate {
+                Button("Update \(update.availableVersion)") { store.installUpdate() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(store.isUpdating)
+                    .accessibilityLabel("Update Workframe to \(update.availableVersion)")
+            } else if store.updateInstalled {
+                Button("Restart") { store.relaunchAfterUpdate() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .accessibilityLabel("Restart Workframe to finish updating")
+            }
         }
         .padding(.horizontal, 4)
         .padding(.bottom, 14)
@@ -277,7 +355,10 @@ struct WorkframeMenu: View {
 
     private var footer: some View {
         HStack {
-            Button { store.refresh() } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+            Button {
+                store.refresh()
+                store.checkForUpdate()
+            } label: { Label("Refresh", systemImage: "arrow.clockwise") }
             Spacer()
             SettingsLink { Label("Settings", systemImage: "gear") }
             Button("Quit") { NSApplication.shared.terminate(nil) }

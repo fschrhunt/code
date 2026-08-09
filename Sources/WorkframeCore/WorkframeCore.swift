@@ -86,6 +86,7 @@ public struct WorkframeCommand: Sendable {
         let environment = ProcessInfo.processInfo.environment
         let candidates = [
             environment["WORKFRAME_EXECUTABLE"],
+            embeddedExecutable(),
             "\(NSHomeDirectory())/.local/bin/workframe",
             "/opt/homebrew/bin/workframe",
             "/usr/local/bin/workframe",
@@ -98,6 +99,16 @@ public struct WorkframeCommand: Sendable {
         return WorkframeCommand(executable: executable)
     }
 
+    /// The Homebrew cask bundles the shell backend as a sealed app resource.
+    /// Prefer it to a separately installed command so the app and backend are
+    /// always from the same release. `WORKFRAME_EXECUTABLE` remains first for
+    /// development and explicit overrides.
+    private static func embeddedExecutable() -> String? {
+        Bundle.main.resourceURL?
+            .appending(path: "workframe/bin/workframe")
+            .path
+    }
+
     public func run(_ arguments: [String]) throws -> CommandResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -106,6 +117,85 @@ public struct WorkframeCommand: Sendable {
             "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
             "WORKFRAME_COLOR": "0",
         ], uniquingKeysWith: { _, new in new })
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        process.waitUntilExit()
+        return CommandResult(
+            output: String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+            error: String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+            status: process.terminationStatus
+        )
+    }
+}
+
+public struct HomebrewCaskUpdate: Equatable, Sendable {
+    public let token: String
+    public let installedVersion: String
+    public let availableVersion: String
+
+    public init(token: String, installedVersion: String, availableVersion: String) {
+        self.token = token
+        self.installedVersion = installedVersion
+        self.availableVersion = availableVersion
+    }
+}
+
+public enum HomebrewOutput {
+    /// Parses `brew outdated --cask --json=v2`. Keeping this pure makes the
+    /// menubar's update affordance testable without a Homebrew installation.
+    public static func caskUpdate(_ output: String, token: String) -> HomebrewCaskUpdate? {
+        struct Outdated: Decodable {
+            let casks: [Cask]
+        }
+        struct Cask: Decodable {
+            let token: String
+            let installedVersions: [String]
+            let currentVersion: String
+
+            enum CodingKeys: String, CodingKey {
+                case token
+                case installedVersions = "installed_versions"
+                case currentVersion = "current_version"
+            }
+        }
+
+        guard let data = output.data(using: .utf8),
+              let outdated = try? JSONDecoder().decode(Outdated.self, from: data),
+              let cask = outdated.casks.first(where: { $0.token == token }),
+              let installedVersion = cask.installedVersions.first,
+              installedVersion != cask.currentVersion else {
+            return nil
+        }
+        return HomebrewCaskUpdate(
+            token: cask.token,
+            installedVersion: installedVersion,
+            availableVersion: cask.currentVersion
+        )
+    }
+}
+
+public struct HomebrewCommand: Sendable {
+    public let executable: String
+
+    public static func resolve() -> HomebrewCommand? {
+        let candidates = [
+            "/opt/homebrew/bin/brew",
+            "/usr/local/bin/brew",
+        ]
+        guard let executable = candidates.first(where: FileManager.default.isExecutableFile(atPath:)) else {
+            return nil
+        }
+        return HomebrewCommand(executable: executable)
+    }
+
+    public func run(_ arguments: [String]) throws -> CommandResult {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
 
         let stdout = Pipe()
         let stderr = Pipe()
