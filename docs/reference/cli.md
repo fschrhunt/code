@@ -1,65 +1,100 @@
-# Wizard reference
+# CLI reference
 
-Workframe is a guided terminal application. For normal use, run:
-
-```text
-workframe
-```
-
-`wf` is a short name for the same executable, so `wf` and any `wf <command>`
-behave exactly like the `workframe` form used throughout this documentation.
-
-The first run opens setup. Later runs return to the main menu. You can cancel
-any picker or prompt without changing state.
-
-## Main menu
-
-| Choose | To |
-|---|---|
-| **Start a new workspace** | Choose a repository, agent identity, and feature name |
-| **Continue working** | Choose and open an existing workspace |
-| **Manage workspace lifecycle** | Browse, rename, archive, restore, or permanently delete archived work |
-| **Manage repositories** | Add, browse, sync, clean, or safely delete canonical repositories |
-| **Settings and agents** | Change editor, organization, profile, shared connection details, or agent identities |
-| **System health** | See status, run diagnostics, or safely update a checkout installation |
-
-## Setup
-
-The setup flow asks whether the store is local or shared, then asks only for
-the details needed for that profile. A local profile offers `~/workframe` and
-accepts another absolute path. A shared profile asks for the remote box and
-local mount details. It also creates `WORKFRAME.md` when missing without
-overwriting an existing guide.
-
-## Safety
-
-The wizard asks for a selection before acting. Archive keeps the branch;
-restoring recreates its worktree. Permanent operations are kept in their own
-menus, require confirmation, and unsafe dirty work needs an additional
-explicit confirmation.
-
-## Support interface
+Workframe is a command-line control plane for isolated Git worktrees. Run:
 
 ```text
 workframe help
+```
+
+`wf` is a short name for the same executable, so every `wf <command>` behaves
+exactly like the `workframe` form below. Commands prompt for omitted safe
+details in an interactive terminal; scripts and coding agents should supply
+the arguments shown here.
+
+## Start a store and workspace
+
+```bash
+workframe init --agent <name>
+workframe clone <owner/repo | url | path>
+workframe new <repo> <feature> --agent <name>
+```
+
+`init` is a non-interactive local bootstrap and creates a neutral `default`
+agent when no `--agent` is supplied. `setup` is idempotent. It defaults to a local store at `~/workframe`; use
+`--root <absolute-path>`, `--editor <command>`, and `--org <name>` to set
+preferences. Use `workframe setup --shared` to configure a shared store.
+
+## Everyday commands
+
+| Intent | Command |
+|---|---|
+| Show active workspaces | `workframe list` |
+| Show archived workspaces | `workframe list archived` |
+| Filter active workspaces | `workframe list --agent <name> --repo <name> --dirty` |
+| Open a workspace | `workframe open <selector>` |
+| Open active work or restore archived work | `workframe resume <selector>` |
+| Show the workspace containing the current directory | `workframe current` |
+| Print a workspace path | `workframe path <selector>` |
+| Run a command in a workspace | `workframe run <selector> -- <command> [args…]` |
+| Rename a workspace branch | `workframe rename <selector> <feature>` |
+| Pause work and keep its branch | `workframe archive <selector> [--yes] [--force]` |
+| Recreate archived work | `workframe restore <repo> <branch>` |
+| List canonical repositories | `workframe repos` |
+| Update repositories | `workframe sync [<repo> | --all]` |
+| Check the store | `workframe status`, `workframe doctor` |
+| Get an at-a-glance summary | `workframe dashboard` |
+
+A selector may be a city, `repo/feature`, `agent/feature`,
+`agent/repo/city`, or an absolute workspace path. `path` is the stable command
+for scripts; optional shell integration may make `workframe cd` change the
+current shell directory rather than print a path.
+
+## Configuration and agents
+
+```bash
+workframe agents [list | add <name> | remove <name>]
+workframe config
+workframe update
 workframe version
 ```
 
-```text
-workframe help --agent
+`config` is an interactive editor for profile and preference changes. An agent
+identity is a Git branch namespace, not a vendor lock-in.
+
+## Permanent operations
+
+```bash
+workframe remove branch <repo> <branch> --yes
+workframe remove repo <repo> --yes [--force]
+workframe clean [--yes]
 ```
 
-`help`, `-h`, and `--help` describe the wizard. `version`, `-v`, and
-`--version` print the installed version. `help --agent` prints the
-non-interactive command catalogue.
+Archive is reversible. Permanent operations require confirmation, and in a
+non-interactive session require `--yes`. `--force` is necessary before an
+archive or repository removal can discard uncommitted work.
 
-## Automation and coding agents
+## Output and automation
 
-Every wizard action also has a command form, so scripts and coding agents have
-the same capabilities as a person at the keyboard: creating workspaces, cloning
-repositories, and managing the full lifecycle. These verbs are kept out of the
-wizard-facing pages to keep interactive use free of commands to memorize, not
-because they are unsupported.
+Use `workframe worktrees` for machine-readable TSV output; `list` is formatted
+for people. Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` for plain output.
+`WORKFRAME_THEME=light` and `WORKFRAME_THEME=dark` select terminal color
+palettes; `auto` is the default.
 
-Run `workframe help --agent`, or read the
-[automation reference](automation.md).
+`list`, `repos`, `worktrees`, `status`, `current`, `archive`, and `restore`
+support `--json` where shown in their help text. The JSON interface is emitted
+without colors or status decoration. `workframe doctor --fix` performs only
+safe local repairs: missing store directories, the non-overwriting
+`WORKFRAME.md`, root locator refresh, stale worktree metadata, and relative
+worktree configuration.
+
+Shell completion is available without an additional package:
+
+```bash
+source <(workframe completion bash)
+source <(workframe completion zsh)
+workframe completion fish > ~/.config/fish/completions/workframe.fish
+```
+
+`workframe help --agent` prints the complete command catalogue, including
+automation notes and exit-code conventions. See the
+[automation reference](automation.md) for detailed scripting guidance.

@@ -37,7 +37,7 @@ _list_agent_worktrees(){ cmd_worktrees 2>/dev/null || true; }
 agents_list(){
   if ! _agents_configured; then
     printf '  %sno agents configured%s\n' "$DIM" "$N"
-    printf '  %sadd one from the Agents menu in the Workframe wizard%s\n' "$DIM" "$N"
+    printf '  %sadd one with: workframe agents add <name>%s\n' "$DIM" "$N"
     return 0
   fi
   banner "agents"
@@ -113,7 +113,7 @@ _resolve_agent(){
     return 0
   fi
   if ! _agents_configured; then
-    die "no agents configured — add one from the Agents menu in the Workframe wizard"
+    die "no agents configured — add one with: workframe agents add <name>"
   fi
   if _interactive; then
     _agents_array

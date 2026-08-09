@@ -1,8 +1,7 @@
 # Automation and coding agents
 
-Workframe's product surface is the [wizard](cli.md). Everything the wizard can
-do also has a command form, so scripts and coding agents have the same
-capabilities as a person at the keyboard.
+Workframe is a command-line tool. Its [CLI reference](cli.md) covers everyday
+use; this page focuses on stable, script-friendly output and safeguards.
 
 The command catalogue ships with the tool:
 
@@ -13,18 +12,20 @@ workframe help --agent
 `wf` is a short name for the same executable, so every command on this page
 works under either name.
 
-Set `WORKFRAME_COLOR=0` for output without ANSI escapes.
+Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` for output without ANSI escapes.
 
 ## Set up a store
 
 ```bash
+workframe init [--root <path>] [--agent <name>] [--editor <cmd>] [--org <name>]
 workframe setup --local --root <path> --agent <name> [--editor <cmd>] [--org <name>]
 workframe agents list
 workframe agents add <name>
 workframe agents remove <name>
 ```
 
-`setup` is idempotent. Repeating it against an existing store updates the
+`init` is non-interactive and creates a neutral `default` agent when none is
+specified. `setup` is idempotent. Repeating it against an existing store updates the
 selected root and configuration without touching repositories or workspaces,
 and never overwrites an existing `WORKFRAME.md`.
 

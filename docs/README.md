@@ -15,7 +15,7 @@ lands on the shortest path to it.
 | Pause work without deleting its branch | [Archive](guides/workspace-lifecycle.md#archive-work) |
 | Bring archived work back | [Restore](guides/workspace-lifecycle.md#restore-work) |
 | Delete a branch or canonical repo | [Permanent removal](guides/workspace-lifecycle.md#permanent-removal) |
-| Understand the wizard | [Wizard reference](reference/cli.md) |
+| Look up a command | [CLI reference](reference/cli.md) |
 | Drive Workframe from a script or coding agent | [Automation reference](reference/automation.md) |
 | Configure paths, profiles, or environment variables | [Configuration reference](reference/configuration.md) |
 | Understand the on-disk layout | [Filesystem reference](reference/filesystem.md) |
@@ -31,8 +31,8 @@ flowchart TD
     A{Where should repositories and worktrees live?}
     A -->|On this machine| B[Local profile]
     A -->|On a shared box| C[Shared profile]
-    B --> D[Run workframe and choose Local]
-    C --> E[Run workframe and choose Shared]
+    B --> D[Run workframe setup --local]
+    C --> E[Run workframe setup --shared]
 ```
 
 Use **local** unless multiple machines need the same canonical store. Local
@@ -45,8 +45,8 @@ operates a secured box and mounted filesystem.
    selectors, agents, and profiles.
 2. [Workspace lifecycle](guides/workspace-lifecycle.md) follows work from
    creation through archive, restore, and removal.
-3. [Wizard reference](reference/cli.md) maps each task to a wizard path and
-   explains the compatibility automation interface.
+3. [CLI reference](reference/cli.md) maps each task to its command and
+   explains the scripting interface.
 4. [Configuration reference](reference/configuration.md) documents every
    supported key and `WORKFRAME_*` control.
 

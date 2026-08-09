@@ -18,16 +18,15 @@ EOF
   [ "$status" -eq 0 ] || { echo "$output"; false; }
 }
 
-@test "bare workframe presents the wizard guide when no terminal is attached" {
+@test "bare workframe presents the command reference when no terminal is attached" {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/help-store"
   mkdir -p "$WORKFRAME_HOME/system/config"
   printf 'type = local\neditor = cursor\nagents = cursor\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
   run bash -c "WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"interactive workspace wizard"* ]]
-  [[ "$output" == *"Start with the outcome you want"* ]]
-  [[ "$output" == *"start or continue a workspace"* ]]
-  [[ "$output" != *"workframe new"* ]]
+  [[ "$output" == *"isolated Git worktrees for parallel work"* ]]
+  [[ "$output" == *"Start here"* ]]
+  [[ "$output" == *"workframe new <repo> <task>"* ]]
 }
 
 @test "help header uses the brace logo without adjacent metadata" {
@@ -42,20 +41,20 @@ EOF
   [[ "$output" != *"Shared profile"* ]]
 }
 
-@test "help uses the acid brand accent when color is enabled" {
-  run bash -c "WORKFRAME_COLOR=1 '$WORKFRAME' help"
+@test "help uses the dark theme's acid brand accent by default" {
+  run bash -c "WORKFRAME_COLOR=1 WORKFRAME_THEME=dark '$WORKFRAME' help"
   [ "$status" -eq 0 ]
   [[ "$output" == *$'\e[38;2;240;251;41m'* ]]
   [[ "$output" == *$'\e[48;2;240;251;41m'* ]]
   [[ "$output" != *$'\e[38;2;58;222;161m'* ]]
 }
 
-@test "help describes the wizard rather than a command catalogue" {
+@test "help is a command catalogue" {
   run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"The home screen guides you to:"* ]]
-  [[ "$output" == *"Support:"* ]]
-  [[ "$output" != *"START HERE"* ]]
+  [[ "$output" == *"Start here"* ]]
+  [[ "$output" == *"workframe setup --local"* ]]
+  [[ "$output" == *"workframe new <repo> <task>"* ]]
 }
 
 @test "help works via -h and --help too" {
@@ -71,7 +70,7 @@ EOF
   [ "$output" = "workframe $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }
 
-@test "help points scripts and agents at the automation catalogue" {
+@test "help points scripts and agents at the detailed command reference" {
   run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help"
   [ "$status" -eq 0 ]
   [[ "$output" == *"workframe help --agent"* ]]
@@ -80,8 +79,8 @@ EOF
 @test "help --agent lists the non-interactive interface" {
   run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help --agent"
   [ "$status" -eq 0 ]
-  # Parity with the wizard: creating workspaces and cloning must be reachable.
-  [[ "$output" == *"workframe new <repo> <feature> --agent <name>"* ]]
+  # The detailed reference includes workspace creation and cloning.
+  [[ "$output" == *"workframe new <repo> <task>"* ]]
   [[ "$output" == *"workframe clone"* ]]
   [[ "$output" == *"workframe setup --local"* ]]
   [[ "$output" == *"workframe archive"* ]]

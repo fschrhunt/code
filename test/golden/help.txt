@@ -7,14 +7,27 @@
     ██  ████  ██
 
 
-  Workframe is an interactive workspace wizard.
-  Run workframe or wf in a terminal. Start with the outcome you want, then answer only the needed prompts.
+  Workframe — isolated Git worktrees for parallel work.
+  Use workframe or wf. Commands prompt for omitted safe details when you are at a terminal.
 
-  The home screen guides you to:
-    • start or continue a workspace
-    • manage its reversible lifecycle
-    • manage repositories, settings, and agents
-    • check health or update Workframe
+  Start here
+    workframe init                          bootstrap a local store
+    workframe setup --local                 create or update a local store
+    workframe clone <owner/repo | url | path>
+    workframe new <repo> <task>
 
-  Support:  workframe help  workframe version
-  Scripts and coding agents:  workframe help --agent
+  Daily work
+    workframe list                         show active workspaces
+    workframe open <selector>              open a workspace in the configured editor
+    workframe path <selector>              print a workspace path
+    workframe current                      show the current workspace context
+    workframe resume <selector>            open active work or restore it
+    workframe archive <selector> --yes     pause work; branch is kept
+    workframe restore <repo> <branch>
+
+  Manage
+    workframe repos  workframe sync [<repo> | --all]
+    workframe status  workframe doctor  workframe config
+    workframe dashboard                    active work and next actions
+
+  More  workframe help --agent  full command reference and scripting notes
