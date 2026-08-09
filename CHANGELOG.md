@@ -3,6 +3,12 @@
 Notable changes to Workframe are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## 1.5.2
+
+- Fixed unsigned menubar app packaging: the finished app bundle is now ad-hoc
+  signed and verified after its resources are assembled, so macOS sees a
+  structurally valid bundle. It remains unsigned and unnotarized.
+
 ## 1.5.1
 
 - **Data loss fixed:** `workframe remove repo` deleted worktrees that lived
