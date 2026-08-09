@@ -26,4 +26,9 @@ ditto "$prefix/lib" "$cli_root/lib"
 ditto "$prefix/VERSION" "$cli_root/VERSION"
 plutil -replace CFBundleShortVersionString -string "$version" "$output/Contents/Info.plist"
 plutil -replace CFBundleVersion -string "$version" "$output/Contents/Info.plist"
+# Swift ad-hoc signs the executable it produces, but assembling the .app afterwards
+# leaves the bundle without a resource seal. Sign the finished bundle so Gatekeeper
+# sees a structurally valid (though still unsigned and unnotarized) application.
+codesign --force --deep --sign - "$output"
+codesign --verify --deep --strict "$output"
 echo "built $output"
