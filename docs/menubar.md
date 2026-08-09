@@ -74,9 +74,9 @@ available, its header displays an **Update &lt;version&gt;** pill. Selecting it 
 
 ## Release security
 
-Only ship a signed and notarized cask archive. The release environment supplies
-the Developer ID Application signing identity and a `notarytool` keychain
-profile; neither belongs in this repository:
+The trusted distribution path signs and notarizes the cask archive. The release
+environment supplies the Developer ID Application signing identity and a
+`notarytool` keychain profile; neither belongs in this repository:
 
 ```bash
 WORKFRAME_SIGNING_IDENTITY='Developer ID Application: …' \
@@ -91,6 +91,12 @@ generates the checksum-pinned cask stanza for the Homebrew tap. Apple
 notarization is the Gatekeeper protection against altered or known-malicious
 direct-distribution software; it cannot promise that every third-party
 antivirus will never produce a false positive.
+
+Until the project has an Apple Developer Program membership, tagged releases
+instead run the unsigned release workflow. It labels both the GitHub release
+and generated cask with the missing-notarization warning. macOS will show a
+security warning before opening that app; users should install it only when
+they trust the project and release artifact.
 
 ## Interaction model
 
