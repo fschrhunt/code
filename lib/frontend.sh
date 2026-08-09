@@ -615,7 +615,7 @@ mac_cdpath(){ local worktree="${1:-}"
 
 _current_worktree(){
   local here row ag repo city path br local_path
-  here=$(cd -P "${1:-$PWD}" 2>/dev/null && pwd -P) || return 1
+  here=$(pwd -P) || return 1
   while IFS=$'\t' read -r ag repo city path br; do
     [ -n "$path" ] || continue
     local_path=$(_tomac "$path")
