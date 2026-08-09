@@ -27,10 +27,10 @@ cask "workframe" do
   app "Workframe.app"
   command_wrapper "workframe",
                   executable: "#{appdir}/Workframe.app/Contents/Resources/workframe/bin/workframe",
-                  env: { "WORKFRAME_DISTRIBUTION" => "homebrew-cask" }
+                  env:        { "WORKFRAME_DISTRIBUTION" => "homebrew-cask" }
   command_wrapper "wf",
                   executable: "#{appdir}/Workframe.app/Contents/Resources/workframe/bin/workframe",
-                  env: { "WORKFRAME_DISTRIBUTION" => "homebrew-cask" }
+                  env:        { "WORKFRAME_DISTRIBUTION" => "homebrew-cask" }
 EOF
 
 if [ "$unsigned" = 1 ]; then
