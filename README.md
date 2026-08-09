@@ -26,6 +26,11 @@ state begins at `~/workframe`. It is a command-line tool: run `workframe help`
 for the everyday command map, or `workframe help --agent` for the complete
 scriptable interface.
 
+Coding agents use that CLI directly. On macOS, people can instead use the
+native menubar companion: it turns the current workspace state into the next
+human action—continue, create, restore, or archive—without replacing the
+automation contract. See [Menubar app](docs/menubar.md).
+
 ## Start in 60 seconds
 
 Requirements: Bash, Git, and macOS or Linux. `gum` is optional.
