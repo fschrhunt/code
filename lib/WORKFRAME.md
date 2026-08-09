@@ -90,7 +90,7 @@ Do not initialize, reconfigure, or switch a store simply to complete a coding
 task. Commands such as `workframe init`, `setup`, and `config` change the
 operator's environment and need an explicit request.
 
-## Work and hand off safely
+## Work only in the current worktree
 
 Inside the assigned workspace:
 
@@ -101,6 +101,8 @@ Inside the assigned workspace:
 - Run the repository's documented formatter, build, tests, and review checks.
 - Commit only when that is within the task's requested workflow; do not assume
   permission to push, open a pull request, or change another branch.
+
+## Validate and hand off
 
 At handoff, report the workspace path, branch, validation performed, and any
 uncommitted or unpushed changes. If work is paused rather than finished,
