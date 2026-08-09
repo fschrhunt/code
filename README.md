@@ -20,7 +20,7 @@ one canonical clone
 └── cursor/cache-fix     → workspaces/cursor/api/dakar
 ```
 
-Workframe 1.5.1 is a clean-start release. The command is `workframe` — also
+Workframe 1.5.2 is a clean-start release. The command is `workframe` — also
 installed as `wf` — product environment variables use `WORKFRAME_*`, and local
 state begins at `~/workframe`. It is a command-line tool: run `workframe help`
 for the everyday command map, or `workframe help --agent` for the complete
@@ -144,7 +144,7 @@ bin/workframe
 `make check` runs ShellCheck and the hermetic Bats suite. Tests never require a
 network connection, shared mount, remote box, or interactive terminal.
 
-Read [AGENTS.md](AGENTS.md) before changing the product. Version: **1.5.1**.
+Read [AGENTS.md](AGENTS.md) before changing the product. Version: **1.5.2**.
 
 ## Community and license
 

@@ -58,7 +58,7 @@ operates a secured box and mounted filesystem.
 - [Contributor workflow](../CONTRIBUTING.md)
 - [Security policy](../SECURITY.md)
 - [Support](../SUPPORT.md)
-- [Workframe 1.5.1 release notes](releases/1.5.1.md)
+- [Workframe 1.5.2 release notes](releases/1.5.2.md)
 
 All examples use generic repositories, accounts, hosts, and paths. Private
 infrastructure values belong only in the selected store's
