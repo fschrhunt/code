@@ -16,3 +16,20 @@ import Testing
     #expect(rows[0].repository == "web")
     #expect(rows[0].feature == "dark-mode")
 }
+
+@Test func parsesAnAvailableHomebrewCaskUpdate() {
+    let output = #"{"formulae":[],"casks":[{"token":"workframe","installed_versions":["1.5.0"],"current_version":"1.6.0"}]}"#
+
+    #expect(HomebrewOutput.caskUpdate(output, token: "workframe") == HomebrewCaskUpdate(
+        token: "workframe",
+        installedVersion: "1.5.0",
+        availableVersion: "1.6.0"
+    ))
+}
+
+@Test func ignoresCurrentAndMalformedHomebrewCaskOutput() {
+    let current = #"{"formulae":[],"casks":[{"token":"workframe","installed_versions":["1.5.0"],"current_version":"1.5.0"}]}"#
+
+    #expect(HomebrewOutput.caskUpdate(current, token: "workframe") == nil)
+    #expect(HomebrewOutput.caskUpdate("not json", token: "workframe") == nil)
+}

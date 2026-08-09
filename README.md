@@ -35,10 +35,17 @@ automation contract. See [Menubar app](docs/menubar.md).
 
 Requirements: Bash, Git, and macOS or Linux. `gum` is optional.
 
-Install with Homebrew:
+On macOS, install the menubar app and its matching `workframe` / `wf` commands
+in one step with the Homebrew cask:
 
 ```bash
-brew install fschrhunt/tap/workframe
+brew install --cask fschrhunt/tap/workframe
+```
+
+For the CLI-only formula (macOS or Linux):
+
+```bash
+brew install --formula fschrhunt/tap/workframe
 ```
 
 Or install from a Git checkout:
@@ -49,7 +56,10 @@ cd workframe
 ./install.sh
 ```
 
-Homebrew installations update with `brew upgrade workframe`. Checkout
+The cask updates the app and its bundled CLI together with
+`brew upgrade --cask fschrhunt/tap/workframe`; the menubar shows an Update
+pill whenever Homebrew reports a newer cask. CLI-only formula installations
+update with `brew upgrade --formula fschrhunt/tap/workframe`. Checkout
 installations update with `workframe update`.
 
 Then create a store, add a repository, and make a workspace:

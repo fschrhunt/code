@@ -12,3 +12,4 @@
 *.pfx
 *.crt
 *.cer
+.build/
