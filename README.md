@@ -20,32 +20,20 @@ one canonical clone
 └── cursor/cache-fix     → workspaces/cursor/api/dakar
 ```
 
-Workframe 1.5.2 is a clean-start release. The command is `workframe` — also
+Workframe 1.5.3 is a clean-start release. The command is `workframe` — also
 installed as `wf` — product environment variables use `WORKFRAME_*`, and local
 state begins at `~/workframe`. It is a command-line tool: run `workframe help`
 for the everyday command map, or `workframe help --agent` for the complete
 scriptable interface.
 
-Coding agents use that CLI directly. On macOS, people can instead use the
-native menubar companion: it turns the current workspace state into the next
-human action—continue, create, restore, or archive—without replacing the
-automation contract. See [Menubar app](docs/menubar.md).
-
 ## Start in 60 seconds
 
 Requirements: Bash, Git, and macOS or Linux. `gum` is optional.
 
-On macOS, install the menubar app and its matching `workframe` / `wf` commands
-in one step with the Homebrew cask:
+Install with Homebrew:
 
 ```bash
-brew install --cask fschrhunt/tap/workframe
-```
-
-For the CLI-only formula (macOS or Linux):
-
-```bash
-brew install --formula fschrhunt/tap/workframe
+brew install fschrhunt/tap/workframe
 ```
 
 Or install from a Git checkout:
@@ -56,10 +44,7 @@ cd workframe
 ./install.sh
 ```
 
-The cask updates the app and its bundled CLI together with
-`brew upgrade --cask fschrhunt/tap/workframe`; the menubar shows an Update
-pill whenever Homebrew reports a newer cask. CLI-only formula installations
-update with `brew upgrade --formula fschrhunt/tap/workframe`. Checkout
+Homebrew installations update with `brew upgrade workframe`. Checkout
 installations update with `workframe update`.
 
 Then create a store, add a repository, and make a workspace:
@@ -144,7 +129,7 @@ bin/workframe
 `make check` runs ShellCheck and the hermetic Bats suite. Tests never require a
 network connection, shared mount, remote box, or interactive terminal.
 
-Read [AGENTS.md](AGENTS.md) before changing the product. Version: **1.5.2**.
+Read [AGENTS.md](AGENTS.md) before changing the product. Version: **1.5.3**.
 
 ## Community and license
 
