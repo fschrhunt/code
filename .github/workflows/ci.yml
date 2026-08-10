@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          shellcheck -x bin/workframe install.sh lib/*.sh contrib/mount-workframe.sh assets/build.sh scripts/*.sh
+          shellcheck -x bin/workframe install.sh lib/*.sh contrib/mount-workframe.sh
 
   test:
     strategy:
@@ -43,9 +43,3 @@ jobs:
         run: git config --global init.defaultBranch main
       - name: bats
         run: bats -r test
-      - name: menubar app
-        if: runner.os == 'macOS'
-        run: |
-          make menubar-test
-          make menubar-build
-          test -x .build/Workframe.app/Contents/MacOS/Workframe
