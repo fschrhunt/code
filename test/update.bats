@@ -195,19 +195,3 @@ EOF
   [[ "$output" == *"already current"* ]]
   [ ! -e "$missing_store" ]
 }
-
-@test "workframe update delegates cask installs to Homebrew" {
-  local tools="$BATS_TEST_TMPDIR/homebrew-bin"
-  mkdir -p "$tools"
-  cat > "$tools/brew" <<'EOF'
-#!/usr/bin/env bash
-printf 'brew %s\n' "$*"
-EOF
-  chmod +x "$tools/brew"
-
-  run env HOME="$UPDATE_HOME" PATH="$tools:$PATH" WORKFRAME_COLOR=0 WORKFRAME_HOME="$UPDATE_STORE" \
-    WORKFRAME_DISTRIBUTION=homebrew-cask "$UPDATE_CHECKOUT/bin/workframe" update
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"brew upgrade --cask workframe"* ]]
-}

@@ -54,11 +54,10 @@ operates a secured box and mounted filesystem.
 
 - [Root product overview](../README.md)
 - [Operations and release safety](operations.md)
-- [Menubar app](menubar.md)
 - [Contributor workflow](../CONTRIBUTING.md)
 - [Security policy](../SECURITY.md)
 - [Support](../SUPPORT.md)
-- [Workframe 1.5.2 release notes](releases/1.5.2.md)
+- [Workframe 1.5.3 release notes](releases/1.5.3.md)
 
 All examples use generic repositories, accounts, hosts, and paths. Private
 infrastructure values belong only in the selected store's
