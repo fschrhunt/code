@@ -1109,11 +1109,6 @@ _update_checkout(){
 
 mac_update(){ banner "update"
   [ $# -eq 0 ] || die "usage: workframe update"
-  if [ "${WORKFRAME_DISTRIBUTION:-}" = homebrew-cask ]; then
-    command -v brew >/dev/null 2>&1 || die "this Workframe installation is managed by Homebrew; install Homebrew to update it"
-    brew upgrade --cask workframe
-    return
-  fi
   _update_checkout
 }
 
