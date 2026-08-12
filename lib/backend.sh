@@ -150,8 +150,13 @@ cmd_worktrees(){ local r d
       _managed_branch "$r" "$branch" || continue
       printf '%s\t%s\t%s\t%s\n' "$r" "$city" "$worktree" "$branch"
     done < <(_worktree_paths "$d"); done; }
-cmd_new(){ local repo="${1:-}" feature="${2:-}"
-  [ $# -eq 2 ] || die "usage: new <repo> <task>"
+# Create a task from a freshly fetched default-branch tip; --offline makes an
+# intentional exception for disconnected work and uses the local remote ref.
+cmd_new(){
+  local offline=0 repo feature
+  if [ "${1:-}" = "--offline" ]; then offline=1; shift; fi
+  repo="${1:-}"; feature="${2:-}"
+  [ $# -eq 2 ] || die "usage: new [--offline] <repo> <task>"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
   local d; d=$(_canon "$repo")
@@ -168,6 +173,12 @@ cmd_new(){ local repo="${1:-}" feature="${2:-}"
       die "branch '$branch' is already active at $existing"
     fi
     die "branch '$branch' is archived — restore with: workframe restore $repo $branch"
+  fi
+  if [ "$offline" = 0 ]; then
+    git -C "$d" fetch origin --prune --quiet >/dev/null 2>&1 ||
+      die "could not refresh '$repo' — check network and Git access, or retry with: workframe new --offline $repo $feature"
+    git -C "$d" remote set-head origin -a >/dev/null 2>&1 ||
+      die "could not determine the default branch for '$repo'"
   fi
   city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"
   # New feature branches should not track the default branch. Tracking is set
