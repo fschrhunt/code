@@ -66,6 +66,14 @@ jobs:
           ' CHANGELOG.md > RELEASE_NOTES.md
           test -s RELEASE_NOTES.md
 
+      - name: Create verified source archive
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git archive --format=tar.gz --prefix="workframe-$VERSION/" HEAD > "workframe-$VERSION.tar.gz"
+          sha256sum "workframe-$VERSION.tar.gz" > SHA256SUMS
+          tar -tzf "workframe-$VERSION.tar.gz" | grep -qx "workframe-$VERSION/bin/workframe"
+
       - name: Create annotated tag
         env:
           VERSION: ${{ inputs.version }}
@@ -83,4 +91,5 @@ jobs:
           gh release create "v$VERSION" \
             --verify-tag \
             --title "Workframe v$VERSION" \
-            --notes-file RELEASE_NOTES.md
+            --notes-file RELEASE_NOTES.md \
+            "workframe-$VERSION.tar.gz" SHA256SUMS
