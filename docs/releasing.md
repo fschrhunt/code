@@ -19,9 +19,11 @@ In GitHub Actions, run **release** with:
 - `confirm`: `release`.
 
 The protected `release` environment should require maintainer approval. The
-workflow checks the version and changelog heading, runs `make check`, creates an
-annotated `v<version>` tag on `main`, and publishes a GitHub release using that
-changelog section.
+workflow checks the version and changelog heading, runs `make check`, creates a
+verified versioned source archive with `SHA256SUMS`, creates an annotated
+`v<version>` tag on `main`, and publishes the archive, checksum, and changelog
+section as a GitHub release. The public installer downloads only those immutable
+release assets.
 
 If any validation fails, no tag or release is created. Never rerun the workflow
 for a version that already has a public tag; make a new version instead.

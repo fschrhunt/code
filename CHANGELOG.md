@@ -7,6 +7,8 @@ Notable changes to Workframe are documented here. The project follows
 
 ### Added
 
+- A checksum-verified direct installer at `scripts/install.sh` for the latest
+  GitHub release, alongside the Homebrew formula and checkout linker.
 - A manually dispatched, protected release workflow that validates the version
   and changelog, runs the complete check suite, then tags and publishes a
   GitHub release. Merges to `main` remain CI-only.

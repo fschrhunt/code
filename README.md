@@ -21,18 +21,27 @@ Git worktrees.
 
 ## Install
 
-The supported package is the Homebrew formula:
+Install the latest verified release without a package manager:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/workframe/main/scripts/install.sh | sh
+```
+
+The installer downloads a versioned GitHub release, verifies its SHA-256
+checksum, and links `workframe` and `wf` into `~/.local/bin`.
+
+Homebrew remains supported:
 
 ```bash
 brew install fschrhunt/tap/workframe
 ```
 
-Or install a checkout for development:
+For development, link a checkout instead:
 
 ```bash
 git clone https://github.com/fschrhunt/workframe.git
 cd workframe
-./install.sh
+./install.sh                    # link this checkout into ~/.local/bin
 ```
 
 ## Use
