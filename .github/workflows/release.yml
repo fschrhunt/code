@@ -70,9 +70,9 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          git archive --format=tar.gz --prefix="workframe-$VERSION/" HEAD > "workframe-$VERSION.tar.gz"
-          sha256sum "workframe-$VERSION.tar.gz" > SHA256SUMS
-          tar -tzf "workframe-$VERSION.tar.gz" | grep -qx "workframe-$VERSION/bin/workframe"
+          git archive --format=tar.gz --prefix="workspaces-$VERSION/" HEAD > "workspaces-$VERSION.tar.gz"
+          sha256sum "workspaces-$VERSION.tar.gz" > SHA256SUMS
+          tar -tzf "workspaces-$VERSION.tar.gz" | grep -qx "workspaces-$VERSION/bin/workspaces"
 
       - name: Create annotated tag
         env:
@@ -80,7 +80,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$VERSION" -m "Workframe v$VERSION"
+          git tag -a "v$VERSION" -m "Workspaces v$VERSION"
           git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "v$VERSION"
 
       - name: Publish GitHub release
@@ -90,6 +90,6 @@ jobs:
         run: |
           gh release create "v$VERSION" \
             --verify-tag \
-            --title "Workframe v$VERSION" \
+            --title "Workspaces v$VERSION" \
             --notes-file RELEASE_NOTES.md \
-            "workframe-$VERSION.tar.gz" SHA256SUMS
+            "workspaces-$VERSION.tar.gz" SHA256SUMS

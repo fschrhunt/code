@@ -3,15 +3,16 @@
 load helper
 
 @test "help output byte-matches the golden fixture" {
-  local out="$BATS_TEST_TMPDIR/help.out"
-  WORKFRAME_COLOR=0 "$WORKFRAME" help > "$out"
-  diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$out"
+  local output_file="$BATS_TEST_TMPDIR/help.out"
+  "$WORKSPACES" help > "$output_file"
+  diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$output_file"
 }
 
-@test "help lists the task-only workspace contract and migration command" {
-  run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help"
+@test "help describes only repositories and sibling task worktrees" {
+  run "$WORKSPACES" help
   [ "$status" -eq 0 ]
-  [[ "$output" == *'workframe new [--offline] <repo> <task>'* ]]
-  [[ "$output" == *'workframe migrate [--yes]'* ]]
-  [[ "$output" != *'help --agent'* ]]
+  [[ "$output" == *'workspaces new <repo> <task>'* ]]
+  [[ "$output" == *'siblings, such as pi-fix-auth'* ]]
+  [[ "$output" != *'archive'* ]]
+  [[ "$output" != *'agent'* ]]
 }

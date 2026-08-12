@@ -1,39 +1,60 @@
 # CLI reference
 
 ```text
-workframe setup [--root <path>] [--org <name>]
-workframe clone <owner/repo | url | path>
-workframe new [--offline] <repo> <task>
-workframe sync [--all | <repo>]
-workframe update
-workframe list [archived] [--repo <name>] [--dirty] [--json]
-workframe repos
-workframe worktrees [--json]
-workframe path <repo/task | branch | path>
-workframe current
-workframe run <selector> -- <command> [args...]
-workframe archive <selector> --yes [--force]
-workframe restore <repo> <task>
-workframe remove branch <repo> <task> --yes
-workframe migrate [--yes]
-workframe status
-workframe doctor
+workspaces setup [--root <path>]
+workspaces clone <owner/repo | url | path>
+workspaces new <repo> <task>
+workspaces list
+workspaces remove <repo/task | path> [--force]
+workspaces root
+workspaces doctor
+workspaces version
+workspaces help
 ```
 
-All commands are non-interactive and write their result to stdout. `new` fetches
-and prunes `origin` before creating a task from its current default-branch tip;
-it refuses to create a potentially stale workspace if that refresh fails. Use
-`--offline` only for intentional disconnected work from the cached remote ref.
-`sync <repo>` refreshes one canonical repository; `sync --all` refreshes every
-canonical repository and fast-forwards only clean, non-diverged checkouts.
-`update` reruns the checksum-verified release installer and does not change a
-Workframe store. `new` writes only its new workspace path, so use
-`cd "$(workframe new <repo> <task>)"` to enter it. Human list output is one
-workspace per line; use `--json` or `worktrees` for scripts.
+## `setup`
 
-A selector is an exact workspace path, a branch name when unique, or
-`repo/task`. City folder names are not selectors.
+Creates the collection and its `README.md`. `--root` remembers a custom absolute
+path. Existing README content is never replaced. Setup is optional for the
+default `~/workspaces` root.
 
-Workframe only acts on branches it owns. Ownership is recorded in private Git
-refs when a task is created or migrated; unmarked worktrees, including
-Conductor workspaces, are not listed or changed.
+## `clone`
+
+Creates a normal checkout directly at `<root>/<repo>`. It accepts a GitHub
+`owner/repo`, Git URL, or local path. Clone progress is written to stderr and the
+resulting path to stdout.
+
+## `new`
+
+Creates `<root>/<repo>-<task>` from the repository checkout's current `HEAD`.
+If that sibling name is occupied, a numeric suffix keeps the new path distinct.
+If the local branch exists and is inactive, it is reattached. If it is already
+active, `new` returns the existing managed sibling or refuses a checkout outside
+the managed layout. Task names are single path-safe components.
+
+## `list`
+
+Shows normal repository checkouts followed by active task worktrees. Dirty
+checkouts are labeled. Unmanaged worktrees are omitted.
+
+## `remove`
+
+Removes an exact managed task worktree while retaining its branch. Select by
+`repo/branch` or exact path. Dirty work returns status `3`; `--force` explicitly
+discards those uncommitted changes.
+
+## `root`
+
+Prints the selected collection root.
+
+## `doctor`
+
+Checks Git availability, repository object integrity, and stale worktree
+metadata without changing anything.
+
+## Environment
+
+| Variable | Purpose |
+|---|---|
+| `WORKSPACES_ROOT` | Override the collection root for one process |
+| `XDG_CONFIG_HOME` | Relocate the saved root pointer |

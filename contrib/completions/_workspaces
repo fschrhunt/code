@@ -1,0 +1,26 @@
+#compdef workspaces
+
+_workspaces() {
+  local -a commands
+  commands=(
+    'setup:initialize or select the collection root'
+    'clone:clone a normal repository checkout'
+    'new:create an isolated sibling task checkout'
+    'list:list repositories and task checkouts'
+    'remove:remove a managed task checkout'
+    'root:print the collection root'
+    'doctor:check local Git metadata'
+    'version:print the installed version'
+    'help:show command help'
+  )
+  if (( CURRENT == 2 )); then
+    _describe -t commands 'workspaces command' commands
+    return
+  fi
+  case $words[2] in
+    setup) _arguments '--root[select an absolute collection path]:path:_directories' ;;
+    remove) _arguments '--force[discard uncommitted changes]' ;;
+  esac
+}
+
+_workspaces "$@"

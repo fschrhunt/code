@@ -1,155 +1,129 @@
 #!/usr/bin/env bats
-# Task-owned worktree lifecycle + destructive-action safety.
+# Sibling worktree lifecycle and destructive-action safety.
 
 load helper
 
 setup() {
-  _use_backend_store
+  _use_test_root
   _seed_repo demo
 }
 
-@test "new creates a Conductor-compatible task worktree" {
-  run "$WORKFRAME" new demo fix-login
+@test "new creates a named sibling checkout" {
+  run "$WORKSPACES" new demo fix-login
   [ "$status" -eq 0 ]
-  local ws; ws=$(printf '%s\n' "$output" | _workspace_path)
-  [[ "$ws" == */workspaces/demo/* ]]
-  [ -e "$ws/.git" ]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list fix-login
-  [ -n "$output" ]
-  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/fix-login
+  [ "$output" = "$WORKSPACES_ROOT/demo-fix-login" ]
+  [ -e "$output/.git" ]
+  [ "$(git -C "$output" branch --show-current)" = fix-login ]
+  local git_dir
+  git_dir=$(git -C "$output" rev-parse --absolute-git-dir)
+  [ -f "$git_dir/workspaces-managed" ]
 }
 
-@test "new starts from the freshly fetched default branch" {
-  local origin="$BATS_TEST_TMPDIR/demo-origin.git" seed="$BATS_TEST_TMPDIR/demo-seed"
-  printf 'fresh\n' >> "$seed/README.md"
-  git -C "$seed" add README.md
-  git -C "$seed" commit -qm fresh
-  git -C "$seed" push -q origin main
+@test "new branches from the repository checkout's current HEAD" {
+  printf 'local\n' >> "$WORKSPACES_ROOT/demo/README.md"
+  git -C "$WORKSPACES_ROOT/demo" add README.md
+  git -C "$WORKSPACES_ROOT/demo" commit -qm local
 
-  run "$WORKFRAME" new demo fresh-tip
+  run "$WORKSPACES" new demo current-head
   [ "$status" -eq 0 ]
-  local ws; ws=$(_workspace_path <<<"$output")
-  [ "$(git -C "$ws" rev-parse HEAD)" = "$(git -C "$origin" rev-parse main)" ]
+  [ "$(git -C "$output" rev-parse HEAD)" = "$(git -C "$WORKSPACES_ROOT/demo" rev-parse HEAD)" ]
 }
 
-@test "new refuses stale work when it cannot fetch" {
-  git -C "$WORKFRAME_HOME/repos/demo" remote set-url origin "$BATS_TEST_TMPDIR/missing-origin.git"
+@test "new reattaches an existing inactive branch" {
+  git -C "$WORKSPACES_ROOT/demo" branch paused
 
-  run "$WORKFRAME" new demo requires-fetch
+  run "$WORKSPACES" new demo paused
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$WORKSPACES_ROOT/demo-paused" ]
+  [ "$(git -C "$output" branch --show-current)" = paused ]
+}
+
+@test "parallel tasks have independent working files" {
+  local first second
+  first=$("$WORKSPACES" new demo first)
+  second=$("$WORKSPACES" new demo second)
+  printf 'first\n' > "$first/task.txt"
+  printf 'second\n' > "$second/task.txt"
+
+  [ "$(cat "$first/task.txt")" = first ]
+  [ "$(cat "$second/task.txt")" = second ]
+  [ ! -e "$WORKSPACES_ROOT/demo/task.txt" ]
+}
+
+@test "new disambiguates an occupied sibling name" {
+  mkdir "$WORKSPACES_ROOT/demo-collision"
+
+  run "$WORKSPACES" new demo collision
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$WORKSPACES_ROOT/demo-collision-2" ]
+  [ -e "$output/.git" ]
+}
+
+@test "ownership survives branch and Git worktree renames" {
+  local original moved
+  original=$("$WORKSPACES" new demo initial)
+  moved="$WORKSPACES_ROOT/demo-better-name"
+  git -C "$original" branch -m better-branch
+  git -C "$WORKSPACES_ROOT/demo" worktree move "$original" "$moved"
+
+  run "$WORKSPACES" list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"demo/better-branch"* ]]
+  [[ "$output" == *"$moved"* ]]
+
+  run "$WORKSPACES" remove demo/better-branch
+  [ "$status" -eq 0 ]
+  [ ! -e "$moved" ]
+  git -C "$WORKSPACES_ROOT/demo" show-ref --verify --quiet refs/heads/better-branch
+}
+
+@test "new refuses a marked branch moved outside the sibling layout" {
+  local original outside
+  original=$("$WORKSPACES" new demo moved)
+  outside="$BATS_TEST_TMPDIR/outside"
+  git -C "$WORKSPACES_ROOT/demo" worktree move "$original" "$outside"
+
+  run "$WORKSPACES" new demo moved
+
   [ "$status" -ne 0 ]
-  [[ "$output" == *"could not refresh 'demo'"* ]]
-  [ -z "$(git -C "$WORKFRAME_HOME/repos/demo" branch --list requires-fetch)" ]
+  [[ "$output" == *'outside the managed sibling layout'* ]]
+  [ -e "$outside/.git" ]
 }
 
-@test "new offline uses the local remote ref" {
-  git -C "$WORKFRAME_HOME/repos/demo" remote set-url origin "$BATS_TEST_TMPDIR/missing-origin.git"
+@test "unmarked worktrees are ignored and cannot be removed" {
+  local foreign="$WORKSPACES_ROOT/demo-manual"
+  git -C "$WORKSPACES_ROOT/demo" worktree add -q -b manual "$foreign" HEAD
 
-  run "$WORKFRAME" new --offline demo disconnected
+  run "$WORKSPACES" list
   [ "$status" -eq 0 ]
-  [ -e "$(_workspace_path <<<"$output")/.git" ]
-}
+  [[ "$output" != *"demo/manual"* ]]
 
-@test "new prints only its workspace path" {
-  run "$WORKFRAME" new demo clean-output
-  [ "$status" -eq 0 ]
-  [[ "$output" == */workspaces/demo/* ]]
-  [[ "$output" != *$'\n'* ]]
-}
-
-@test "new accepts only repo and task" {
-  run "$WORKFRAME" new codex demo fix-login
-  [ "$status" -ne 0 ]
-  [[ "$output" == *'usage: new [--offline] <repo> <task>'* ]]
-}
-
-@test "sync refreshes one canonical repository" {
-  local origin="$BATS_TEST_TMPDIR/demo-origin.git" seed="$BATS_TEST_TMPDIR/demo-seed"
-  printf 'fresh\n' >> "$seed/README.md"
-  git -C "$seed" add README.md
-  git -C "$seed" commit -qm fresh
-  git -C "$seed" push -q origin main
-
-  run "$WORKFRAME" sync demo
-  [ "$status" -eq 0 ]
-  [ "$output" = 'demo: updated +1' ]
-  [ "$(git -C "$WORKFRAME_HOME/repos/demo" rev-parse HEAD)" = "$(git -C "$origin" rev-parse main)" ]
-}
-
-@test "sync all refreshes every canonical repository" {
-  _seed_repo other
-
-  run "$WORKFRAME" sync --all
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'demo: up to date'* ]]
-  [[ "$output" == *'other: up to date'* ]]
-}
-
-@test "worktrees uses four stable TSV fields" {
-  "$WORKFRAME" new demo visible >/dev/null
-  run "$WORKFRAME" worktrees
-  [ "$status" -eq 0 ]
-  local fields; fields=$(printf '%s\n' "$output" | awk -F '\t' 'NF { print NF; exit }')
-  [ "$fields" = 4 ]
-  [[ "$output" == demo$'\t'*$'\t'*$'\t'visible ]]
-}
-
-@test "archive and restore preserve an unprefixed branch" {
-  local ws; ws=$("$WORKFRAME" new demo feat-x 2>/dev/null | _workspace_path)
-  run "$WORKFRAME" archive "$ws"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'archived: feat-x'* ]]
-  [ ! -e "$ws/.git" ]
-  run "$WORKFRAME" restore demo feat-x
-  [ "$status" -eq 0 ]
-  [ -e "$(printf '%s\n' "$output" | _workspace_path)/.git" ]
-}
-
-@test "lifecycle ignores compatible worktrees that Workframe did not create" {
-  local foreign="$WORKFRAME_HOME/workspaces/demo/conductor-city"
-  mkdir -p "$(dirname "$foreign")"
-  git -C "$WORKFRAME_HOME/repos/demo" worktree add -q -b conductor-task "$foreign" origin/main
-
-  run "$WORKFRAME" worktrees
-  [ "$status" -eq 0 ]
-  [[ "$output" != *conductor-city* ]]
-
-  run "$WORKFRAME" archive "$foreign"
-  [ "$status" -ne 0 ]
-  [ -e "$foreign/.git" ]
-
-  run "$WORKFRAME" remove branch demo conductor-task --yes
-  [ "$status" -ne 0 ]
-  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/heads/conductor-task
-
-  run "$WORKFRAME" remove repo demo --force --yes
+  run "$WORKSPACES" remove "$foreign"
   [ "$status" -ne 0 ]
   [ -e "$foreign/.git" ]
 }
 
-@test "archive protects dirty work unless force is explicit" {
-  local ws; ws=$("$WORKFRAME" new demo dirty 2>/dev/null | _workspace_path)
-  printf 'change\n' >> "$ws/README.md"
-  run "$WORKFRAME" archive "$ws" --yes
+@test "remove refuses dirty work unless force is explicit" {
+  local path
+  path=$("$WORKSPACES" new demo dirty)
+  printf 'change\n' > "$path/change.txt"
+
+  run "$WORKSPACES" remove demo/dirty
   [ "$status" -eq 3 ]
-  [ -e "$ws/.git" ]
-  run "$WORKFRAME" archive "$ws" --force
+  [ -e "$path/.git" ]
+
+  run "$WORKSPACES" remove demo/dirty --force
   [ "$status" -eq 0 ]
-  [ ! -e "$ws" ]
+  [ ! -e "$path" ]
+  git -C "$WORKSPACES_ROOT/demo" show-ref --verify --quiet refs/heads/dirty
 }
 
-@test "archive rejects paths outside the managed layout" {
-  run "$WORKFRAME" archive "$WORKFRAME_HOME/repos/demo"
-  [ "$status" -ne 0 ]
-}
-
-@test "feature validation keeps safe task branches and rejects unsafe refs" {
+@test "new rejects path-like task names" {
   local bad
-  for bad in '   ' '-x' '..' 'x.lock' 'a//b' '/lead' 'trail/'; do
-    run "$WORKFRAME" new demo "$bad"
+  for bad in 'feature/auth' '../escape' 'two words' '-flag'; do
+    run "$WORKSPACES" new demo "$bad"
     [ "$status" -ne 0 ]
   done
-  run "$WORKFRAME" new demo 'sub/feat'
-  [ "$status" -eq 0 ]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list sub/feat
-  [ -n "$output" ]
 }

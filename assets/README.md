@@ -1,4 +1,4 @@
-# Workframe assets
+# Workspaces assets
 
 The mark is a single rectangular frame. The only brand colors are ink and
 white.

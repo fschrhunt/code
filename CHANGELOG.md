@@ -1,15 +1,29 @@
 # Changelog
 
-Notable changes to Workframe are documented here. The project follows
+Notable changes to Workspaces are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## 3.0.0
+
+### Breaking changes
+
+- Replaced Workframe with the `workspaces` command and the default
+  `~/workspaces` collection. The retired command, alias, environment variables,
+  private refs, and store layout are not migrated automatically.
+- Normal repository checkouts now live directly at `<root>/<repo>`. Task
+  worktrees are visible siblings named `<repo>-<task>`; `repos/`, nested
+  `workspaces/`, `system/`, and generated city directories have been removed.
+- Reduced the public CLI to `setup`, `clone`, `new`, `list`, `remove`, `root`,
+  and `doctor`. Git remains responsible for fetching, branch deletion, and other
+  repository operations.
+
 ### Changed
 
-- Made the store guide and automation documentation lead with the native
-  `cd "$(workframe new ...)"`, Git, and GitHub CLI workflow for both people
-  and coding agents.
+- Attached ownership to each task worktree's private Git directory so branch
+  renames and `git worktree move` do not break lifecycle safety.
+- Replaced the store contract with a short, human-facing `README.md`.
 
 ## 2.0.2
 

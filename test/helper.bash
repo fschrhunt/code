@@ -1,51 +1,34 @@
-# Shared bats helpers.
-#
-# WORKFRAME points at the entry script under test. A hermetic backend store is built in
-# each test's $BATS_TEST_TMPDIR: a bare "origin" repo plus a canonical clone,
-# mimicking the post-`workframe clone` state — no box, no network, no SMB, no TTY.
+# Shared hermetic fixtures for ordinary repositories and sibling task worktrees.
 
-WORKFRAME="${BATS_TEST_DIRNAME}/../bin/workframe"
+WORKSPACES="${BATS_TEST_DIRNAME}/../bin/workspaces"
 
-# Force the in-process backend and a throwaway data root.
-_use_backend_store() {
-  export WORKFRAME_BACKEND=1
-  export WORKFRAME_COLOR=0
-  # setup unsets WORKFRAME_HOME before persisting its selected root. Keep that
-  # pointer under Bats' temporary directory, never the developer's real config.
+# Use a disposable collection and configuration directory for every test.
+_use_test_root() {
   export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
-  export WORKFRAME_HOME="$BATS_TEST_TMPDIR/store"
-  mkdir -p "$WORKFRAME_HOME/repos" "$WORKFRAME_HOME/workspaces" \
-    "$WORKFRAME_HOME/system/config" "$WORKFRAME_HOME/system/logs"
-  # The task model has no agent registry.
-  cat > "$WORKFRAME_HOME/system/config/workframe.conf" <<'EOF'
-type = local
-editor = cursor
-default_org = example
-EOF
+  export WORKSPACES_ROOT="$BATS_TEST_TMPDIR/workspaces"
+  mkdir -p "$WORKSPACES_ROOT"
+  WORKSPACES_ROOT=$(cd -P "$WORKSPACES_ROOT" && pwd)
+  export WORKSPACES_ROOT
 }
 
-# Create a canonical repo named $1 (default: demo) with an initial commit on main.
+# Create an origin and clone its main checkout directly into the collection.
 _seed_repo() {
-  local name="${1:-demo}"
-  local origin="$BATS_TEST_TMPDIR/${name}-origin.git"
-  local seed="$BATS_TEST_TMPDIR/${name}-seed"
+  local name=${1:-demo}
+  local origin="$BATS_TEST_TMPDIR/$name-origin.git"
+  local seed="$BATS_TEST_TMPDIR/$name-seed"
   git init -q --bare "$origin"
   git init -q "$seed"
   git -C "$seed" config user.email t@example.com
   git -C "$seed" config user.name tester
   git -C "$seed" checkout -q -b main
-  echo "# $name" > "$seed/README.md"
-  git -C "$seed" add -A
-  git -C "$seed" commit -qm "init"
+  printf '# %s\n' "$name" > "$seed/README.md"
+  git -C "$seed" add README.md
+  git -C "$seed" commit -qm init
   git -C "$seed" remote add origin "$origin"
   git -C "$seed" push -q -u origin main
-  # Bare `git init` inherits init.defaultBranch (often master on CI). Point HEAD
-  # at main so the subsequent clone does not fail with a dangling remote HEAD.
   git -C "$origin" symbolic-ref HEAD refs/heads/main
-  git clone -q "$origin" "$WORKFRAME_HOME/repos/$name"
-  git -C "$WORKFRAME_HOME/repos/$name" remote set-head origin -a >/dev/null 2>&1
-  git -C "$WORKFRAME_HOME/repos/$name" config worktree.useRelativePaths true
+  git clone -q "$origin" "$WORKSPACES_ROOT/$name"
+  git -C "$WORKSPACES_ROOT/$name" config user.email t@example.com
+  git -C "$WORKSPACES_ROOT/$name" config user.name tester
+  git -C "$WORKSPACES_ROOT/$name" config worktree.useRelativePaths true
 }
-
-# Echo the path from concise `new` output or the `workspace:` line from restore.
-_workspace_path() { awk '/^workspace: / { sub(/^workspace: /, ""); print; exit } /^\// { print; exit }'; }
