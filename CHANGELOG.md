@@ -5,6 +5,15 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
+## 2.0.0
+
+### Breaking changes
+
+- Task workspaces and branches no longer include an agent identity. Run
+  `workframe migrate` first to preview conversion of a legacy store, then
+  `workframe migrate --yes` to apply it. Agent commands and `workframe help
+  --agent` have been removed.
+
 ### Added
 
 - A checksum-verified direct installer at `scripts/install.sh` for the latest
@@ -12,6 +21,9 @@ Notable changes to Workframe are documented here. The project follows
 - A manually dispatched, protected release workflow that validates the version
   and changelog, runs the complete check suite, then tags and publishes a
   GitHub release. Merges to `main` remain CI-only.
+- Workframe records ownership of every branch it creates or migrates in a
+  private Git ref. Lifecycle commands list, archive, restore, and delete only
+  those owned branches, so compatible Conductor worktrees are left alone.
 
 ### Removed
 
@@ -24,18 +36,6 @@ Notable changes to Workframe are documented here. The project follows
   and white (`#FFFFFF`). Removed the legacy wordmark, lockups, tiles, PNG
   exports, and lifecycle diagrams.
 - Simplified the README to the essential install, workflow, and ownership model.
-
-## 2.0.0
-
-- **Breaking:** task workspaces and branches no longer include an agent identity.
-  Run `workframe migrate` first to preview conversion of a legacy store, then
-  `workframe migrate --yes` to apply it. Agent commands and `workframe help
-  --agent` have been removed.
-- Workframe records ownership of every branch it creates or migrates in a
-  private Git ref. Lifecycle commands list, archive, restore, and delete only
-  those owned branches, so compatible Conductor worktrees are left alone.
-- Homebrew distribution is formula-only: install and upgrade with
-  `brew install fschrhunt/tap/workframe` and `brew upgrade workframe`.
 
 ## 1.5.3
 
