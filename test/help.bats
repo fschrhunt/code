@@ -11,7 +11,7 @@ load helper
 @test "help lists the task-only workspace contract and migration command" {
   run bash -c "WORKFRAME_COLOR=0 '$WORKFRAME' help"
   [ "$status" -eq 0 ]
-  [[ "$output" == *'workframe new <repo> <task>'* ]]
+  [[ "$output" == *'workframe new [--offline] <repo> <task>'* ]]
   [[ "$output" == *'workframe migrate [--yes]'* ]]
   [[ "$output" != *'help --agent'* ]]
 }
