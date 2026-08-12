@@ -4,6 +4,8 @@
 
 # Workframe
 
+A local CLI for safe, owned Git task worktrees.
+
 Workframe gives each task an owned Git worktree. One canonical clone stays
 clean; each task gets its own branch and directory.
 
