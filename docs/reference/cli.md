@@ -1,26 +1,29 @@
 # CLI reference
 
-```bash
-workframe init [--root <path>] [--editor <cmd>] [--org <name>]
-workframe setup [--local|--shared] [--root <path>] [--editor <cmd>] [--org <name>]
+```text
+workframe setup [--root <path>] [--org <name>]
 workframe clone <owner/repo | url | path>
 workframe new <repo> <task>
+workframe list [archived] [--repo <name>] [--dirty] [--json]
+workframe repos
+workframe worktrees [--json]
+workframe path <repo/task | branch | path>
+workframe current
+workframe run <selector> -- <command> [args...]
+workframe archive <selector> --yes [--force]
+workframe restore <repo> <task>
+workframe remove branch <repo> <task> --yes
+workframe migrate [--yes]
+workframe status
+workframe doctor
 ```
 
-| Intent | Command |
-|---|---|
-| List active workspaces | `workframe list [--repo <name>] [--dirty] [--json]` |
-| List archived branches | `workframe list archived` |
-| Machine-readable list | `workframe worktrees [--json]` |
-| Open or print a workspace | `workframe open <selector>`, `workframe path <selector>` |
-| Rename a task branch | `workframe rename <selector> <task>` |
-| Pause or restore work | `workframe archive <selector> --yes`, `workframe restore <repo> <branch>` |
-| Migrate a legacy store | `workframe migrate [--yes]` |
-| Inspect the store | `workframe status`, `workframe doctor` |
+All commands are non-interactive and write their result to stdout. Human list
+output is one workspace per line; use `--json` or `worktrees` for scripts.
 
-`worktrees` emits `repo`, `city`, `path`, and `branch` as TSV. A selector is a
-city, `repo/task`, task branch, or absolute workspace path.
+A selector is an exact workspace path, a branch name when unique, or
+`repo/task`. City folder names are not selectors.
 
-Workframe operates only on Git. It does not synchronize Conductor workspace
-records, chats, or archives; do not use its lifecycle commands on a
-Conductor-managed workspace.
+Workframe only acts on branches it owns. Ownership is recorded in private Git
+refs when a task is created or migrated; unmarked worktrees, including
+Conductor workspaces, are not listed or changed.

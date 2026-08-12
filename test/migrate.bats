@@ -39,6 +39,8 @@ _legacy_workspace() {
   run git -C "$WORKFRAME_HOME/repos/demo" branch --list live paused
   [[ "$output" == *live* ]]
   [[ "$output" == *paused* ]]
+  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/live
+  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/paused
   ! grep -q '^agents =' "$WORKFRAME_HOME/system/config/workframe.conf"
 }
 

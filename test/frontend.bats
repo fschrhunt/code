@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# User-facing task lifecycle uses the same task-only record shape as backend.
+# The public CLI is deliberately small and uses stable task identities.
 
 load helper
 
@@ -9,53 +9,60 @@ setup() {
   export WORKFRAME_BACKEND=0
 }
 
-_new_workspace() {
-  "$WORKFRAME" new demo feature >/dev/null
-  "$WORKFRAME" worktrees | cut -f3
+@test "setup accepts an explicit root for automation" {
+  local root="$BATS_TEST_TMPDIR/workframe-store"
+  run "$WORKFRAME" setup --root "$root" --org example
+  [ "$status" -eq 0 ]
+  [ "$output" = "initialized: $root" ]
+  [ -d "$root/repos" ]
+  [ -f "$root/WORKFRAME.md" ]
+  grep -q '^default_org = example$' "$root/system/config/workframe.conf"
 }
 
-@test "frontend creates, lists, archives, and restores a task workspace" {
-  local ws; ws=$(_new_workspace)
-  [ -e "$ws/.git" ]
-  run "$WORKFRAME" list --repo demo --json
+@test "setup requires a root without an interactive terminal" {
+  run "$WORKFRAME" setup
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'setup --root <path>'* ]]
+}
+
+@test "public lifecycle uses repo/task and machine-readable inspection" {
+  run "$WORKFRAME" new demo feature
+  [ "$status" -eq 0 ]
+  local ws; ws=$(printf '%s\n' "$output" | _workspace_path)
+
+  run "$WORKFRAME" path demo/feature
+  [ "$status" -eq 0 ]
+  [ "$output" = "$ws" ]
+
+  run "$WORKFRAME" list --json
   [ "$status" -eq 0 ]
   [[ "$output" == *'"repo":"demo"'* ]]
-  [[ "$output" != *'"agent"'* ]]
-  run "$WORKFRAME" archive demo/feature --yes --json
+  [[ "$output" == *'"task":"feature"'* ]]
+  [[ "$output" != *'"city"'* ]]
+
+  run "$WORKFRAME" archive demo/feature --yes
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"action":"archived"'* ]]
-  run "$WORKFRAME" restore --json demo feature
+  run "$WORKFRAME" restore demo feature
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"action":"restored"'* ]]
 }
 
-@test "frontend current, path, run, and status expose no agent field" {
-  local ws; ws=$(_new_workspace)
+@test "public commands reject legacy UI and ambiguous city selectors" {
+  "$WORKFRAME" new demo feature >/dev/null
+  run "$WORKFRAME" open demo/feature
+  [ "$status" -ne 0 ]
+  run "$WORKFRAME" path city-name
+  [ "$status" -ne 0 ]
+  run "$WORKFRAME" dashboard
+  [ "$status" -ne 0 ]
+}
+
+@test "current and run work from an owned workspace" {
+  local ws; ws=$("$WORKFRAME" new demo feature | _workspace_path)
   mkdir -p "$ws/nested"
-  run bash -c "cd '$ws/nested' && WORKFRAME_BACKEND=0 WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME' current --json"
+  run bash -c "cd '$ws/nested' && WORKFRAME_BACKEND=0 WORKFRAME_COLOR=0 WORKFRAME_HOME='$WORKFRAME_HOME' '$WORKFRAME' current"
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"branch":"feature"'* ]]
-  [[ "$output" != *'"agent"'* ]]
+  [ "$output" = demo/feature ]
   run "$WORKFRAME" run demo/feature -- git rev-parse --show-prefix
   [ "$status" -eq 0 ]
   [ -z "$output" ]
-  run "$WORKFRAME" status --json
-  [ "$status" -eq 0 ]
-  [[ "$output" == *'"worktrees":1'* ]]
-}
-
-@test "frontend rejects removed agent flags and commands" {
-  run "$WORKFRAME" new demo feature --agent codex
-  [ "$status" -ne 0 ]
-  run "$WORKFRAME" agents list
-  [ "$status" -ne 0 ]
-  run "$WORKFRAME" list --agent codex
-  [ "$status" -ne 0 ]
-}
-
-@test "completion advertises migration and no agent option" {
-  run "$WORKFRAME" completion bash
-  [ "$status" -eq 0 ]
-  [[ "$output" == *migrate* ]]
-  [[ "$output" != *'--agent'* ]]
 }

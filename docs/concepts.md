@@ -1,19 +1,29 @@
-# Core concepts
+# Concepts
 
-A Workframe store has one canonical Git clone per repository and one isolated
-worktree per task:
+A Workframe store has one canonical clone per repository and any number of
+owned task worktrees:
 
 ```text
-<store>/
-├── repos/<repo>/
-└── workspaces/<repo>/<city>/
+repos/<repo>/
+workspaces/<repo>/<city>/
 ```
 
-The workspace branch is the task name, such as `fix-login`. Cities are only
-unique directory labels; they do not affect the branch or pull request.
+The generated city is only a collision-free directory name. A workspace's
+identity is `repo/task`, where `task` is its Git branch.
 
-`repos/<repo>` is the Git canonical and should not hold task edits. Create work
-with `workframe new <repo> <task>`, then edit only the printed workspace.
+## Ownership and Conductor boundary
 
-Workframe mirrors Conductor’s on-disk Git layout but is independent of
-Conductor’s workspace/session state. Use one lifecycle owner for a workspace.
+Conductor creates standard Git worktrees too. Its documented local layout is
+usually `~/conductor/workspaces/<repo>/<workspace>`, while its chats, reviews,
+and archive state are associated with the workspace outside Git. A generic Git
+worktree has no universal, stable marker saying who created it.
+
+Workframe does not inspect Conductor's private application state or guess from
+paths, branch names, `.conductor` settings, or checkpoint refs. Instead it
+writes `refs/workframe/managed/<task>` in the canonical repository whenever it
+creates or migrates a task. Lifecycle commands require that positive ownership
+record. Unmarked worktrees—including Conductor and manually created Git
+worktrees—are ignored and cannot be changed by Workframe.
+
+This is intentionally asymmetric: Workframe can prove its own ownership, but
+does not claim to identify somebody else's workspace.

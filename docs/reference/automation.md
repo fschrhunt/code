@@ -1,47 +1,45 @@
 # Automation and coding agents
 
-Workframe is a Git-only command-line control plane. Use `workframe help` for
-the command map and set `WORKFRAME_COLOR=0` or `NO_COLOR=1` for plain output.
-
-## Store and workspace commands
-
-```bash
-workframe init [--root <path>] [--editor <cmd>] [--org <name>]
-workframe setup --local --root <path> [--editor <cmd>] [--org <name>]
-workframe clone <owner/repo | url | path>
-workframe new <repo> <task>
-workframe worktrees                 # TSV: repo, city, path, branch
-workframe list [archived] [--repo <name>] [--dirty] [--json]
-workframe path <selector>
-workframe run <selector> -- <command> [args...]
-```
-
-Workspaces live at `workspaces/<repo>/<city>` and task branches use the task
-name directly. A selector is a city, `repo/task`, branch, or absolute path.
-
-## Lifecycle and legacy migration
+Workframe is safe for agents because its interface is non-interactive and it
+uses positive ownership records. Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` if a
+caller needs plain diagnostic output.
 
 ```bash
-workframe archive <selector> --yes [--force]
-workframe restore <repo> <branch>
-workframe remove branch <repo> <branch> --yes
-workframe migrate [--yes]
+workframe repos                         # one canonical repo per line
+workframe worktrees                     # TSV: repo, city, path, task
+workframe worktrees --json
+workframe list --json
+workframe path repo/task                # exactly one path
+workframe run repo/task -- make check
 ```
 
-`migrate` converts pre-cutover `workspaces/<agent>/<repo>/<city>` worktrees
-and configured agent-prefixed branches. It is a dry run without `--yes`, never
-pushes or changes remotes, journals successful local operations, and rolls them
-back if a later local operation fails.
+Create a workspace only after selecting a canonical repository:
 
-Workframe never reads or writes Conductor state. Do not run Workframe lifecycle
-commands against a workspace managed by Conductor.
+```bash
+workframe clone owner/repo
+workframe new repo task
+```
+
+Lifecycle is explicit:
+
+```bash
+workframe archive repo/task --yes
+workframe restore repo task
+workframe remove branch repo task --yes
+```
+
+`migrate` converts pre-2.0 agent-scoped stores. It is a dry run without
+`--yes`, does not contact remotes, and rolls local Git changes back if a later
+operation fails.
+
+Workframe marks its branches in `refs/workframe/managed/*`. It does not read
+Conductor's private application state and never infers ownership from a
+worktree path. Therefore unmarked worktrees—including Conductor worktrees—are
+not listed or changed.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `WORKFRAME_HOME` | Override the data root and config directory, process-scoped |
-| `WORKFRAME_COLOR` | `0` forces plain output, `1` forces color |
-
-`WORKFRAME_HOME` does not write a root locator, so it is safe for tests and
-throwaway stores.
+| `WORKFRAME_HOME` | Process-scoped store root override |
+| `WORKFRAME_COLOR` | `0` disables color; `1` forces it |

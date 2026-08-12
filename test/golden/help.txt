@@ -1,34 +1,28 @@
+Workframe — owned Git worktrees for parallel tasks.
 
-    ██  ████  ██
-  ██            ██
-    ██        ██
-    ██        ██
-  ██            ██
-    ██  ████  ██
+Start
+  workframe setup [--root <path>] [--org <name>]
+  workframe clone <owner/repo | url | path>
+  workframe new <repo> <task>
 
+Work
+  workframe list [archived] [--repo <name>] [--dirty] [--json]
+  workframe path <repo/task | branch | path>
+  workframe current
+  workframe run <repo/task | branch | path> -- <command> [args...]
 
-  Workframe — isolated Git worktrees for parallel work.
-  Use workframe or wf. Commands prompt for omitted safe details when you are at a terminal.
+Lifecycle
+  workframe archive <selector> --yes [--force]
+  workframe restore <repo> <task>
+  workframe remove branch <repo> <task> --yes
+  workframe migrate [--yes]
 
-  Start here
-    workframe init                          bootstrap a local store
-    workframe setup --local                 create or update a local store
-    workframe clone <owner/repo | url | path>
-    workframe new <repo> <task>
+Inspect
+  workframe repos
+  workframe worktrees [--json]
+  workframe status
+  workframe doctor
 
-  Daily work
-    workframe list                         show active workspaces
-    workframe open <selector>              open a workspace in the configured editor
-    workframe path <selector>              print a workspace path
-    workframe current                      show the current workspace context
-    workframe resume <selector>            open active work or restore it
-    workframe archive <selector> --yes     pause work; branch is kept
-    workframe restore <repo> <branch>
-
-  Manage
-    workframe repos  workframe sync [<repo> | --all]
-    workframe status  workframe doctor  workframe config
-    workframe dashboard                    active work and next actions
-
-  Migration  workframe migrate [--yes]  convert a legacy agent-scoped store after a dry run
-  Workframe is Git-only: never use its lifecycle commands on a Conductor-managed workspace.
+Workframe only manages branches it created or migrated. They are recorded in
+private Git refs; unmarked Git worktrees, including Conductor workspaces, are
+never listed or changed. Use `wf` as a short alias.

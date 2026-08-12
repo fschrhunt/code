@@ -52,6 +52,32 @@ _prog(){ printf 'workframe-progress:%s:%s\n' "$1" "$2" >&2; }
 _default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
 _repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
 _ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
+
+# Workframe-owned branches are explicitly marked in a private Git ref namespace.
+# Layout alone is not ownership: Conductor and users may create compatible worktrees.
+_managed_ref(){ printf 'refs/workframe/managed/%s' "$2"; }
+_managed_branch(){ git -C "$(_canon "$1")" show-ref --verify --quiet "$(_managed_ref "$1" "$2")"; }
+_register_branch(){ git -C "$(_canon "$1")" update-ref "$(_managed_ref "$1" "$2")" "refs/heads/$2"; }
+_unregister_branch(){ git -C "$(_canon "$1")" update-ref -d "$(_managed_ref "$1" "$2")"; }
+# Print a worktree's branch from Git's porcelain record, including stale entries.
+_worktree_branch(){
+  local d=$1 wanted=$2 line path="" branch=""
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*)
+        if [ "$path" = "$wanted" ]; then printf '%s' "$branch"; return; fi
+        path=${line#worktree }; branch=""
+        ;;
+      "branch refs/heads/"*) branch=${line#branch refs/heads/};;
+    esac
+  done < <(git -C "$d" worktree list --porcelain 2>/dev/null)
+  [ "$path" = "$wanted" ] && printf '%s' "$branch"
+}
+_managed_worktree(){
+  local repo=$1 worktree=$2 branch
+  branch=$(_worktree_branch "$(_canon "$repo")" "$worktree")
+  [ -n "$branch" ] && _managed_branch "$repo" "$branch"
+}
 cmd_guide(){
   _ensure_store_guide "$ROOT" || die "could not create Workframe guide at $ROOT/WORKFRAME.md"
   printf 'guide: %s\n' "$ROOT/WORKFRAME.md"
@@ -120,7 +146,9 @@ cmd_worktrees(){ local r d
         "$r"/*) city=${rel#"$r"/}; case "$city" in */*) continue;; esac;;
         *) continue;;
       esac
-      printf '%s\t%s\t%s\t%s\n' "$r" "$city" "$worktree" "$(git -C "$worktree" branch --show-current 2>/dev/null)"
+      local branch; branch=$(git -C "$worktree" branch --show-current 2>/dev/null)
+      _managed_branch "$r" "$branch" || continue
+      printf '%s\t%s\t%s\t%s\n' "$r" "$city" "$worktree" "$branch"
     done < <(_worktree_paths "$d"); done; }
 cmd_new(){ local repo="${1:-}" feature="${2:-}"
   [ $# -eq 2 ] || die "usage: new <repo> <task>"
@@ -146,6 +174,11 @@ cmd_new(){ local repo="${1:-}" feature="${2:-}"
   # when the user first pushes their feature branch with `git push -u`.
   mkdir -p "$(dirname "$worktree_dir")"
   git -C "$d" worktree add -b "$branch" --no-track "$worktree_dir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
+  if ! _register_branch "$repo" "$branch"; then
+    git -C "$d" worktree remove --force "$worktree_dir" >/dev/null 2>&1 || true
+    git -C "$d" branch -D "$branch" >/dev/null 2>&1 || true
+    die "could not record workspace ownership"
+  fi
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
   printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$worktree_dir" "$branch" "$city"; }
@@ -155,11 +188,19 @@ cmd_rename(){ local worktree="${1:-}" feature="${2:-}"; [ -n "$worktree" ] && [ 
   repo=${rel%%/*}
   case "$rel" in "$repo"/*/*) die "not a Workframe workspace";; esac
   [ -d "$REPOS/$repo/.git" ] || die "not a Workframe workspace"
+  local oldbr; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  _managed_branch "$repo" "$oldbr" || die "not a Workframe-managed workspace"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
-  local oldbr newbr="$feature"; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  local newbr="$feature"
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
-  git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
+  git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"
+  if ! _register_branch "$repo" "$newbr"; then
+    git -C "$(_canon "$repo")" branch -m "$newbr" "$oldbr" >/dev/null 2>&1 || true
+    die "could not record workspace ownership"
+  fi
+  _unregister_branch "$repo" "$oldbr" || warn "renamed, but could not clear old workspace ownership"
+  printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
 cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo|url|path>"; local url repo
   case "$spec" in
     http*|git@*|file://*) url=$spec; repo=$(_clone_repo_name "$spec");;
@@ -202,8 +243,10 @@ cmd_delrepo(){
   local -a worktrees=() external=()
   while IFS= read -r worktree; do
     [ "$worktree" = "$d" ] && continue
+    # A compatible path is not proof of ownership. Only branches created or
+    # migrated by Workframe carry a managed ref; leave every other worktree alone.
     case "$worktree" in
-      "$WORK"/*) worktrees+=("$worktree");;
+      "$WORK/$repo"/*) _managed_worktree "$repo" "$worktree" && worktrees+=("$worktree") || external+=("$worktree");;
       *) external+=("$worktree");;
     esac
   done < <(_worktree_paths "$d")
@@ -217,10 +260,11 @@ cmd_delrepo(){
   if [ ${#external[@]} -gt 0 ]; then
     for worktree in "${external[@]}"; do printf '  outside the store: %s\n' "$worktree"; done
     if [ "$force" != "--force" ]; then
-      printf 'REFUSED: %s worktree(s) live outside workspaces/ — remove them yourself, or pass --force to delete the repository and leave their files in place\n' "${#external[@]}"
+      printf 'REFUSED: %s worktree(s) are not Workframe-managed — remove them yourself before deleting the repository\n' "${#external[@]}"
       return 3
     fi
-    printf 'note: leaving %s worktree(s) outside workspaces/ on disk\n' "${#external[@]}"
+    printf 'REFUSED: %s worktree(s) are not Workframe-managed — deleting the canonical would break them\n' "${#external[@]}"
+    return 3
   fi
   local n=${#worktrees[@]} i=0
   for worktree in "${worktrees[@]}"; do
@@ -258,7 +302,8 @@ cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_r
     [ "$n" -gt 0 ] && _prog "scanning repos" $(( ri * 100 / n )) || _prog "scanning $r" 50
     git -C "$d" fetch --prune --quiet 2>/dev/null || { warn "skip $r (fetch failed)"; continue; }
     while IFS= read -r worktree; do
-      case "$worktree" in "$WORK"/*) ;; *) continue;; esac; local rel=${worktree#"$WORK"/}; case "$rel" in "$r"/*) ;; *) continue;; esac
+      case "$worktree" in "$WORK/$r"/*) ;; *) continue;; esac
+      _managed_worktree "$r" "$worktree" || continue
       if [ ! -e "$worktree/.git" ]; then
         printf '  %sorphan%s   %s\n' "$YEL" "$N" "$worktree"
         if [ "$force" = "--yes" ]; then
@@ -313,6 +358,7 @@ cmd_archive(){
     return 3
   }
   local br; br=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  _managed_branch "$repo" "$br" || die "not a Workframe-managed workspace"
   _prog "archiving worktree" 70
   git -C "$(_canon "$repo")" worktree remove --force "$worktree" || die "worktree remove failed"; _prog "finishing" 100
   printf 'archived: %s\n' "$br"; }
@@ -321,7 +367,9 @@ cmd_archived(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
     local checked base; checked=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}'); base=$(_default_branch "$r")
     git -C "$d" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null | while read -r br; do
-      [ "$br" = "$base" ] && continue; printf '%s\n' "$checked" | grep -qxF "$br" && continue
+      [ "$br" = "$base" ] && continue
+      _managed_branch "$r" "$br" || continue
+      printf '%s\n' "$checked" | grep -qxF "$br" && continue
       printf '%s\t%s\t%s\n' "$r" "$br" "$(git -C "$d" log -1 --format='%cr' "$br" 2>/dev/null)"
     done; done; }
 # restore: recreate a worktree on an EXISTING (archived) branch, in a fresh city folder.
@@ -331,6 +379,7 @@ cmd_restore(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$bra
   local city worktree_dir
   _ensure_relpaths "$repo"
   city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"
+  _managed_branch "$repo" "$branch" || die "branch is not managed by Workframe"
   mkdir -p "$(dirname "$worktree_dir")"; git -C "$d" worktree add "$worktree_dir" "$branch" >&2 || die "worktree add failed"
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
@@ -347,10 +396,14 @@ cmd_rmbranch(){
   done
   [ -n "$repo" ] && [ -n "$branch" ] || die "usage: rmbranch <repo> <branch>"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"
+  _managed_branch "$repo" "$branch" || die "branch is not managed by Workframe"
   _prog "checking branch" 30
   git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}' | grep -qxF "$branch" && die "branch is active (worktree exists) — archive it first"
   _prog "deleting branch" 80
-  git -C "$d" branch -D "$branch" >/dev/null 2>&1 && { _prog "finishing" 100; printf 'removed branch: %s\n' "$branch"; } || die "branch delete failed"; }
+  git -C "$d" branch -D "$branch" >/dev/null 2>&1 || die "branch delete failed"
+  _unregister_branch "$repo" "$branch" || warn "branch deleted, but could not clear workspace ownership"
+  _prog "finishing" 100
+  printf 'removed branch: %s\n' "$branch"; }
 cmd_list(){ local rows; rows=$(cmd_worktrees)
   printf '  %s%-12s %-22s %-6s %-9s %s%s\n' "$W" REPO TASK DIRTY AHD/BEH CITY "$N"
   [ -z "$rows" ] && { printf '  %sno worktrees yet — try: workframe new%s\n' "$DIM" "$N"; return; }
@@ -370,6 +423,7 @@ _migration_rollback(){
   local operations=$1 kind a b c
   while IFS=$'\t' read -r kind a b c; do
     case "$kind" in
+      unregister) git -C "$a" update-ref -d "refs/workframe/managed/$b" >/dev/null 2>&1 || true;;
       rename) git -C "$a" branch -m "$c" "$b" >/dev/null 2>&1 || true;;
       move) git -C "$a" worktree move "$c" "$b" >/dev/null 2>&1 || true;;
     esac
@@ -492,11 +546,15 @@ cmd_migrate(){
         printf 'move\t%s\t%s\t%s\n' "$repo_dir" "$b" "$c" >> "$journal"; operations="move"$'\t'"$repo_dir"$'\t'"$b"$'\t'"$c"$'\n'"$operations"
         if ! git -C "$repo_dir" branch -m "$d" "$e"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
         printf 'rename\t%s\t%s\t%s\n' "$repo_dir" "$d" "$e" >> "$journal"; operations="rename"$'\t'"$repo_dir"$'\t'"$d"$'\t'"$e"$'\n'"$operations"
+        if ! _register_branch "$a" "$e"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'unregister\t%s\t%s\n' "$repo_dir" "$e" >> "$journal"; operations="unregister"$'\t'"$repo_dir"$'\t'"$e"$'\n'"$operations"
         ;;
       archived)
         repo_dir=$(_canon "$a")
         if ! git -C "$repo_dir" branch -m "$b" "$c"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
         printf 'rename\t%s\t%s\t%s\n' "$repo_dir" "$b" "$c" >> "$journal"; operations="rename"$'\t'"$repo_dir"$'\t'"$b"$'\t'"$c"$'\n'"$operations"
+        if ! _register_branch "$a" "$c"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'unregister\t%s\t%s\n' "$repo_dir" "$c" >> "$journal"; operations="unregister"$'\t'"$repo_dir"$'\t'"$c"$'\n'"$operations"
         ;;
     esac
     completed=$((completed + 1))

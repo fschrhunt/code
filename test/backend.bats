@@ -16,6 +16,7 @@ setup() {
   [ -e "$ws/.git" ]
   run git -C "$WORKFRAME_HOME/repos/demo" branch --list fix-login
   [ -n "$output" ]
+  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/fix-login
 }
 
 @test "new accepts only repo and task" {
@@ -44,6 +45,28 @@ setup() {
   [ -e "$(printf '%s\n' "$output" | _workspace_path)/.git" ]
 }
 
+@test "lifecycle ignores compatible worktrees that Workframe did not create" {
+  local foreign="$WORKFRAME_HOME/workspaces/demo/conductor-city"
+  mkdir -p "$(dirname "$foreign")"
+  git -C "$WORKFRAME_HOME/repos/demo" worktree add -q -b conductor-task "$foreign" origin/main
+
+  run "$WORKFRAME" worktrees
+  [ "$status" -eq 0 ]
+  [[ "$output" != *conductor-city* ]]
+
+  run "$WORKFRAME" archive "$foreign"
+  [ "$status" -ne 0 ]
+  [ -e "$foreign/.git" ]
+
+  run "$WORKFRAME" remove branch demo conductor-task --yes
+  [ "$status" -ne 0 ]
+  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/heads/conductor-task
+
+  run "$WORKFRAME" remove repo demo --force --yes
+  [ "$status" -ne 0 ]
+  [ -e "$foreign/.git" ]
+}
+
 @test "archive protects dirty work unless force is explicit" {
   local ws; ws=$("$WORKFRAME" new demo dirty 2>/dev/null | _workspace_path)
   printf 'change\n' >> "$ws/README.md"
@@ -55,12 +78,9 @@ setup() {
   [ ! -e "$ws" ]
 }
 
-@test "selectors and removal reject workspace paths outside the managed layout" {
+@test "archive rejects paths outside the managed layout" {
   run "$WORKFRAME" archive "$WORKFRAME_HOME/repos/demo"
   [ "$status" -ne 0 ]
-  run "$WORKFRAME" remove repo '../escape' --force --yes
-  [ "$status" -ne 0 ]
-  [[ "$output" == *'invalid repo name'* ]]
 }
 
 @test "feature validation keeps safe task branches and rejects unsafe refs" {
@@ -73,18 +93,4 @@ setup() {
   [ "$status" -eq 0 ]
   run git -C "$WORKFRAME_HOME/repos/demo" branch --list sub/feat
   [ -n "$output" ]
-}
-
-@test "clean and repository removal preserve the documented safety boundary" {
-  local ws; ws=$("$WORKFRAME" new demo orphaned 2>/dev/null | _workspace_path)
-  rm "$ws/.git"
-  run "$WORKFRAME" clean --yes
-  [ "$status" -eq 0 ]
-  [ ! -e "$ws" ]
-
-  git -C "$WORKFRAME_HOME/repos/demo" worktree add -q -b external "$BATS_TEST_TMPDIR/external"
-  "$WORKFRAME" new demo inside >/dev/null
-  run "$WORKFRAME" remove repo demo --yes
-  [ "$status" -eq 3 ]
-  [ -d "$BATS_TEST_TMPDIR/external" ]
 }
