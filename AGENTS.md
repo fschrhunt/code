@@ -1,83 +1,53 @@
 # Development rules
 
-## Conversational style
-
-- Keep responses concise, direct, and technical. Do not use emojis or filler.
-- Answer a question before editing code.
-- Explain non-obvious work as: problem, concrete consequence, solution.
-- State agreement or disagreement explicitly when responding to feedback.
-- Never expose local paths outside the active worktree, credentials, mounted
-  volumes, Conductor application state, or other private operator data.
-
 ## Product boundary
 
-Workframe is a local Git-worktree allocator. Its complete job is to configure a
-store location, create an owned task workspace, find it, archive it, restore
-it, and migrate legacy Workframe stores.
+Workspaces is a small local CLI for normal repository checkouts and sibling Git
+worktrees. Its complete job is to select a collection root, clone repositories,
+create isolated task worktrees, list them, remove them safely, and diagnose
+local Git metadata.
 
-Do not add remote stores, SSH, mounting, editor launch, shell hooks, dashboards,
-self-update, package-management behavior, or agent orchestration. A task is
-always `repo/task`; generated city names are internal directory labels.
+Do not add agent orchestration, remote stores, SSH, mounting, editor launch,
+shell hooks, dashboards, branch deletion, archive state, migration state,
+package-management behavior, or automatic Git synchronization.
 
-## Safety and ownership
+## Safety
 
-- Work only in an isolated Workframe worktree. Never modify an installed binary
-  or a canonical clone under `repos/`.
-- Workframe owns only branches recorded in `refs/workframe/managed/*`.
-  A path, branch pattern, `.conductor` file, or Git worktree record is never
-  proof of Workframe ownership.
-- Never make a lifecycle command list, archive, restore, rename, or delete an
-  unmarked worktree or branch.
-- Do not inspect, parse, or modify Conductor's private application state.
-  Workframe proves its own ownership; it does not identify Conductor's.
-- Keep destructive actions explicit. A focused Bats test must cover every new
-  safety boundary or destructive behavior.
+- Work only in an isolated Git worktree and preserve unrelated changes.
+- A task worktree is owned only when its private Git administrative directory
+  carries the Workspaces marker.
+- A path, name, branch, or Git worktree record alone is not ownership.
+- Never remove an unmarked checkout or any checkout outside the configured root.
+- Never discard dirty work unless `--force` is explicit.
+- Never delete repository checkouts or branches.
+- Add a focused Bats test for every destructive behavior or safety boundary.
 
 ## Code quality
 
-- Read a file completely before making a broad change to it.
-- Prefer a direct Bash function over a new abstraction or module. Inline a
-  single-use helper unless it clarifies a safety boundary.
+- Prefer direct Bash functions over abstractions or modules.
 - Use quoted variables and `git -C`; never depend on the caller's directory.
-- Treat shellcheck warnings and infos as failures. Do not suppress a diagnostic
-  without a concise reason next to it.
-- Do not add backward compatibility or aliases unless explicitly requested.
-- Update command help, the golden fixture, tests, and docs in the same change.
+- Treat ShellCheck warnings and infos as failures.
+- Do not add compatibility aliases unless explicitly requested.
+- Update help, its golden fixture, focused tests, and docs together.
+- Keep comments concise and focused on purpose or safety contracts.
 
-## Tests and commands
+## Validation
 
 ```bash
-make lint                         # ShellCheck
-make test                         # hermetic Bats suite
-make check                        # required after code changes
-bin/workframe help                # inspect the public CLI
+make lint
+make test
+make check
+bin/workspaces help
 ```
 
-- After code changes, run `make check` and fix every failure before handoff.
-- Test one changed Bats file while iterating, then run the full suite.
-- Tests use `WORKFRAME_BACKEND=1` and `WORKFRAME_HOME=<tmp>` with
-  `test/helper.bash`. They must not require a network, terminal, mount, editor,
-  remote store, or real Conductor installation.
-- Never test destructive commands against a live store.
+Tests must use disposable roots and local Git fixtures. They must not require a
+network, terminal, editor, or live collection.
 
-## Git
+## Git and releases
 
-Multiple agents can share a repository. Preserve their work.
-
-- Before a commit, inspect `git status` and stage only files changed in this
-  session with explicit paths. Never use `git add -A` or `git add .`.
-- Never run `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`,
-  or `git commit --no-verify`.
-- Do not force-push.
-- Commit format: `feat:`, `fix:`, `docs:`, `test:`, or `chore:` followed by a
-  short imperative summary.
-
-## Pull requests and releases
-
-- Keep PRs focused. Explain the user problem first, then the solution and
-  validation; do not lead with an implementation inventory.
-- Use the existing PR when the branch already has one. Do not create duplicates.
-- Add future-facing changes under `## [Unreleased]` in `CHANGELOG.md`; released
-  sections are immutable. Use `### Added`, `### Changed`, `### Fixed`,
-  `### Removed`, and `### Breaking changes` as applicable.
+- Stage only explicit files changed for the task; never use `git add .` or
+  `git add -A`.
+- Do not reset, clean, stash, force-push, or bypass hooks.
+- Use `feat:`, `fix:`, `docs:`, `test:`, or `chore:` commit prefixes.
+- Add future-facing changes only under `## [Unreleased]` in `CHANGELOG.md`.
 - Do not bump `VERSION`, tag, or publish without an explicit release request.

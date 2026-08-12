@@ -1,11 +1,11 @@
 #!/bin/sh
-# Install a verified Workframe release without a package manager.
+# Install a checksum-verified Workspaces release without a package manager.
 set -eu
 
-REPOSITORY="fschrhunt/workframe"
-VERSION="${WORKFRAME_VERSION:-}"
-INSTALL_ROOT="${WORKFRAME_INSTALL_ROOT:-$HOME/.local/share/workframe}"
-BIN_DIR="${WORKFRAME_BIN_DIR:-$HOME/.local/bin}"
+REPOSITORY="fschrhunt/workspaces"
+VERSION="${WORKSPACES_VERSION:-}"
+INSTALL_ROOT="${WORKSPACES_INSTALL_ROOT:-$HOME/.local/share/workspaces}"
+BIN_DIR="${WORKSPACES_BIN_DIR:-$HOME/.local/bin}"
 API="https://api.github.com/repos/$REPOSITORY/releases/latest"
 
 fail() { printf '%s\n' "error: $*" >&2; exit 1; }
@@ -21,42 +21,37 @@ if [ -z "$VERSION" ]; then
 fi
 case "$VERSION" in
   [0-9]*.[0-9]*.[0-9]*) ;;
-  *) fail "could not determine the latest Workframe release";;
+  *) fail "could not determine the latest Workspaces release";;
 esac
 
 BASE="https://github.com/$REPOSITORY/releases/download/v$VERSION"
-ARCHIVE="workframe-$VERSION.tar.gz"
-SUMS="SHA256SUMS"
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/workframe-install.XXXXXX") || fail "could not create temporary directory"
+ARCHIVE="workspaces-$VERSION.tar.gz"
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/workspaces-install.XXXXXX") || fail "could not create temporary directory"
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
-printf 'Downloading Workframe %s...\n' "$VERSION"
+printf 'Downloading Workspaces %s...\n' "$VERSION"
 curl -fsSL "$BASE/$ARCHIVE" -o "$TMP/$ARCHIVE"
-curl -fsSL "$BASE/$SUMS" -o "$TMP/$SUMS"
-
-EXPECTED=$(awk -v file="$ARCHIVE" '$2 == file { print $1; exit }' "$TMP/$SUMS")
+curl -fsSL "$BASE/SHA256SUMS" -o "$TMP/SHA256SUMS"
+EXPECTED=$(awk -v file="$ARCHIVE" '$2 == file { print $1; exit }' "$TMP/SHA256SUMS")
 [ -n "$EXPECTED" ] || fail "release checksums do not list $ARCHIVE"
 ACTUAL=$(shasum -a 256 "$TMP/$ARCHIVE" | awk '{print $1}')
 [ "$ACTUAL" = "$EXPECTED" ] || fail "download checksum did not match"
 
 tar -xzf "$TMP/$ARCHIVE" -C "$TMP"
-SOURCE="$TMP/workframe-$VERSION"
-[ -x "$SOURCE/bin/workframe" ] || fail "release archive has an unexpected layout"
-
+SOURCE="$TMP/workspaces-$VERSION"
+[ -x "$SOURCE/bin/workspaces" ] || fail "release archive has an unexpected layout"
 DESTINATION="$INSTALL_ROOT/$VERSION"
+TARGET="$BIN_DIR/workspaces"
 mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
+[ -e "$TARGET" ] && [ ! -L "$TARGET" ] && fail "refusing to replace existing path: $TARGET"
 rm -rf "$DESTINATION"
 mv "$SOURCE" "$DESTINATION"
+rm -f "$TARGET"
+ln -s "$DESTINATION/bin/workspaces" "$TARGET"
 
-for command in workframe wf; do
-  target="$BIN_DIR/$command"
-  [ -d "$target" ] && [ ! -L "$target" ] && fail "refusing to replace directory: $target"
-  ln -sfn "$DESTINATION/bin/workframe" "$target"
-done
-
-printf 'Installed Workframe %s\n' "$VERSION"
+printf 'Installed Workspaces %s\n' "$VERSION"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
-  *) printf 'Add %s to your PATH, then run: workframe setup\n' "$BIN_DIR";;
+  *) printf 'Add %s to your PATH.\n' "$BIN_DIR";;
 esac
-printf 'Run: workframe setup\n'
+printf 'Run: workspaces help\n'

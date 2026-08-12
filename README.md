@@ -1,69 +1,77 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Workframe" width="128">
+  <img src="assets/logo.svg" alt="Workspaces" width="128">
 </p>
 
-# Workframe
+# Workspaces
 
-A local CLI for safe, owned Git task worktrees.
-
-Workframe gives each task an owned Git worktree. One canonical clone stays
-clean; each task gets its own branch and directory.
+A small CLI for keeping normal Git repositories and isolated task checkouts in
+one predictable folder.
 
 ```text
-<store>/
-├── repos/<repo>/                 canonical clone
-└── workspaces/<repo>/<city>/     owned task checkout
+~/workspaces/
+├── pi/                    normal checkout
+├── pi-fix-auth/           isolated task worktree
+└── pi-update-docs/        another isolated task worktree
 ```
 
-A task is `repo/task`. The city is only a unique directory name.
+There is no hidden canonical clone or nested worktree hierarchy. `pi/` is the
+ordinary repository you expect: enter it, see `main`, and use Git normally.
+Task worktrees are visible siblings, so parallel work does not share files.
 
 ## Install
 
-Install the latest verified release:
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fschrhunt/workframe/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/workspaces/main/scripts/install.sh | sh
 ```
-
-The installer downloads a versioned GitHub release, verifies its SHA-256
-checksum, and links `workframe` and `wf` into `~/.local/bin`.
 
 For development, link a checkout instead:
 
 ```bash
-git clone https://github.com/fschrhunt/workframe.git
-cd workframe
-./install.sh                    # link this checkout into ~/.local/bin
+git clone https://github.com/fschrhunt/workspaces.git
+cd workspaces
+./install.sh
 ```
 
-## Start a task
+## Use
+
+The default collection is `~/workspaces`; setup is optional unless you want a
+custom location.
 
 ```bash
-workframe setup --root ~/workframe
-workframe clone owner/repo
-cd "$(workframe new repo payment-retry)"
+workspaces clone owner/pi
+cd ~/workspaces/pi
 git status --short --branch
 ```
 
-See [Getting started](docs/getting-started.md) for the complete workflow and
-[the CLI reference](docs/reference/cli.md) for every command. `wf` is the short
-alias for `workframe`.
+Create separate checkouts before running parallel tasks:
 
-## Ownership
+```bash
+cd "$(workspaces new pi fix-auth)"
+# start the first agent or work normally
 
-Workframe acts only on branches it records in `refs/workframe/managed/*`.
-Conductor and manually created worktrees are unmarked and remain untouched. See
-[Concepts](docs/concepts.md#ownership-and-conductor-boundary) for the boundary.
+cd "$(workspaces new pi update-docs)"
+# start the second agent or work normally
+```
+
+Both task directories share Git history with `pi/`, but not working files.
+Starting two editing processes directly in `pi/` does not provide isolation.
+
+```bash
+workspaces list
+workspaces remove pi/fix-auth
+```
+
+Removal keeps the branch and refuses uncommitted changes unless `--force` is
+explicit. Workspaces only removes task worktrees carrying its private ownership
+marker; manually created worktrees remain untouched.
+
+See [Getting started](docs/getting-started.md) and the
+[CLI reference](docs/reference/cli.md).
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Run the
-full check before submitting a change:
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and run:
 
 ```bash
 make check
 ```
-
-## Documentation
-
-See the [documentation index](docs/README.md) for guides and references.

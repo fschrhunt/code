@@ -1,25 +1,2 @@
-# workframe shellcheck config.
-#
-# Follow `source`d modules (bin/workframe sources lib/*.sh) so the program is analyzed
-# as a whole rather than file-by-file (avoids false "unassigned/unused" across
-# modules).
-external-sources=true
-# Resolve `# shellcheck source=../lib/*.sh` directives relative to bin/workframe's dir.
+# Resolve source paths from each checked script when source directives are used.
 source-path=SCRIPTDIR
-
-# Intentional word-splitting on space-separated lists (CACHE_DIRS, agents, and
-# newline lists of repo names) is pervasive in this list-oriented CLI.
-disable=SC2206,SC2046,SC2086
-# bin/workframe dispatch: `[ $# -gt 0 ] && shift || true` — intentional; shift must not
-# fail the script when invoked with no args (see AGENTS.md).
-disable=SC2015
-# `make lint` also checks lib/*.sh directly (not only transitively through
-# bin/workframe), because issues inside a sourced file are NOT reported when only the
-# sourcing script is named — that blind spot hid a real `rm -rf` finding.
-# Cross-module vars (REPOS/WORK, palette, …) use per-file `# shellcheck disable=`
-# for SC2034/SC2153 — keep those narrow so new unused/misspelled vars still warn.
-# Deliberate style in this codebase:
-#   SC1007  `B= N= DIM=` — batch empty assignments in the no-color branch
-#   SC1010  city-name arrays contain bare words like `do` and `fi`
-#   SC1003  backslashes in the ASCII-art banner
-disable=SC1007,SC1010,SC1003

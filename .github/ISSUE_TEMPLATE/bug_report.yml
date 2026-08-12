@@ -7,14 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Workframe. Do not include credentials, private
+        Thanks for helping improve Workspaces. Do not include credentials, private
         infrastructure details, or vulnerability information in a public issue.
   - type: input
     id: version
     attributes:
-      label: Workframe version
-      description: Run `workframe version`.
-      placeholder: workframe 1.5.3
+      label: Workspaces version
+      description: Run `workspaces version`.
+      placeholder: workspaces 3.0.0
     validations:
       required: true
   - type: dropdown

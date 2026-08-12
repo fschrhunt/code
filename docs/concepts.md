@@ -1,29 +1,42 @@
 # Concepts
 
-A Workframe store has one canonical clone per repository and any number of
-owned task worktrees:
+## Normal checkout first
+
+A collection is a directory containing normal repositories and optional sibling
+worktrees:
 
 ```text
-repos/<repo>/
-workspaces/<repo>/<city>/
+<root>/pi/
+<root>/pi-fix-auth/
+<root>/pi-update-docs/
 ```
 
-The generated city is only a collision-free directory name. A workspace's
-identity is `repo/task`, where `task` is its Git branch.
+`pi/` is not a cache or protected canonical clone. It is the repository checkout
+where a person would normally work. A task worktree shares its Git objects and
+history while keeping a separate index and working files.
 
-## Ownership and Conductor boundary
+## Parallel isolation
 
-Conductor creates standard Git worktrees too. Its documented local layout is
-usually `~/conductor/workspaces/<repo>/<workspace>`, while its chats, reviews,
-and archive state are associated with the workspace outside Git. A generic Git
-worktree has no universal, stable marker saying who created it.
+Separate terminal sessions are not separate filesystems. Two editors or agents
+started in the same checkout see the same uncommitted changes. Parallel editing
+is isolated only after each task uses a different worktree.
 
-Workframe does not inspect Conductor's private application state or guess from
-paths, branch names, `.conductor` settings, or checkpoint refs. Instead it
-writes `refs/workframe/managed/<task>` in the canonical repository whenever it
-creates or migrates a task. Lifecycle commands require that positive ownership
-record. Unmarked worktrees—including Conductor and manually created Git
-worktrees—are ignored and cannot be changed by Workframe.
+`workspaces new <repo> <task>` creates `<repo>-<task>` beside the repository and
+prints that path. If the name is occupied, it adds a numeric suffix. The task
+name is both its initial branch and directory suffix. Branches and paths may
+later be renamed with ordinary Git commands while they remain beneath the root.
 
-This is intentionally asymmetric: Workframe can prove its own ownership, but
-does not claim to identify somebody else's workspace.
+## Worktree ownership
+
+Workspaces places a small marker in the linked worktree's private Git
+administrative directory. The marker follows `git worktree move` and does not
+depend on the branch name, so normal branch renames remain safe.
+
+Lifecycle commands require all of the following:
+
+- the checkout is recorded by its repository as a Git worktree;
+- it is an immediate sibling beneath the configured root;
+- its private ownership marker exists.
+
+A path pattern or branch name alone is never treated as ownership. Manually
+created and third-party worktrees are neither listed nor removed.
