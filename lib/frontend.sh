@@ -140,6 +140,14 @@ mac_worktrees(){
   esac
 }
 mac_repos(){ [ $# -eq 0 ] || die 'usage: workframe repos'; cmd_repos; }
+mac_sync(){ cmd_sync "$@"; }
+# Re-run the verified release installer. The installer replaces only Workframe's
+# versioned payload and command links; it never changes a configured store.
+mac_update(){
+  [ $# -eq 0 ] || die 'usage: workframe update'
+  command -v curl >/dev/null 2>&1 || die 'curl is required to update Workframe'
+  curl -fsSL "${WORKFRAME_INSTALLER_URL:-https://raw.githubusercontent.com/fschrhunt/workframe/main/scripts/install.sh}" | sh
+}
 mac_path(){ [ $# -eq 1 ] || die 'usage: workframe path <repo/task|branch|path>'; _resolve_worktree "$1"; printf '\n'; }
 mac_current(){
   [ $# -eq 0 ] || die 'usage: workframe current'
