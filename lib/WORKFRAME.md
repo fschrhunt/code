@@ -36,18 +36,21 @@ workframe repos                   # canonical repository names
 workframe path <repo/task>        # one active workspace path
 ```
 
-Create a canonical clone only when the repository is absent, then create the
-task workspace:
+Create a canonical clone only when the repository is absent, then enter a new
+task workspace. From that point, use ordinary `git` and `gh` commands:
 
 ```bash
 workframe clone <owner/repo | url | path>
-workframe new <repo> <task>          # refreshes origin first
-workspace=$(workframe path <repo/task>)
-cd "$workspace"
+cd "$(workframe new <repo> <task>)"  # refreshes origin first
+git status --short --branch
+gh pr create
 ```
 
-`new` refuses to use a stale default-branch ref when it cannot refresh `origin`.
-Use `new --offline <repo> <task>` only for intentional disconnected work.
+`new` writes only the workspace path so it composes with `cd`, scripts, Git,
+and GitHub CLI without a Workframe-specific wrapper. It cannot change the
+parent shell's directory. For intentional disconnected work, use
+`workframe new --offline <repo> <task>`; otherwise `new` refuses a stale
+default-branch ref when it cannot refresh `origin`.
 
 If the branch already exists without an active workspace, resume it instead:
 
@@ -87,7 +90,19 @@ authorization to discard that exact work. When uncertain, inspect and ask.
 
 ## Scripts and agents
 
-Use stable machine-readable commands rather than formatted list output:
+Workframe allocates and locates task worktrees; Git and GitHub operations stay
+native. Start an agent task with the same command sequence a person uses:
+
+```bash
+cd "$(workframe new <repo> <task>)"
+git status --short --branch
+git add <paths>
+git commit -m "type: summary"
+gh pr create
+```
+
+Use machine-readable Workframe commands only when discovering or addressing
+work from outside its workspace:
 
 ```bash
 workframe worktrees               # TSV: repo, city, path, branch

@@ -31,10 +31,18 @@ cd "$(workframe new repo feature-name)"
 
 `new` fetches the repository's default branch before creating the task, so the
 workspace starts from the current remote tip. It prints only the workspace path,
-so command substitution enters it without exposing the generated directory
-label. For intentional disconnected work, use
-`workframe new --offline repo feature-name`; it uses the locally cached remote
-ref. Use the task identity to find work later:
+so it composes with ordinary Git and GitHub CLI commands without a Workframe
+wrapper:
+
+```bash
+cd "$(workframe new repo feature-name)"
+git status --short --branch
+gh pr create
+```
+
+For intentional disconnected work, use `workframe new --offline repo
+feature-name`; it uses the locally cached remote ref. Use the task identity to
+find work later:
 
 ```bash
 workframe path repo/feature-name

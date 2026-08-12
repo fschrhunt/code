@@ -6,9 +6,27 @@ ownership from a worktree path, so unmarked worktrees are never listed or
 changed. See [Concepts](../concepts.md#ownership-and-conductor-boundary) for
 that boundary.
 
+## Create and work normally
+
+Workframe creates and finds task directories; it does not replace Git or the
+GitHub CLI. Use the ordinary commands agents and humans already know once the
+new workspace is entered:
+
+```bash
+cd "$(workframe new repo task)"
+git status --short --branch
+git add <paths>
+git commit -m "type: summary"
+gh pr create
+```
+
+`new` prints only its workspace path, making it safe for command substitution.
+A command cannot change its parent shell's directory.
+
 ## Discover and run work
 
-Use machine-readable commands instead of formatted `list` output:
+Use machine-readable commands instead of formatted `list` output when working
+from outside a task workspace:
 
 ```bash
 workframe repos                         # one canonical repo per line
