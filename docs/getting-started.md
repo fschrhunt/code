@@ -9,11 +9,12 @@ curl -fsSL https://raw.githubusercontent.com/fschrhunt/workspaces/main/scripts/i
 The verified installer links `workspaces` and its `ws` alias into
 `~/.local/bin`.
 
-## Clone a repository
+## Set up the collection
 
 Workspaces uses `~/workspaces` by default:
 
 ```bash
+ws setup
 ws clone owner/pi
 cd ~/workspaces/repos/pi
 git status --short --branch
@@ -21,11 +22,10 @@ git status --short --branch
 
 The result is a normal Git checkout, usually on the remote's default branch.
 Repositories live in `repos/`; isolated task checkouts live in `worktrees/`.
-Setup is optional unless you want another collection root:
-
-```bash
-ws setup --root ~/code
-```
+Use another collection root with `ws setup --root ~/code`. Setup is safe to run
+again after an upgrade. If it finds pre-4.0 base checkouts directly beneath the
+root, it moves them into `repos/` and repairs live task worktrees. It preserves
+dirty files and custom collection README content.
 
 ## Start a task
 

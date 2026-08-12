@@ -54,3 +54,5 @@ discards those changes.
 
 `workspaces` can replace `ws` in every command. Run `ws help` for the complete
 CLI.
+
+<!-- workspaces-generated-readme -->

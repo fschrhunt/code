@@ -66,4 +66,4 @@ case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) printf 'Add %s to your PATH.\n' "$BIN_DIR";;
 esac
-printf 'Run: ws help\n'
+printf 'Run: ws setup\n'
