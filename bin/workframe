@@ -54,7 +54,7 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
       [ "${1:-}" = branch ] || die 'usage: workframe remove branch <repo> <task> --yes'
       shift || true; cmd_rmbranch "$@"
       ;;
-    status) cmd_status "$@";; doctor) cmd_doctor "$@";; guide) cmd_guide "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
+    status) cmd_status "$@";; doctor) cmd_doctor "$@";; guide) cmd_guide "$@";; repos) cmd_repos "$@";; sync) cmd_sync "$@";; worktrees) cmd_worktrees "$@";;
     setup)
       mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
       _ensure_store_guide "$WORKFRAME_USER_DIR" || die "could not create Workframe guide at $WORKFRAME_USER_DIR/WORKFRAME.md"
@@ -72,6 +72,8 @@ else
     list|ls)     mac_list "$@";;
     worktrees)   mac_worktrees "$@";;
     repos)       mac_repos "$@";;
+    sync)        mac_sync "$@";;
+    update)      mac_update "$@";;
     path)        mac_path "$@";;
     current)     mac_current "$@";;
     run)         mac_run "$@";;
