@@ -15,9 +15,11 @@ setup() { _use_test_root; }
   root=$(cd -P "$root" && pwd)
   [ "$output" = "$root" ]
   [ -f "$root/README.md" ]
+  grep -q '<root>/' "$root/README.md"
+  ! grep -q '~/workspaces/' "$root/README.md"
+  [ -d "$root/repos" ]
   [ -d "$root/worktrees" ]
   [ "$(cat "$XDG_CONFIG_HOME/workspaces/root")" = "$root" ]
-  [ ! -e "$root/repos" ]
   [ ! -e "$root/system" ]
 }
 
@@ -30,7 +32,7 @@ setup() { _use_test_root; }
   [ "$(cat "$WORKSPACES_ROOT/README.md")" = mine ]
 }
 
-@test "clone creates a normal checkout directly below the root" {
+@test "clone creates a normal checkout inside repos" {
   local source="$BATS_TEST_TMPDIR/source"
   git init -q "$source"
   git -C "$source" config user.email t@example.com
@@ -43,19 +45,21 @@ setup() { _use_test_root; }
   run bash -c "'$WORKSPACES' clone '$source' 2>/dev/null"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT/source" ]
-  [ -d "$WORKSPACES_ROOT/source/.git" ]
-  [ "$(git -C "$WORKSPACES_ROOT/source" branch --show-current)" = main ]
+  [ "$output" = "$WORKSPACES_ROOT/repos/source" ]
+  [ -d "$WORKSPACES_ROOT/repos/source/.git" ]
+  [ "$(git -C "$WORKSPACES_ROOT/repos/source" branch --show-current)" = main ]
 }
 
-@test "clone reserves the worktrees directory" {
+@test "repository names cannot collide with collection directories" {
   local source="$BATS_TEST_TMPDIR/worktrees"
   git init -q "$source"
 
-  run "$WORKSPACES" clone "$source"
+  run bash -c "'$WORKSPACES' clone '$source' 2>/dev/null"
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"repository name 'worktrees' is reserved"* ]]
+  [ "$status" -eq 0 ]
+  [ "$output" = "$WORKSPACES_ROOT/repos/worktrees" ]
+  [ -d "$WORKSPACES_ROOT/repos/worktrees/.git" ]
+  [ -d "$WORKSPACES_ROOT/worktrees" ]
 }
 
 @test "list shows normal repositories and task checkouts" {

@@ -3,16 +3,17 @@
 ```text
 <root>/
 ├── README.md
-├── <repo>/
+├── repos/
+│   └── <repo>/
 └── worktrees/
     └── <repo>/
         ├── <task>/
         └── <other-task>/
 ```
 
-Top-level repository directories are ordinary non-bare Git clones with a
-`.git/` directory. Task directories are linked Git worktrees with a `.git` file
-and live only beneath `worktrees/<repo>/`.
+Base repository directories are ordinary non-bare Git clones with a `.git/`
+directory. They live only beneath `repos/`. Task directories are linked Git
+worktrees with a `.git` file and live only beneath `worktrees/<repo>/`.
 
 The selected root is stored at:
 

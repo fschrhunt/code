@@ -1,4 +1,4 @@
-#compdef workspaces
+#compdef workspaces ws
 
 _workspaces() {
   local -a commands
