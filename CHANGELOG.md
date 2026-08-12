@@ -5,7 +5,7 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
-## 2.0.1
+## 2.0.2
 
 ### Added
 
@@ -18,6 +18,13 @@ Notable changes to Workframe are documented here. The project follows
 
 - Made terminal output inherit the user's foreground and background instead of
   forcing white; data output remains plain.
+
+### Fixed
+
+- Isolated Bats' selected-store pointer under its temporary configuration
+  directory so test setup cannot overwrite a user's configured Workframe root.
+
+## 2.0.1
 - Made `new` refresh the repository's default branch before creating a task and
   refuse stale work if it cannot fetch; `--offline` explicitly uses the cached
   remote ref for disconnected work.
