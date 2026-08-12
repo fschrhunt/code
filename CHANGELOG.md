@@ -8,10 +8,22 @@ Notable changes to Workframe are documented here. The project follows
 ### Added
 
 - A checksum-verified direct installer at `scripts/install.sh` for the latest
-  GitHub release, alongside the Homebrew formula and checkout linker.
+  GitHub release, alongside the checkout linker.
 - A manually dispatched, protected release workflow that validates the version
   and changelog, runs the complete check suite, then tags and publishes a
   GitHub release. Merges to `main` remain CI-only.
+
+### Removed
+
+- Homebrew distribution. The verified direct installer is now the only
+  supported installation path.
+
+### Changed
+
+- Replaced the Workframe mark and reduced the visual system to ink (`#09090B`)
+  and white (`#FFFFFF`). Removed the legacy wordmark, lockups, tiles, PNG
+  exports, and lifecycle diagrams.
+- Simplified the README to the essential install, workflow, and ownership model.
 
 ## 2.0.0
 

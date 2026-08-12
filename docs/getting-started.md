@@ -2,13 +2,16 @@
 
 ## Install
 
-Install the supported Homebrew formula:
+Install the latest verified release:
 
 ```bash
-brew install fschrhunt/tap/workframe
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/workframe/main/scripts/install.sh | sh
 ```
 
-For development, install a checkout instead:
+The installer links `workframe` and `wf` into `~/.local/bin`. It downloads only
+versioned GitHub release assets and verifies their SHA-256 checksum.
+
+For development, link a checkout instead:
 
 ```bash
 git clone https://github.com/fschrhunt/workframe.git
