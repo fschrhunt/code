@@ -42,16 +42,28 @@ SOURCE="$TMP/workspaces-$VERSION"
 [ -x "$SOURCE/bin/workspaces" ] || fail "release archive has an unexpected layout"
 DESTINATION="$INSTALL_ROOT/$VERSION"
 TARGET="$BIN_DIR/workspaces"
+ALIAS="$BIN_DIR/ws"
 mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
-[ -e "$TARGET" ] && [ ! -L "$TARGET" ] && fail "refusing to replace existing path: $TARGET"
+for link in "$TARGET" "$ALIAS"; do
+  [ ! -e "$link" ] || [ -L "$link" ] || fail "refusing to replace existing path: $link"
+  if [ -L "$link" ]; then
+    existing=$(readlink "$link")
+    case "$existing" in
+      "$INSTALL_ROOT"/*/bin/workspaces) ;;
+      *) fail "refusing to replace existing symlink: $link";;
+    esac
+  fi
+done
 rm -rf "$DESTINATION"
 mv "$SOURCE" "$DESTINATION"
-rm -f "$TARGET"
-ln -s "$DESTINATION/bin/workspaces" "$TARGET"
+for link in "$TARGET" "$ALIAS"; do
+  rm -f "$link"
+  ln -s "$DESTINATION/bin/workspaces" "$link"
+done
 
 printf 'Installed Workspaces %s\n' "$VERSION"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) printf 'Add %s to your PATH.\n' "$BIN_DIR";;
 esac
-printf 'Run: workspaces help\n'
+printf 'Run: ws help\n'

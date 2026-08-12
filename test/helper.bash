@@ -11,7 +11,7 @@ _use_test_root() {
   export WORKSPACES_ROOT
 }
 
-# Create an origin and clone its main checkout directly into the collection.
+# Create an origin and clone its main checkout into the collection's repos directory.
 _seed_repo() {
   local name=${1:-demo}
   local origin="$BATS_TEST_TMPDIR/$name-origin.git"
@@ -27,8 +27,9 @@ _seed_repo() {
   git -C "$seed" remote add origin "$origin"
   git -C "$seed" push -q -u origin main
   git -C "$origin" symbolic-ref HEAD refs/heads/main
-  git clone -q "$origin" "$WORKSPACES_ROOT/$name"
-  git -C "$WORKSPACES_ROOT/$name" config user.email t@example.com
-  git -C "$WORKSPACES_ROOT/$name" config user.name tester
-  git -C "$WORKSPACES_ROOT/$name" config worktree.useRelativePaths true
+  mkdir -p "$WORKSPACES_ROOT/repos"
+  git clone -q "$origin" "$WORKSPACES_ROOT/repos/$name"
+  git -C "$WORKSPACES_ROOT/repos/$name" config user.email t@example.com
+  git -C "$WORKSPACES_ROOT/repos/$name" config user.name tester
+  git -C "$WORKSPACES_ROOT/repos/$name" config worktree.useRelativePaths true
 }

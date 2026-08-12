@@ -1,17 +1,16 @@
 # Concepts
 
-## Normal checkout first
+## Base checkout first
 
-A collection keeps repository checkouts at the top level and task worktrees in a
-reserved folder:
+A collection keeps repository checkouts and task worktrees in separate folders:
 
 ```text
-<root>/pi/
+<root>/repos/pi/
 <root>/worktrees/pi/fix-auth/
 <root>/worktrees/pi/update-docs/
 ```
 
-`pi/` is a normal checkout, usually kept on its default branch. It is the place
+`repos/pi/` is a normal checkout, usually kept on its default branch. It is the place
 to select the repository and create tasks. Automated editing belongs in a task
 worktree, not in this base checkout.
 
@@ -20,18 +19,20 @@ worktree, not in this base checkout.
 A second terminal or agent session does not isolate files. Before editing, run:
 
 ```bash
-cd <root>/pi
-path=$(workspaces new pi fix-auth)
+cd <root>/repos/pi
+path=$(ws new pi)
 cd "$path"
 ```
 
-`new` creates `worktrees/pi/fix-auth`, checks out branch `fix-auth`, and prints
-the authoritative path. Existing inactive branches can be reattached. If a task
-folder is occupied, a numeric suffix keeps the checkout distinct.
+Without a task name, `new` chooses an unused world capital for both the
+folder and branch, then prints the authoritative path. An explicit
+`ws new pi fix-auth` creates `worktrees/pi/fix-auth`; existing inactive branches
+can be reattached. If an explicitly named task folder is occupied, a numeric
+suffix keeps the checkout distinct.
 
-Do not create task folders with ordinary filesystem commands or place them at
-the collection root. The reserved hierarchy keeps the root readable and makes
-the repository/task relationship explicit.
+Do not create task folders with ordinary filesystem commands or place them in
+`repos/`. The separate hierarchies keep the collection readable and make the
+repository/task relationship explicit.
 
 ## Worktree ownership
 
