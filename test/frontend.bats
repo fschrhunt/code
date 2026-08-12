@@ -17,6 +17,7 @@ setup() {
   [ -d "$root/repos" ]
   [ -f "$root/WORKFRAME.md" ]
   grep -q '^default_org = example$' "$root/system/config/workframe.conf"
+  [ "$(cat "$XDG_CONFIG_HOME/workframe/root")" = "$root" ]
 }
 
 @test "setup requires a root without an interactive terminal" {
