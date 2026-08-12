@@ -16,4 +16,3 @@ EOF
 
 write_mark logo.svg '#09090B'
 write_mark logo-white.svg '#FFFFFF'
-cp logo.svg ../favicon.svg
