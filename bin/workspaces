@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Workspaces keeps ordinary repository checkouts and isolated task worktrees as siblings.
+# Workspaces keeps ordinary repositories at the root and task worktrees beneath worktrees/.
 set -uo pipefail
 
 _src=${BASH_SOURCE[0]}
@@ -37,9 +37,9 @@ _select_root(){
 }
 _select_root
 
-# Create the collection and its short human-readable guide without replacing user content.
+# Create the collection layout and its guide without replacing user content.
 _ensure_root(){
-  mkdir -p "$ROOT" || _die "could not create $ROOT"
+  mkdir -p "$ROOT/worktrees" || _die "could not create $ROOT/worktrees"
   ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd) || _die "could not resolve $ROOT"
   if [ ! -e "$ROOT/README.md" ]; then
     (set -C; umask 022; command cat "$PREFIX/lib/README.md" > "$ROOT/README.md") 2>/dev/null ||
@@ -91,20 +91,20 @@ _is_managed_worktree(){
   [ -f "$git_dir/workspaces-managed" ]
 }
 
-# Lifecycle paths must remain immediate siblings beneath the physical root.
-_is_managed_sibling(){
-  local path=$1 rel
+# Lifecycle paths must be one task directory beneath worktrees/<repo>/.
+_is_managed_task(){
+  local repo=$1 path=$2 rel
   [ -e "$path/.git" ] || return 1
-  case "$path" in "$ROOT"/*) rel=${path#"$ROOT"/};; *) return 1;; esac
+  case "$path" in "$ROOT/worktrees/$repo"/*) rel=${path#"$ROOT/worktrees/$repo"/};; *) return 1;; esac
   case "$rel" in */*) return 1;; esac
   _is_managed_worktree "$path"
 }
 
-# Emit one managed sibling as repo, path, branch.
+# Emit one managed task as repo, path, branch.
 _emit_managed_record(){
   local repo=$1 canonical=$2 path=$3 branch=$4
   [ -n "$path" ] && [ "$path" != "$canonical" ] || return 0
-  _is_managed_sibling "$path" || return 0
+  _is_managed_task "$repo" "$path" || return 0
   printf '%s\t%s\t%s\n' "$repo" "$path" "${branch:--}"
 }
 
@@ -161,8 +161,8 @@ Inspect
   workspaces doctor
   workspaces version
 
-Repositories live directly in ~/workspaces by default. Task worktrees are named
-siblings, such as pi-fix-auth. Workspaces only removes worktrees it created.
+Repositories live directly in ~/workspaces by default. Task worktrees live at
+worktrees/<repo>/<task>. Workspaces only removes worktrees it created.
 EOF
 }
 
@@ -211,6 +211,7 @@ cmd_clone(){
   fi
   name=$(_clone_name "$source")
   _name_ok "$name" || _die "invalid repository name '$name'"
+  [ "$name" != worktrees ] || _die "repository name 'worktrees' is reserved"
   _ensure_root
   destination="$ROOT/$name"
   [ ! -e "$destination" ] || _die "destination already exists: $destination"
@@ -219,7 +220,7 @@ cmd_clone(){
   printf '%s\n' "$destination"
 }
 
-# Create or reattach a task branch in a predictable sibling worktree.
+# Create or reattach a task branch beneath worktrees/<repo>/.
 cmd_new(){
   [ $# -eq 2 ] || _die 'usage: workspaces new <repo> <task>'
   local repo=$1 task=$2 canonical destination active created_branch=0 git_dir
@@ -227,17 +228,18 @@ cmd_new(){
   _ensure_root
   canonical=$(_repo_path "$repo") || exit $?
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
-  destination="$ROOT/$repo-$task"
+  destination="$ROOT/worktrees/$repo/$task"
   active=$(_branch_worktree "$canonical" "$task" || true)
   if [ -n "$active" ]; then
-    if _is_managed_sibling "$active"; then printf '%s\n' "$active"; return 0; fi
-    _die "branch '$task' is already checked out outside the managed sibling layout at $active"
+    if _is_managed_task "$repo" "$active"; then printf '%s\n' "$active"; return 0; fi
+    _die "branch '$task' is already checked out outside worktrees/$repo at $active"
   fi
   if [ -e "$destination" ]; then
     local suffix=2
     while [ -e "$destination-$suffix" ]; do suffix=$((suffix + 1)); done
     destination="$destination-$suffix"
   fi
+  mkdir -p "$ROOT/worktrees/$repo" || _die "could not create worktrees/$repo"
   git -C "$canonical" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
     git -C "$canonical" worktree add "$destination" "$task" >/dev/null 2>&1 || _die 'could not create worktree'
@@ -294,9 +296,9 @@ _resolve_managed(){
   _die "'$selector' matches multiple worktrees; use its path"
 }
 
-# Remove only a marked sibling checkout; retain its branch for ordinary Git use.
+# Remove only a marked task checkout; retain its branch for ordinary Git use.
 cmd_remove(){
-  local selector='' force=0 path repo canonical rel
+  local selector='' force=0 path repo canonical rel task_dir
   while [ $# -gt 0 ]; do
     case "$1" in
       --force) force=1; shift;;
@@ -306,9 +308,9 @@ cmd_remove(){
   done
   [ -n "$selector" ] || _die 'usage: workspaces remove <repo/task | path> [--force]'
   path=$(_resolve_managed "$selector") || exit $?
-  case "$path" in "$ROOT"/*) rel=${path#"$ROOT"/};; *) _die 'refusing to remove a worktree outside the collection';; esac
-  case "$rel" in */*) _die 'refusing to remove a nested worktree';; esac
-  _is_managed_sibling "$path" || _die 'refusing to remove an unmarked worktree'
+  case "$path" in "$ROOT/worktrees/"*) rel=${path#"$ROOT/worktrees/"};; *) _die 'refusing to remove a worktree outside worktrees/';; esac
+  case "$rel" in */*) task_dir=${rel#*/};; *) _die 'refusing to remove an invalid task path';; esac
+  case "$task_dir" in ''|*/*) _die 'refusing to remove an invalid task path';; esac
   if [ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ] && [ "$force" = 0 ]; then
     printf 'refused: uncommitted changes; commit them or use --force to discard them\n' >&2
     return 3
@@ -318,6 +320,7 @@ cmd_remove(){
     if [ "$path_candidate" = "$path" ]; then repo=$repo_candidate; break; fi
   done < <(_managed_worktrees)
   [ -n "$repo" ] || _die 'could not identify the owning repository'
+  _is_managed_task "$repo" "$path" || _die 'refusing to remove an unmarked worktree'
   canonical=$(_repo_path "$repo")
   if [ "$force" = 1 ]; then
     git -C "$canonical" worktree remove --force "$path" >/dev/null || _die 'could not remove worktree'

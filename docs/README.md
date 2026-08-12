@@ -1,7 +1,7 @@
 # Workspaces documentation
 
-Workspaces keeps normal repositories and isolated task worktrees as visible
-siblings beneath one local folder.
+Workspaces keeps normal repositories at one local root and groups isolated task
+worktrees beneath `worktrees/<repo>/`.
 
 ## Use Workspaces
 

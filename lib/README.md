@@ -1,7 +1,39 @@
 # Workspaces
 
-Repositories in this folder are ordinary Git checkouts. Work in them with the
-same Git commands you use anywhere else.
+This folder contains normal repository checkouts and their isolated task
+worktrees:
 
-Isolated task checkouts are named siblings such as `pi-fix-auth`. They share the
-repository’s Git history without sharing its working files.
+```text
+~/workspaces/
+├── pi-cloud/                     repository checkout; keep on main
+└── worktrees/
+    └── pi-cloud/
+        └── colored-logo/         isolated task checkout and branch
+```
+
+## Start work
+
+Enter the repository checkout to choose the project, then create a task before
+editing:
+
+```bash
+cd ~/workspaces/pi-cloud
+path=$(workspaces new pi-cloud colored-logo)
+cd "$path"
+git status --short --branch
+```
+
+`workspaces new` prints the authoritative task path. Work only in that returned
+path. The checkout and branch share Git history with the repository while their
+working files remain isolated.
+
+## Rules
+
+- Top-level directories are repository checkouts created with `workspaces clone`.
+- Task checkouts belong only under `worktrees/<repo>/<task>`.
+- Do not create task folders with `mkdir`, `cp`, `git clone`, or raw
+  `git worktree add`; use `workspaces new`.
+- Automated coding sessions must not edit a top-level repository checkout. When
+  started there, create a task and continue in its returned path first.
+- Remove a finished checkout with `workspaces remove <repo>/<task>`. This keeps
+  its branch and refuses dirty work unless `--force` is explicit.

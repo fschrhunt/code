@@ -5,7 +5,7 @@ _workspaces() {
   commands=(
     'setup:initialize or select the collection root'
     'clone:clone a normal repository checkout'
-    'new:create an isolated sibling task checkout'
+    'new:create an isolated task checkout'
     'list:list repositories and task checkouts'
     'remove:remove a managed task checkout'
     'root:print the collection root'
