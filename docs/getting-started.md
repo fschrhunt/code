@@ -1,7 +1,7 @@
 # Getting started
 
-This guide installs Workframe, creates a local store, registers an agent, and
-opens the first isolated worktree.
+This guide installs Workframe, creates a local store, and opens the first
+isolated worktree.
 
 ## Prerequisites
 
@@ -72,7 +72,7 @@ Create a local store explicitly. The suggested local root is `~/workframe`, but
 any absolute path is supported, including a folder on an attached volume:
 
 ```bash
-workframe init --agent codex
+workframe init
 # Optional: --root /Volumes/workframe --editor cursor --org owner
 ```
 
@@ -86,9 +86,6 @@ without a symlink or exported environment variable. `WORKFRAME.md` is a
 central safety contract for agents and launchers. Tools that begin discovery
 at the Git root must be directed to the parent guide explicitly.
 
-An agent identity is a branch namespace, not a vendor lock-in. Names such as
-`codex`, `claude`, `cursor`, or a teammate name are all valid.
-
 ## Create your first workspace
 
 Clone a repository, then create a workspace. Workframe prints its path, branch,
@@ -96,7 +93,7 @@ and generated city label:
 
 ```bash
 workframe clone owner/repo
-workframe new repo feature-name --agent codex
+workframe new repo feature-name
 workframe list
 workframe open repo/feature-name
 ```
@@ -111,6 +108,6 @@ removal is separate and requires confirmation.
 
 - Learn the [core concepts](concepts.md).
 - Follow the full [workspace lifecycle](guides/workspace-lifecycle.md).
-- Configure [agents and editors](guides/agents-and-editors.md).
+- Configure the editor with `workframe config`.
 - Review [local and shared profiles](guides/profiles.md).
 - Keep the [CLI reference](reference/cli.md) nearby.

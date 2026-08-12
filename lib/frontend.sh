@@ -9,7 +9,7 @@ _bx(){
     case "$verb" in
       new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
       list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
-      archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
+      archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";; migrate) cmd_migrate "$@";;
       status) cmd_status "$@";; doctor) cmd_doctor "$@";; guide) cmd_guide "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
       *) die "unknown backend verb: $verb";;
     esac
@@ -41,8 +41,6 @@ _bx_remote_cmd(){
   # BOX_HOME is assigned in config.sh (linted as a separate top-level file).
   # shellcheck disable=SC2153
   cmd="sudo -u $(printf '%q' "$BOX_USER") env HOME=$(printf '%q' "$BOX_HOME") WORKFRAME_COLOR=$wc WORKFRAME_BACKEND=1 WORKFRAME_HOME=$(printf '%q' "$BOX_ROOT")"
-  # Forward Mac agent list so the box honors `workframe agents` (see config.sh).
-  [ -n "$VALID_AGENTS" ] && cmd+=" WORKFRAME_VALID_AGENTS=$(printf '%q' "$VALID_AGENTS")"
   cmd+=" $(printf '%q' "$BOX_ROOT/system/bin/workframe")"
   local a; for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
   printf '%s' "$cmd"
@@ -87,7 +85,7 @@ _PICK_NOTTY=2
 _pick_worktree(){ local rows
   _interactive || { err "no selector given and no terminal to prompt — pass <worktree|repo/task|city>"; return $_PICK_NOTTY; }
   rows=$(_bx_list worktrees); [ -z "$rows" ] && { printf '  %sno worktrees yet%s\n' "$DIM" "$N" >&2; return 1; }
-  local -a labels=() paths=(); while IFS=$'\t' read -r _ repo city path br; do [ -n "$path" ] || continue; labels+=("$repo / $br   ·   $city"); paths+=("$path"); done <<< "$rows"
+  local -a labels=() paths=(); while IFS=$'\t' read -r repo city path br; do [ -n "$path" ] || continue; labels+=("$repo / $br   ·   $city"); paths+=("$path"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-worktree}" "${labels[@]}") || return 1; local i; for i in "${!labels[@]}"; do [ "${labels[i]}" = "$sel" ] && { printf '%s' "${paths[i]}"; return 0; }; done; return 1; }
 _resolve_worktree(){ local sel=$1 rows matches count
   if [ -n "$MAC_ROOT" ]; then
@@ -97,8 +95,8 @@ _resolve_worktree(){ local sel=$1 rows matches count
     esac
   fi
   rows=$(_bx_list worktrees)
-  matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r _ repo city path br; do
-    if [ "$path" = "$sel" ] || [ "$sel" = "$city" ] || [ "$sel" = "$br" ] || [ "$sel" = "$repo/$br" ] || [ "$sel" = "$repo/${br#*/}" ]; then
+  matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r repo city path br; do
+    if [ "$path" = "$sel" ] || [ "$sel" = "$city" ] || [ "$sel" = "$br" ] || [ "$sel" = "$repo/$br" ]; then
       printf '%s\n' "$path"
     fi
   done)
@@ -145,44 +143,8 @@ ZF
 
 _print_next_steps(){
   printf '\n  %snext:%s\n' "$DIM" "$N"
-  if ! _agents_configured; then
-    printf '    %sworkframe agents add <name>%s\n' "$GRN" "$N"
-  fi
   printf '    %sworkframe clone <owner/repo | url | path>%s\n' "$GRN" "$N"
-  printf '    %sworkframe new <repo> <feature> --agent <name>%s\n' "$GRN" "$N"
-}
-
-# `config` can open a small interactive agent manager without turning the
-# product itself into a menu-driven application.
-_manage_agents_interactively(){
-  local choice name
-  while :; do
-    banner "agents"
-    printf '  %sAgent names create Git branch namespaces and keep work isolated.%s\n\n' "$DIM" "$N"
-    choice=$(_choose "manage agent identities" \
-      "show configured agents" \
-      "add an agent" \
-      "remove an agent" \
-      "back") || return 0
-    case "$choice" in
-      "show configured agents") agents_list;;
-      "add an agent")
-        name=$(_input "agent name (letters, numbers, . _ -)" "")
-        [ -n "$name" ] && agents_add "$name"
-        ;;
-      "remove an agent")
-        if ! _agents_configured; then
-          warn "no agents configured"
-          continue
-        fi
-        _agents_array
-        name=$(_choose "remove which agent?" "${AGENTS_ARR[@]}") || continue
-        _confirm "remove agent '$name'? Active workspaces prevent removal." && agents_remove "$name"
-        ;;
-      back) return 0;;
-    esac
-    printf '\n'
-  done
+  printf '    %sworkframe new <repo> <task>%s\n' "$GRN" "$N"
 }
 
 # Shared opt-in: replace CACHE_DIRS with symlinks into ~/.workframe-cache (localdeps=1).
@@ -204,29 +166,6 @@ mac_localdeps(){
     linked=1
   done
   [ "$linked" = 1 ] && printf '  %slinked cache dirs → %s%s\n' "$DIM" "$base" "$N"
-}
-
-_setup_add_agents(){
-  local raw=${1:-} name
-  raw=$(printf '%s' "$raw" | tr ',;' '  ')
-  for name in $raw; do
-    name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
-    _agent_name_ok "$name" || die "invalid agent name '$name' (use letters, numbers, . _ - starting with a letter or number)"
-    _is_agent "$name" && continue
-    VALID_AGENTS=$(printf '%s %s' "$VALID_AGENTS" "$name" | tr -s ' ')
-    VALID_AGENTS=${VALID_AGENTS# }
-  done
-}
-
-_ask_setup_agents(){
-  local current entered
-  current=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
-  printf '  %sAgent identities become branch namespaces and choices when creating a workspace.%s\n\n' "$DIM" "$N"
-  entered=$(_input "agent names (comma separated)" "$current")
-  [ -n "$entered" ] || die "need at least one agent name"
-  VALID_AGENTS=""
-  _setup_add_agents "$entered"
-  _agents_configured || die "need at least one agent name"
 }
 
 _ask_prefs(){
@@ -257,12 +196,12 @@ _ask_shared_stack(){
 }
 
 _setup_usage(){
-  printf 'usage: workframe setup [--local|--shared] [--root <path>] [--agent <name>] [--editor <command>] [--org <name>]\n'
+  printf 'usage: workframe setup [--local|--shared] [--root <path>] [--editor <command>] [--org <name>]\n'
 }
 
 mac_setup(){
   banner "setup"
-  local mode="" requested_root="" agents_to_add="" editor="" org=""
+  local mode="" requested_root="" editor="" org=""
   local interactive=0 explicit=0
   if [ "${WORKFRAME_SETUP_NONINTERACTIVE:-0}" != 1 ] && _interactive; then
     interactive=1
@@ -281,10 +220,6 @@ mac_setup(){
       --root)
         [ $# -ge 2 ] || die "missing value for --root"
         requested_root=$2; explicit=1; shift 2
-        ;;
-      --agent)
-        [ $# -ge 2 ] || die "missing value for --agent"
-        agents_to_add=$(printf '%s %s' "$agents_to_add" "$2"); explicit=1; shift 2
         ;;
       --editor)
         [ $# -ge 2 ] || die "missing value for --editor"
@@ -362,10 +297,8 @@ mac_setup(){
     fi
     WORKFRAME_PROFILE_TYPE=local
     if [ "$interactive" = 1 ]; then
-      _ask_setup_agents
       _ask_prefs
     else
-      [ -n "$agents_to_add" ] && _setup_add_agents "$agents_to_add"
       if [ -n "$editor" ]; then _config_safe_val "$editor" || die "unsafe editor value"; EDITOR_CMD=$editor; fi
       if [ -n "$org" ]; then _config_safe_val "$org" || die "unsafe org value"; DEFAULT_ORG=$org; fi
     fi
@@ -391,10 +324,8 @@ mac_setup(){
   mkdir -p "$WORKFRAME_USER_DIR"
   _ask_shared_stack
   if [ "$interactive" = 1 ]; then
-    _ask_setup_agents
     _ask_prefs
   else
-    [ -n "$agents_to_add" ] && _setup_add_agents "$agents_to_add"
     if [ -n "$editor" ]; then _config_safe_val "$editor" || die "unsafe editor value"; EDITOR_CMD=$editor; fi
     if [ -n "$org" ]; then _config_safe_val "$org" || die "unsafe org value"; DEFAULT_ORG=$org; fi
   fi
@@ -419,41 +350,17 @@ mac_setup(){
 
 mac_init(){
   local -a args=(--local)
-  local saw_agent=0
   while [ $# -gt 0 ]; do
     case "$1" in
-      --agent) [ $# -ge 2 ] || die 'missing value for --agent'; saw_agent=1; args+=("$1" "$2"); shift 2;;
       --root|--editor|--org) [ $# -ge 2 ] || die "missing value for $1"; args+=("$1" "$2"); shift 2;;
       -h|--help)
-        printf 'usage: workframe init [--root <path>] [--agent <name>] [--editor <command>] [--org <name>]\n'
+        printf 'usage: workframe init [--root <path>] [--editor <command>] [--org <name>]\n'
         return 0
         ;;
-      *) die "usage: workframe init [--root <path>] [--agent <name>] [--editor <command>] [--org <name>]";;
+      *) die "usage: workframe init [--root <path>] [--editor <command>] [--org <name>]";;
     esac
   done
-  # A named default keeps initialization useful without binding it to an agent
-  # vendor. Callers can add their preferred identities immediately afterwards.
-  [ "$saw_agent" = 1 ] || args+=(--agent default)
   WORKFRAME_SETUP_NONINTERACTIVE=1 mac_setup "${args[@]}"
-}
-
-# Shared profile: inspect box worktrees, not the mount (may be stale/down).
-_list_agent_worktrees(){
-  if ! _is_local_store; then
-    _bx_list worktrees 2>/dev/null || true
-  else
-    cmd_worktrees 2>/dev/null || true
-  fi
-}
-
-mac_agents(){
-  local sub="${1:-list}"; shift || true
-  case "$sub" in
-    ""|list|ls) agents_list;;
-    add) agents_add "$@";;
-    remove|rm) agents_remove "$@";;
-    *) die "usage: workframe agents [list|add <name>|remove <name>]";;
-  esac
 }
 
 # JSON is deliberately implemented without jq so every supported Workframe
@@ -471,13 +378,13 @@ _worktree_is_dirty(){
 }
 
 _print_worktree_json(){
-  local rows=$1 first=1 ag repo city path br dirty
+  local rows=$1 first=1 repo city path br dirty
   printf '['
-  while IFS=$'\t' read -r ag repo city path br; do
+  while IFS=$'\t' read -r repo city path br; do
     [ -n "$path" ] || continue
     dirty=false; _worktree_is_dirty "$path" && dirty=true
     [ "$first" = 1 ] || printf ','; first=0
-    printf '{"agent":'; _json_string "$ag"; printf ',"repo":'; _json_string "$repo"
+    printf '{"repo":'; _json_string "$repo"
     printf ',"city":'; _json_string "$city"; printf ',"path":'; _json_string "$(_tomac "$path")"
     printf ',"branch":'; _json_string "$br"; printf ',"dirty":%s}' "$dirty"
   done <<< "$rows"
@@ -485,45 +392,45 @@ _print_worktree_json(){
 }
 
 mac_list(){
-  local archived=0 agent="" repo="" dirty="" json=0
+  local archived=0 repo="" dirty="" json=0
   while [ $# -gt 0 ]; do
     case "$1" in
       archived|--archived) archived=1; shift;;
-      --agent|--repo) [ $# -ge 2 ] || die "missing value for $1"; [ "$1" = --agent ] && agent=$2 || repo=$2; shift 2;;
+      --repo) [ $# -ge 2 ] || die "missing value for $1"; repo=$2; shift 2;;
       --dirty) dirty=1; shift;;
       --json) json=1; shift;;
-      -h|--help) printf 'usage: workframe list [archived] [--agent <name>] [--repo <name>] [--dirty] [--json]\n'; return 0;;
-      *) die "usage: workframe list [archived] [--agent <name>] [--repo <name>] [--dirty] [--json]";;
+      -h|--help) printf 'usage: workframe list [archived] [--repo <name>] [--dirty] [--json]\n'; return 0;;
+      *) die "usage: workframe list [archived] [--repo <name>] [--dirty] [--json]";;
     esac
   done
   if [ "$archived" = 1 ]; then
-    local rows out="" ag r br when first=1
+    local rows out="" r br when first=1
     rows=$(_bx archived)
-    while IFS=$'\t' read -r ag r br when; do
-      [ -n "$br" ] || continue; [ -n "$agent" ] && [ "$agent" != "$ag" ] && continue; [ -n "$repo" ] && [ "$repo" != "$r" ] && continue
-      out+="$ag"$'\t'"$r"$'\t'"$br"$'\t'"$when"$'\n'
+    while IFS=$'\t' read -r r br when; do
+      [ -n "$br" ] || continue; [ -n "$repo" ] && [ "$repo" != "$r" ] && continue
+      out+="$r"$'\t'"$br"$'\t'"$when"$'\n'
     done <<< "$rows"
     if [ "$json" = 1 ]; then
-      printf '['; while IFS=$'\t' read -r ag r br when; do [ -n "$br" ] || continue; [ "$first" = 1 ] || printf ','; first=0; printf '{"agent":'; _json_string "$ag"; printf ',"repo":'; _json_string "$r"; printf ',"branch":'; _json_string "$br"; printf ',"archived":'; _json_string "$when"; printf '}'; done <<< "$out"; printf ']\n'; return
+      printf '['; while IFS=$'\t' read -r r br when; do [ -n "$br" ] || continue; [ "$first" = 1 ] || printf ','; first=0; printf '{"repo":'; _json_string "$r"; printf ',"branch":'; _json_string "$br"; printf ',"archived":'; _json_string "$when"; printf '}'; done <<< "$out"; printf ']\n'; return
     fi
     [ -n "$out" ] || { printf '  %snothing archived%s\n' "$DIM" "$N"; return; }
-    printf '  %s%-8s %-12s %-24s %s%s\n' "$W" AGENT REPO BRANCH WHEN "$N"
-    while IFS=$'\t' read -r ag r br when; do [ -n "$br" ] || continue; printf '  %s%-8s%s %-12s %s%-24s%s %s%s%s\n' "$GRN" "$ag" "$N" "$r" "$W" "${br#*/}" "$N" "$DIM" "$when" "$N"; done <<< "$out"
+    printf '  %s%-12s %-24s %s%s\n' "$W" REPO BRANCH WHEN "$N"
+    while IFS=$'\t' read -r r br when; do [ -n "$br" ] || continue; printf '  %-12s %s%-24s%s %s%s%s\n' "$r" "$W" "$br" "$N" "$DIM" "$when" "$N"; done <<< "$out"
     return
   fi
-  local rows out="" ag r city path br is_dirty
+  local rows out="" r city path br is_dirty
   rows=$(_bx_list worktrees)
-  while IFS=$'\t' read -r ag r city path br; do
-    [ -n "$path" ] || continue; [ -n "$agent" ] && [ "$agent" != "$ag" ] && continue; [ -n "$repo" ] && [ "$repo" != "$r" ] && continue
+  while IFS=$'\t' read -r r city path br; do
+    [ -n "$path" ] || continue; [ -n "$repo" ] && [ "$repo" != "$r" ] && continue
     is_dirty=0; _worktree_is_dirty "$path" && is_dirty=1; [ -n "$dirty" ] && [ "$is_dirty" != 1 ] && continue
-    out+="$ag"$'\t'"$r"$'\t'"$city"$'\t'"$path"$'\t'"$br"$'\n'
+    out+="$r"$'\t'"$city"$'\t'"$path"$'\t'"$br"$'\n'
   done <<< "$rows"
   [ "$json" = 1 ] && { _print_worktree_json "$out"; return; }
-  printf '  %s%-8s %-12s %-22s %-6s %s%s\n' "$W" AGENT REPO FEATURE DIRTY CITY "$N"
+  printf '  %s%-12s %-22s %-6s %s%s\n' "$W" REPO TASK DIRTY CITY "$N"
   [ -n "$out" ] || { printf '  %sno matching worktrees%s\n' "$DIM" "$N"; return; }
-  while IFS=$'\t' read -r ag r city path br; do
-    [ -n "$path" ] || continue; local feat=${br#*/} d="-" dc=$DIM; _worktree_is_dirty "$path" && { d=yes; dc=$YEL; }
-    printf '  %s%-8s%s %-12s %s%-22s%s %s%-6s%s %s%s%s\n' "$GRN" "$ag" "$N" "$r" "$W" "${feat:0:22}" "$N" "$dc" "$d" "$N" "$DIM" "$city" "$N"
+  while IFS=$'\t' read -r r city path br; do
+    [ -n "$path" ] || continue; local task=$br d="-" dc=$DIM; _worktree_is_dirty "$path" && { d=yes; dc=$YEL; }
+    printf '  %-12s %s%-22s%s %s%-6s%s %s%s%s\n' "$r" "$W" "${task:0:22}" "$N" "$dc" "$d" "$N" "$DIM" "$city" "$N"
   done <<< "$out"
 }
 
@@ -541,10 +448,9 @@ mac_worktrees(){
   esac
 }
 
-mac_new(){ local repo="" feature="" legacy_agent=""
+mac_new(){ local repo="" feature=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --agent) [ $# -ge 2 ] || die 'missing value for --agent'; legacy_agent=$2; warn "--agent is deprecated; new workspaces are task-owned"; shift 2;;
       -h|--help) printf 'usage: workframe new <repo> <task>\n'; return 0;;
       -*) die "unknown flag: $1 (usage: workframe new <repo> <task>)";;
       *) if [ -z "$repo" ]; then repo=$1; elif [ -z "$feature" ]; then feature=$1; else die "usage: workframe new <repo> <task>"; fi; shift;;
@@ -583,9 +489,7 @@ mac_new(){ local repo="" feature="" legacy_agent=""
     fi
   fi
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  if [ -n "$legacy_agent" ]; then
-    _spin_run "creating $feature" _bx new "$legacy_agent" "$repo" "$feature" || { err "${SPIN_OUT:-create failed}"; return 1; }
-  elif ! _spin_run "creating $feature" _bx new "$repo" "$feature"; then
+  if ! _spin_run "creating $feature" _bx new "$repo" "$feature"; then
     err "${SPIN_OUT:-create failed}"; return 1
   fi
   local out="$SPIN_OUT"
@@ -614,12 +518,12 @@ mac_cdpath(){ local worktree="${1:-}"
   _tomac "$worktree"; printf '\n'; }
 
 _current_worktree(){
-  local here row ag repo city path br local_path
+  local here row repo city path br local_path
   here=$(pwd -P) || return 1
-  while IFS=$'\t' read -r ag repo city path br; do
+  while IFS=$'\t' read -r repo city path br; do
     [ -n "$path" ] || continue
     local_path=$(_tomac "$path")
-    case "$here" in "$local_path"|"$local_path"/*) printf '%s\t%s\t%s\t%s\t%s\n' "$ag" "$repo" "$city" "$path" "$br"; return 0;; esac
+    case "$here" in "$local_path"|"$local_path"/*) printf '%s\t%s\t%s\t%s\n' "$repo" "$city" "$path" "$br"; return 0;; esac
   done < <(_bx_list worktrees; printf '\n')
   return 1
 }
@@ -627,13 +531,13 @@ _current_worktree(){
 mac_current(){
   local json=0
   case "${1:-}" in "") ;; --json) json=1;; -h|--help) printf 'usage: workframe current [--json]\n'; return 0;; *) die 'usage: workframe current [--json]';; esac
-  local row ag repo city path br
+  local row repo city path br
   row=$(_current_worktree) || die 'not inside a Workframe workspace'
-  IFS=$'\t' read -r ag repo city path br <<< "$row"
+  IFS=$'\t' read -r repo city path br <<< "$row"
   if [ "$json" = 1 ]; then
-    printf '{"agent":'; _json_string "$ag"; printf ',"repo":'; _json_string "$repo"; printf ',"city":'; _json_string "$city"; printf ',"path":'; _json_string "$(_tomac "$path")"; printf ',"branch":'; _json_string "$br"; printf '}\n'
+    printf '{"repo":'; _json_string "$repo"; printf ',"city":'; _json_string "$city"; printf ',"path":'; _json_string "$(_tomac "$path")"; printf ',"branch":'; _json_string "$br"; printf '}\n'
   else
-    printf 'workspace: %s\nagent: %s\nrepo: %s\nbranch: %s\ncity: %s\n' "$(_tomac "$path")" "$ag" "$repo" "$br" "$city"
+    printf 'workspace: %s\nrepo: %s\nbranch: %s\ncity: %s\n' "$(_tomac "$path")" "$repo" "$br" "$city"
   fi
 }
 
@@ -668,16 +572,16 @@ mac_resume(){
 
 mac_dashboard(){
   [ $# -eq 0 ] || die 'usage: workframe dashboard'
-  local rows repos active dirty=0 ag repo city path br
+  local rows repos active dirty=0 repo city path br
   rows=$(_bx_list worktrees); repos=$(_bx_list repos)
   active=$(printf '%s\n' "$rows" | sed '/^$/d' | wc -l | tr -d ' ')
-  while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; _worktree_is_dirty "$path" && dirty=$((dirty + 1)); done <<< "$rows"
+  while IFS=$'\t' read -r repo city path br; do [ -n "$path" ] || continue; _worktree_is_dirty "$path" && dirty=$((dirty + 1)); done <<< "$rows"
   banner "dashboard"
   printf '  %sprofile%s  %s\n' "$DIM" "$N" "${WORKFRAME_PROFILE_TYPE:-local}"
   printf '  %srepos%s     %s\n' "$DIM" "$N" "$(printf '%s\n' "$repos" | sed '/^$/d' | wc -l | tr -d ' ')"
   printf '  %sactive%s    %s\n' "$DIM" "$N" "$active"
   printf '  %sdirty%s     %s\n' "$DIM" "$N" "$dirty"
-  if [ "$active" = 0 ]; then printf '\n  %snext%s  workframe clone <owner/repo>  then  workframe new <repo> <feature> --agent <name>\n' "$DIM" "$N"; else printf '\n  %snext%s  workframe list --dirty  |  workframe resume <selector>\n' "$DIM" "$N"; fi
+  if [ "$active" = 0 ]; then printf '\n  %snext%s  workframe clone <owner/repo>  then  workframe new <repo> <task>\n' "$DIM" "$N"; else printf '\n  %snext%s  workframe list --dirty  |  workframe resume <selector>\n' "$DIM" "$N"; fi
 }
 mac_archive(){
   local sel="" yes="" force="" json=0
@@ -737,14 +641,14 @@ mac_archive(){
 }
 mac_archived(){ banner "archived"; local rows; rows=$(_bx archived)
   [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N"; return; }
-  printf '  %s%-8s %-12s %-24s %s%s\n' "$W" AGENT REPO BRANCH WHEN "$N"
-  printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
-    printf '  %s%-8s%s %-12s %s%-24s%s %s%s%s\n' "$GRN" "$ag" "$N" "$repo" "$W" "${br#*/}" "$N" "$DIM" "$when" "$N"; done; }
+  printf '  %s%-12s %-24s %s%s\n' "$W" REPO BRANCH WHEN "$N"
+  printf '%s\n' "$rows" | while IFS=$'\t' read -r repo br when; do
+    printf '  %-12s %s%-24s%s %s%s%s\n' "$repo" "$W" "$br" "$N" "$DIM" "$when" "$N"; done; }
 _pick_archived(){ local rows
   _interactive || { err "no selector given and no terminal to prompt — pass <repo> <branch>"; return $_PICK_NOTTY; }
   rows=$(_bx archived); [ -z "$rows" ] && { printf '  %snothing archived%s\n' "$DIM" "$N" >&2; return 1; }
-  A_LABELS=(); A_REPOS=(); A_BRANCHES=(); local ag repo br when
-  while IFS=$'\t' read -r ag repo br when; do [ -n "$br" ] || continue; A_LABELS+=("$repo / ${br#*/}   ·   $ag   ${DIM}$when${N}"); A_REPOS+=("$repo"); A_BRANCHES+=("$br"); done <<< "$rows"
+  A_LABELS=(); A_REPOS=(); A_BRANCHES=(); local repo br when
+  while IFS=$'\t' read -r repo br when; do [ -n "$br" ] || continue; A_LABELS+=("$repo / $br   ${DIM}$when${N}"); A_REPOS+=("$repo"); A_BRANCHES+=("$br"); done <<< "$rows"
   local sel; sel=$(_choose "${1:-archived worktree}" "${A_LABELS[@]}") || return 1
   local i; for i in "${!A_LABELS[@]}"; do [ "${A_LABELS[i]}" = "$sel" ] && { A_IDX=$i; return 0; }; done; return 1; }
 # Resolve an archived branch from repo + branch, or a single selector (branch / repo/feature).
@@ -753,13 +657,12 @@ _resolve_archived(){
   rows=$(_bx archived)
   [ -z "$rows" ] && die "nothing archived"
   if [ -n "$a" ] && [ -n "$b" ]; then
-    matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
+    matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r repo br when; do
       [ "$repo" = "$a" ] && [ "$br" = "$b" ] && printf '%s\t%s\n' "$repo" "$br"
     done)
   else
-    matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo br when; do
-      local feat=${br#*/}
-      if [ "$br" = "$a" ] || [ "$a" = "$repo/$feat" ] || [ "$a" = "$ag/$repo/$feat" ]; then
+    matches=$(printf '%s\n' "$rows" | while IFS=$'\t' read -r repo br when; do
+      if [ "$br" = "$a" ] || [ "$a" = "$repo/$br" ]; then
         printf '%s\t%s\n' "$repo" "$br"
       fi
     done)
@@ -925,14 +828,30 @@ mac_clean(){
   fi
 }
 
+mac_migrate(){
+  case "${1:-}" in
+    ""|--yes|-y) ;;
+    -h|--help) printf 'usage: workframe migrate [--yes]\n'; return 0;;
+    *) die 'usage: workframe migrate [--yes]';;
+  esac
+  if [ "${1:-}" = --yes ] || [ "${1:-}" = -y ]; then
+    _confirm_yes 'migrate legacy agent workspaces and branches?' --yes || return 0
+    _progress_run 'migrating legacy workspaces' _bx migrate --yes || { err "${PROGRESS_OUT:-migration failed}"; return 1; }
+    _bx_invalidate
+    ok "${PROGRESS_OUT:-migration complete}"
+  else
+    _bx migrate
+  fi
+}
+
 # Cheap glance — counts + tip commits. Full probes live under `workframe doctor`.
 mac_status(){
   if [ "${1:-}" = --json ]; then
     [ $# -eq 1 ] || die 'usage: workframe status [--json]'
-    local rows repos active dirty=0 ag repo city path br
+    local rows repos active dirty=0 repo city path br
     rows=$(_bx_list worktrees); repos=$(_bx_list repos)
     active=$(printf '%s\n' "$rows" | sed '/^$/d' | wc -l | tr -d ' ')
-    while IFS=$'\t' read -r ag repo city path br; do [ -n "$path" ] || continue; _worktree_is_dirty "$path" && dirty=$((dirty + 1)); done <<< "$rows"
+    while IFS=$'\t' read -r repo city path br; do [ -n "$path" ] || continue; _worktree_is_dirty "$path" && dirty=$((dirty + 1)); done <<< "$rows"
     printf '{"profile":'; _json_string "${WORKFRAME_PROFILE_TYPE:-local}"; printf ',"root":'; _json_string "$ROOT"; printf ',"worktrees":%s,"repos":%s,"dirty":%s}\n' "$active" "$(printf '%s\n' "$repos" | sed '/^$/d' | wc -l | tr -d ' ')" "$dirty"
     return
   fi
@@ -946,9 +865,9 @@ mac_status(){
     else warn "mount down at $MAC_ROOT — try: workframe doctor"; fi
   fi
   _bx status
-  local rows ag repo city path br dirty=0 unpushed=0 count
+  local rows repo city path br dirty=0 unpushed=0 count
   rows=$(_bx_list worktrees)
-  while IFS=$'\t' read -r ag repo city path br; do
+  while IFS=$'\t' read -r repo city path br; do
     [ -n "$path" ] || continue
     _worktree_is_dirty "$path" && dirty=$((dirty + 1))
     count=$(git -C "$(_tomac "$path")" log "$br" --not --remotes --oneline 2>/dev/null | wc -l | tr -d ' ')
@@ -995,15 +914,14 @@ mac_config(){ banner "config"
     which=$(_choose "what to configure?" \
       "prefs     editor, github org" \
       "profile   local vs shared" \
-      "shared    box host, mount, share name" \
-      "agents    manage identities") || return 0
+      "shared    box host, mount, share name") || return 0
   else
     die "usage: workframe config   (interactive — editor, org, profile, shared stack)"
   fi
   case "$which" in
     prefs*)
-      printf '  %sEditor / org. Use workframe agents to manage identities.%s\n\n' "$DIM" "$N"
-      _ask_agents_and_prefs
+      printf '  %sEditor / org.%s\n\n' "$DIM" "$N"
+      _ask_prefs
       _save_user_config
       ok "saved — editor ${GRN}$EDITOR_CMD${N}, org ${GRN}$DEFAULT_ORG${N}"
       ;;
@@ -1022,9 +940,6 @@ mac_config(){ banner "config"
       refresh_paths=1
       ok "shared stack saved"
       printf '  %s%s @ %s → %s (share %s)%s\n' "$DIM" "$BOX_HOST" "$BOX_ROOT" "$MAC_ROOT" "$SHARE_NAME" "$N"
-      ;;
-    agents*)
-      _manage_agents_interactively
       ;;
   esac
   if [ "$refresh_paths" = 1 ]; then

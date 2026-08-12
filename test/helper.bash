@@ -13,12 +13,11 @@ _use_backend_store() {
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/store"
   mkdir -p "$WORKFRAME_HOME/repos" "$WORKFRAME_HOME/workspaces" \
     "$WORKFRAME_HOME/system/config" "$WORKFRAME_HOME/system/logs"
-  # Seed a managed agent list — no silent DEFAULT_AGENT; `new` requires a configured name.
+  # The task model has no agent registry.
   cat > "$WORKFRAME_HOME/system/config/workframe.conf" <<'EOF'
 type = local
 editor = cursor
 default_org = example
-agents = alpha, beta, codex
 EOF
 }
 

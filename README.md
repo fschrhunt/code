@@ -15,16 +15,15 @@ every repository keeps one canonical clone.
 
 ```text
 one canonical clone
-├── codex/payment-retry  → workspaces/codex/api/oslo
-├── claude/docs-refresh  → workspaces/claude/api/kyoto
-└── cursor/cache-fix     → workspaces/cursor/api/dakar
+├── payment-retry  → workspaces/api/oslo
+├── docs-refresh   → workspaces/api/kyoto
+└── cache-fix      → workspaces/api/dakar
 ```
 
 Workframe 1.5.3 is a clean-start release. The command is `workframe` — also
 installed as `wf` — product environment variables use `WORKFRAME_*`, and local
 state begins at `~/workframe`. It is a command-line tool: run `workframe help`
-for the everyday command map, or `workframe help --agent` for the complete
-scriptable interface.
+for the complete command map and scriptable interface.
 
 ## Start in 60 seconds
 
@@ -50,9 +49,9 @@ installations update with `workframe update`.
 Then create a store, add a repository, and make a workspace:
 
 ```bash
-workframe init --agent codex
+workframe init
 workframe clone owner/repo
-workframe new repo feature-name --agent codex
+workframe new repo feature-name
 ```
 
 `init` is non-interactive and also supports `--root`, `--editor`, and `--org`;
@@ -105,7 +104,7 @@ Use `workframe setup --shared` to configure a shared profile.
 | Understand the store and branch model | [Core concepts](docs/concepts.md) |
 | Start, pause, resume, or remove work | [Workspace lifecycle](docs/guides/workspace-lifecycle.md) |
 | Choose local or shared operation | [Profiles](docs/guides/profiles.md) |
-| Configure agents and editors | [Agents and editors](docs/guides/agents-and-editors.md) |
+| Configure the editor | `workframe config` |
 | Look up a command | [CLI reference](docs/reference/cli.md) |
 | Drive Workframe from a script or coding agent | [Automation reference](docs/reference/automation.md) |
 | Look up configuration or environment variables | [Configuration reference](docs/reference/configuration.md) |

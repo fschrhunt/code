@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Store-level agent guidance is provisioned safely for local and shared roots.
+# Store-level guidance is provisioned safely for local and shared roots.
 
 load helper
 
@@ -7,7 +7,7 @@ load helper
   local store="$BATS_TEST_TMPDIR/local-store"
 
   run env WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
-    "$WORKFRAME" setup nova
+    "$WORKFRAME" setup
 
   [ "$status" -eq 0 ]
   [ -f "$store/WORKFRAME.md" ]
@@ -19,13 +19,13 @@ load helper
 @test "setup never overwrites an existing store guide" {
   local store="$BATS_TEST_TMPDIR/custom-store"
   mkdir -p "$store"
-  printf 'custom agent contract\n' > "$store/WORKFRAME.md"
+  printf 'custom workspace contract\n' > "$store/WORKFRAME.md"
 
   run env WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" \
-    "$WORKFRAME" setup nova
+    "$WORKFRAME" setup
 
   [ "$status" -eq 0 ]
-  [ "$(cat "$store/WORKFRAME.md")" = "custom agent contract" ]
+  [ "$(cat "$store/WORKFRAME.md")" = "custom workspace contract" ]
 }
 
 @test "repeated local setup repairs a missing guide and migrates legacy config" {
@@ -42,7 +42,7 @@ load helper
   [ -f "$store/system/config/workframe.conf" ]
   grep -q '^type = local$' "$store/system/config/workframe.conf"
   grep -q '^editor = cursor$' "$store/system/config/workframe.conf"
-  grep -q '^agents = codex$' "$store/system/config/workframe.conf"
+  ! grep -q '^agents =' "$store/system/config/workframe.conf"
   [[ "$output" == *"config moved"* ]]
   [[ "$output" == *"local profile already"* ]]
 }

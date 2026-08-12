@@ -43,7 +43,7 @@ root must be directed to this parent guide explicitly.
 Choose a custom persistent root interactively or with `--root`:
 
 ```bash
-workframe setup --local --root /Volumes/v0/development/workframe --agent codex
+workframe setup --local --root /Volumes/v0/development/workframe
 ```
 
 The one-line locator at `${XDG_CONFIG_HOME:-~/.config}/workframe/root`
@@ -51,7 +51,7 @@ remembers that choice. Use `WORKFRAME_HOME` for an explicit process-level
 override, especially in tests:
 
 ```bash
-WORKFRAME_HOME=/tmp/workframe-demo workframe setup --agent codex
+WORKFRAME_HOME=/tmp/workframe-demo workframe setup
 ```
 
 ## Shared profile
@@ -122,4 +122,4 @@ workframe doctor
 ```
 
 `status` is a fast count and summary. `doctor` checks configuration,
-reachability, mount state, repositories, worktrees, agents, and editor setup.
+reachability, mount state, repositories, worktrees, and editor setup.

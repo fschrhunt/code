@@ -2,7 +2,7 @@
 # workframe — task worktree control plane.
 #
 # Canonical repos live in a store (local: selected by `workframe setup`; shared: box +
-# mount via SSH). Agents get isolated worktrees at
+# mount via SSH). Tasks get isolated worktrees at
 # workspaces/<repo>/<city> on the task branch.
 #
 # User-facing CLI is the frontend (any OS). WORKFRAME_BACKEND=1 selects the store
@@ -24,8 +24,8 @@ WORKFRAME_VERSION=$(cat "$WORKFRAME_PREFIX/VERSION" 2>/dev/null || echo "0.0.0")
 . "$WORKFRAME_LIB/palette.sh"
 # shellcheck source=../lib/ui.sh
 . "$WORKFRAME_LIB/ui.sh"
-# shellcheck source=../lib/agents.sh
-. "$WORKFRAME_LIB/agents.sh"
+# shellcheck source=../lib/editor.sh
+. "$WORKFRAME_LIB/editor.sh"
 # shellcheck source=../lib/backend.sh
 . "$WORKFRAME_LIB/backend.sh"
 # shellcheck source=../lib/frontend.sh
@@ -35,10 +35,7 @@ cmd="${1:-}"; [ $# -gt 0 ] && shift || true
 
 case "$cmd" in
   help|-h|--help)
-    case "${1:-}" in
-      --agent|-a|agent|automation) _help_agent;;
-      *) _help;;
-    esac
+    _help
     exit 0;;
   version|--version|-v) printf 'workframe %s\n' "$WORKFRAME_VERSION"; exit 0;;
 esac
@@ -54,7 +51,7 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
   case "$cmd" in
     new) cmd_new "$@";; rename) cmd_rename "$@";; clone) cmd_clone "$@";; delrepo) cmd_delrepo "$@";;
     list|ls) cmd_list "$@";; sync) cmd_sync "$@";; clean) cmd_clean "$@";;
-    archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";;
+    archive) cmd_archive "$@";; archived) cmd_archived "$@";; restore) cmd_restore "$@";; rmbranch) cmd_rmbranch "$@";; migrate) cmd_migrate "$@";;
     remove)
       sub="${1:-}"; shift || true
       case "$sub" in
@@ -65,25 +62,12 @@ if [ "${WORKFRAME_BACKEND:-0}" = 1 ]; then
       esac
       ;;
     status) cmd_status "$@";; doctor) cmd_doctor "$@";; guide) cmd_guide "$@";; repos) cmd_repos "$@";; worktrees) cmd_worktrees "$@";;
-    agents|agent)
-      sub="${1:-list}"; shift || true
-      case "$sub" in
-        ""|list|ls) agents_list;;
-        add) agents_add "$@";;
-        remove|rm) agents_remove "$@";;
-        *) die "usage: workframe agents [list|add <name>|remove <name>]";;
-      esac
-      ;;
     setup|init)
       WORKFRAME_PROFILE_TYPE=local
       mkdir -p "$WORKFRAME_USER_DIR/repos" "$WORKFRAME_USER_DIR/workspaces" "$WORKFRAME_USER_DIR/system/logs"
       _ensure_store_guide "$WORKFRAME_USER_DIR" || die "could not create Workframe guide at $WORKFRAME_USER_DIR/WORKFRAME.md"
-      if [ -n "${1:-}" ]; then
-        agents_add "$1"
-      else
-        _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
-        ok "local store ready  ${DIM}$WORKFRAME_USER_DIR${N}"
-      fi
+      _save_user_config || die "could not save Workframe config at $WORKFRAME_USER_CONFIG"
+      ok "local store ready  ${DIM}$WORKFRAME_USER_DIR${N}"
       ;;
     *) die "unknown command: $cmd (try: workframe help)";;
   esac
@@ -115,7 +99,7 @@ else
     remove)           mac_remove "$@";;
     doctor)           mac_doctor "$@";;
     config)           mac_config "$@";;
-    agents|agent)     mac_agents "$@";;
+    migrate)           mac_migrate "$@";;
     update)           mac_update "$@";;
     clone)            mac_clone "$@";;
     sync)             mac_sync "$@";;

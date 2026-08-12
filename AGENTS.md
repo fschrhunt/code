@@ -64,7 +64,7 @@ lib/palette.sh      colors + ok/warn/err/die/banner
 lib/ui.sh           logo, help, gum helpers, progress bar/spinner
 lib/backend.sh      cmd_* git verbs — operate on $ROOT via `git -C` (+ city picker)
 lib/frontend.sh     mac_* interactive UX + _bx (SSH for shared; in-process for local)
-lib/agents.sh       managed agent list + editor open
+lib/editor.sh       configured editor launch helper
 contrib/            optional helpers (e.g. mount-workframe.sh) — not required for local
 docs/               guides — start at docs/README.md
 test/               bats tests + golden fixtures
@@ -85,7 +85,6 @@ use `[ -t 1 ]`.
 - `WORKFRAME_HOME=<dir>` — override the data root (and read
   `$WORKFRAME_HOME/system/config/workframe.conf`).
 - `WORKFRAME_COLOR=0/1` — force color off/on regardless of TTY.
-- `WORKFRAME_AGENT=<name>` — non-interactive agent for `workframe new` (must be in `agents=`).
 
 ## Cursor Cloud specific instructions
 
@@ -101,12 +100,12 @@ use `[ -t 1 ]`.
 - `make lint` uses `.shellcheckrc`; `SC2015` on the `[ $# -gt 0 ] && shift || true`
   dispatch line in `bin/workframe` is disabled there (intentional no-arg shift). Do not
   "fix" that line as part of env setup.
-- The user-facing CLI is the frontend on any OS. Store verbs (positional
-  `new <agent> <repo> <feature>`, …) require `WORKFRAME_BACKEND=1` (tests + SSH box).
+- The user-facing CLI is the frontend on any OS. Store verbs (such as
+  `new <repo> <task>`) require `WORKFRAME_BACKEND=1` (tests + SSH box).
   To exercise the backend end-to-end without SSH/mount: set `WORKFRAME_BACKEND=1` +
   `WORKFRAME_COLOR` + a throwaway `WORKFRAME_HOME`, seed a store the way `test/helper.bash`
   `_seed_repo` does (bare origin + clone into `$WORKFRAME_HOME/repos/<name>`), then
-  use `workframe new <agent> <repo> <feature>`, `workframe list`, `workframe archive <workspace>`,
+  use `workframe new <repo> <task>`, `workframe list`, `workframe archive <workspace>`,
   `workframe restore <repo> <branch>`.
 
 ## Tracking + multi-agent loop

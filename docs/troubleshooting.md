@@ -44,16 +44,6 @@ Updating never repairs or maintains the Workframe store. Run `workframe sync`,
 `workframe doctor`, or `workframe setup` explicitly when those operations are
 needed.
 
-## No agents configured
-
-```bash
-workframe agents add codex
-workframe agents list
-```
-
-Automation must pass a configured identity through `--agent` or
-`WORKFRAME_AGENT`.
-
 ## Repository not found
 
 List managed canonicals:
@@ -86,7 +76,7 @@ branch.
 
 ```bash
 workframe list archived
-workframe restore repo agent/feature
+workframe restore repo feature
 ```
 
 `new` intentionally refuses to recreate a branch that should be restored.

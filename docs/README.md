@@ -10,8 +10,7 @@ lands on the shortest path to it.
 | Install Workframe | [Install](getting-started.md#install) |
 | Create the first local workspace | [First workspace](getting-started.md#create-your-first-workspace) |
 | Connect a shared store | [Shared profile](guides/profiles.md#shared-profile) |
-| Add or remove an agent identity | [Agents](guides/agents-and-editors.md#agent-identities) |
-| Change the editor | [Editors](guides/agents-and-editors.md#editor) |
+| Change the editor | [Editors](guides/agents-and-editors.md) |
 | Pause work without deleting its branch | [Archive](guides/workspace-lifecycle.md#archive-work) |
 | Bring archived work back | [Restore](guides/workspace-lifecycle.md#restore-work) |
 | Delete a branch or canonical repo | [Permanent removal](guides/workspace-lifecycle.md#permanent-removal) |
@@ -42,7 +41,7 @@ operates a secured box and mounted filesystem.
 ## Learn the model
 
 1. [Core concepts](concepts.md) explains canonicals, worktrees, branches,
-   selectors, agents, and profiles.
+   selectors, and profiles.
 2. [Workspace lifecycle](guides/workspace-lifecycle.md) follows work from
    creation through archive, restore, and removal.
 3. [CLI reference](reference/cli.md) maps each task to its command and

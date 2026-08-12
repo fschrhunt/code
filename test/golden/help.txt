@@ -30,4 +30,5 @@
     workframe status  workframe doctor  workframe config
     workframe dashboard                    active work and next actions
 
-  More  workframe help --agent  full command reference and scripting notes
+  Migration  workframe migrate [--yes]  convert a legacy agent-scoped store after a dry run
+  Workframe is Git-only: never use its lifecycle commands on a Conductor-managed workspace.

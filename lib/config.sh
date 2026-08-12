@@ -31,7 +31,8 @@ BOX_ROOT=""
 BOX_HOME=""
 MAC_ROOT=""
 SHARE_NAME=""
-VALID_AGENTS=""
+# Read only to migrate pre-1.6 agent-scoped stores. It is never written back.
+LEGACY_AGENTS=""
 DEFAULT_ORG=""
 # Cursor-oriented default; override with editor= in the selected store config.
 EDITOR_CMD=cursor
@@ -164,9 +165,9 @@ _load_user_config(){
       editor|EDITOR_CMD) EDITOR_CMD=$val;;
       default_org|DEFAULT_ORG) DEFAULT_ORG=$val;;
       agents|VALID_AGENTS)
-        VALID_AGENTS=$(printf '%s' "$val" | tr ',;' '  ' | tr -s ' ')
-        VALID_AGENTS=${VALID_AGENTS# }
-        VALID_AGENTS=${VALID_AGENTS% }
+        LEGACY_AGENTS=$(printf '%s' "$val" | tr ',;' '  ' | tr -s ' ')
+        LEGACY_AGENTS=${LEGACY_AGENTS# }
+        LEGACY_AGENTS=${LEGACY_AGENTS% }
         ;;
       cache_dirs|CACHE_DIRS)
         CACHE_DIRS=$(printf '%s' "$val" | tr ',;' '  ' | tr -s ' ')
@@ -203,10 +204,9 @@ _user_config_exists(){
 }
 
 _save_user_config(){
-  local agents_csv cache_csv config_dir tmp
+  local cache_csv config_dir tmp
   config_dir=${WORKFRAME_USER_CONFIG%/*}
   mkdir -p "$config_dir"
-  agents_csv=$(printf '%s' "$VALID_AGENTS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   cache_csv=$(printf '%s' "$CACHE_DIRS" | tr -s ' ' | sed 's/^ //;s/ $//;s/ /, /g')
   _sync_box_home
   tmp=$(umask 077; mktemp "$config_dir/.workframe.conf.XXXXXX") || return 1
@@ -215,7 +215,6 @@ _save_user_config(){
     printf 'type = %s\n' "$WORKFRAME_PROFILE_TYPE"
     printf 'editor = %s\n' "$EDITOR_CMD"
     printf 'default_org = %s\n' "$DEFAULT_ORG"
-    printf 'agents = %s\n' "$agents_csv"
     printf 'cache_dirs = %s\n' "$cache_csv"
     printf 'localdeps = %s\n' "$LOCALDEPS"
     if [ "$WORKFRAME_PROFILE_TYPE" = shared ]; then
@@ -262,14 +261,6 @@ for c in \
   done < "$c"
   break
 done
-
-# Mac shared frontend injects the agent list over SSH (see _bx). Takes precedence
-# for the box process so `workframe agents add` on the Mac is authoritative.
-if [ -n "${WORKFRAME_VALID_AGENTS:-}" ]; then
-  VALID_AGENTS=$(printf '%s' "$WORKFRAME_VALID_AGENTS" | tr ',;' '  ' | tr -s ' ')
-  VALID_AGENTS=${VALID_AGENTS# }
-  VALID_AGENTS=${VALID_AGENTS% }
-fi
 
 # ---- data root + paths ----
 # Re-evaluate these whenever setup or config changes profile. Keeping this in

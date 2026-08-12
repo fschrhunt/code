@@ -11,9 +11,8 @@ before creating, changing, or cleaning up work here.
 3. Inspect before acting; use reversible lifecycle commands by default.
 4. Commit, validate, and clearly report what remains when handing work off.
 
-Run `workframe help` for the everyday command map, or
-`workframe help --agent` for the complete non-interactive interface. `wf` is
-the same command when it is installed.
+Run `workframe help` for the complete command map. `wf` is the same command
+when it is installed.
 
 ## Know where you are
 
@@ -25,8 +24,9 @@ the same command when it is installed.
 └── system/                      configuration and operational state
 ```
 
-Some older stores use `workspaces/<agent>/<repo>/<city>/`. Treat those as
-active worktrees too; do not reorganize them merely to match the newer layout.
+Some older stores use `workspaces/<agent>/<repo>/<city>/`. Run
+`workframe migrate` for a dry-run conversion, then `workframe migrate --yes`
+only after it reports no conflicts.
 
 Before editing, confirm the directory and branch:
 
@@ -57,9 +57,8 @@ workframe repos                   # canonical repository names
 workframe path <selector>         # print one active workspace path
 ```
 
-A selector may be a city name, `repo/feature`, a branch name, the full
-workspace path, or (where applicable) `agent/repo/city`. Workframe refuses an
-ambiguous selector instead of guessing.
+A selector may be a city name, `repo/task`, a branch name, or the full
+workspace path. Workframe refuses an ambiguous selector instead of guessing.
 
 When the task calls for a new workspace, create one from a repository already
 in the store:
@@ -122,7 +121,7 @@ explicit authorization to lose those changes.
 For stable, machine-readable discovery, prefer:
 
 ```bash
-workframe worktrees               # TSV: agent, repo, city, path, branch
+workframe worktrees               # TSV: repo, city, path, branch
 workframe repos                   # one repository name per line
 workframe path <selector>         # one resolved workspace path
 workframe run <selector> -- <command> [args...]
@@ -156,3 +155,9 @@ workspace path with a raw recursive-delete command.
 
 When in doubt, stop after inspection and ask the task owner which workspace or
 lifecycle action they intend.
+
+## Conductor boundary
+
+Workframe intentionally operates only on Git. It never reads or updates
+Conductor’s local database, sessions, or archive state. Do not use Workframe
+lifecycle commands on a workspace created or managed by Conductor.

@@ -12,25 +12,25 @@ setup() {
 
 _new_workspace() {
   "$WORKFRAME" new demo feature >/dev/null
-  "$WORKFRAME" worktrees | cut -f4
+  "$WORKFRAME" worktrees | cut -f3
 }
 
 @test "new workspaces use the Conductor-style repo/city layout and task branch" {
   run "$WORKFRAME" new demo conductor-model
   [ "$status" -eq 0 ]
-  local ws; ws=$("$WORKFRAME" worktrees | cut -f4)
+  local ws; ws=$("$WORKFRAME" worktrees | cut -f3)
   [[ "$ws" == */workspaces/demo/* ]]
   [[ "$ws" != *"/codex/"* ]]
   run git -C "$ws" branch --show-current
   [ "$output" = conductor-model ]
 }
 
-@test "init is non-interactive and seeds a neutral agent" {
+@test "init is non-interactive and writes task-only configuration" {
   local store="$BATS_TEST_TMPDIR/init-store"
   run env -u WORKFRAME_BACKEND WORKFRAME_COLOR=0 WORKFRAME_HOME="$store" "$WORKFRAME" init
   [ "$status" -eq 0 ]
   [ -f "$store/system/config/workframe.conf" ]
-  grep -qx 'agents = default' "$store/system/config/workframe.conf"
+  ! grep -q '^agents =' "$store/system/config/workframe.conf"
 }
 
 @test "list filters and JSON describe worktrees" {

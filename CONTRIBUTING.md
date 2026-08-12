@@ -34,7 +34,7 @@ bin/workframe help
 | Defaults, config, profile paths | `lib/config.sh` |
 | Backend Git lifecycle | `lib/backend.sh` |
 | User-facing frontend | `lib/frontend.sh` |
-| Agent identities and editor opening | `lib/agents.sh` |
+| Editor launch helper | `lib/editor.sh` |
 | Help, selectors, and progress UI | `lib/ui.sh` |
 | Colors and messages | `lib/palette.sh` |
 | Optional shared mount helper | `contrib/mount-workframe.sh` |
@@ -47,7 +47,6 @@ bin/workframe help
 | `WORKFRAME_BACKEND=1` | Run internal store verbs without SSH |
 | `WORKFRAME_HOME=<tmp>` | Isolate config, repos, and workspaces |
 | `WORKFRAME_COLOR=0` | Stabilize output |
-| `WORKFRAME_AGENT=<name>` | Select an agent without a prompt |
 
 Tests create local bare origins and canonical clones. They must not use a
 network, mounted share, live store, or interactive terminal.

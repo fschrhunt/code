@@ -57,63 +57,9 @@ _help(){
   printf '    %sworkframe status%s  %sworkframe doctor%s  %sworkframe config%s\n' "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
   printf '    %sworkframe dashboard%s                    %sactive work and next actions%s\n' "$GRN" "$N" "$DIM" "$N"
 
-  printf '\n  %sMore%s  %sworkframe help --agent%s  %sfull command reference and scripting notes%s\n' \
+  printf '\n  %sMigration%s  %sworkframe migrate [--yes]%s  %sconvert a legacy agent-scoped store after a dry run%s\n' \
     "$W" "$N" "$GRN" "$N" "$DIM" "$N"
-}
-
-# The complete command surface. Keep it accurate — this is the detailed
-# reference for scripts and coding agents.
-_help_agent(){
-  printf '\n  %sWorkframe — non-interactive interface%s\n' "$W" "$N"
-  printf '  %sSet WORKFRAME_COLOR=0 or NO_COLOR=1 for plain output. WORKFRAME_THEME=light|dark selects a color theme.%s\n' "$DIM" "$N"
-  printf '  %swf is the same executable — every command below works under either name.%s\n' "$DIM" "$N"
-
-  printf '\n  %sSet up%s\n' "$W" "$N"
-  printf '    %sworkframe setup --local --root <path> [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
-  printf '    %sworkframe init [--root <path>] [--editor <cmd>] [--org <name>]%s\n' "$GRN" "$N"
-
-  printf '\n  %sRepositories%s\n' "$W" "$N"
-  printf '    %sworkframe clone <owner/repo | url | path>%s\n' "$GRN" "$N"
-  printf '    %sworkframe repos%s                        %sone canonical repo name per line%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe sync [<repo> | --all]%s\n' "$GRN" "$N"
-  printf '    %sworkframe remove repo <repo> --yes [--force]%s\n' "$GRN" "$N"
-
-  printf '\n  %sWorkspaces%s\n' "$W" "$N"
-  printf '    %sworkframe new <repo> <task>%s\n' "$GRN" "$N"
-  printf '    %sworkframe list [archived]%s\n' "$GRN" "$N"
-  printf '    %sworkframe list [archived] [--repo <name>] [--dirty] [--json]%s\n' "$GRN" "$N"
-  printf '    %sworkframe worktrees [--json]%s           %sTSV by default: repo, city, path, branch%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe path <selector>%s              %sprints the workspace path%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe current [--json]%s             %sshows current-directory workspace context%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe run <selector> -- <command>%s  %sruns a command inside a workspace%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe resume <selector>%s            %sopens active work or restores archived work%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe rename <selector> <feature>%s\n' "$GRN" "$N"
-  printf '    %sworkframe open <selector>%s              %sopens the configured editor%s\n' "$GRN" "$N" "$DIM" "$N"
-
-  printf '\n  %sLifecycle%s  %s(archive is reversible; the rest are permanent)%s\n' "$W" "$N" "$DIM" "$N"
-  printf '    %sworkframe archive <selector> --yes [--force] [--json]%s  %s--force discards uncommitted work%s\n' "$GRN" "$N" "$DIM" "$N"
-  printf '    %sworkframe restore [--json] <repo> <branch>%s\n' "$GRN" "$N"
-  printf '    %sworkframe remove branch <repo> <branch> --yes%s\n' "$GRN" "$N"
-  printf '    %sworkframe clean [--yes]%s                %sno --yes is a dry run%s\n' "$GRN" "$N" "$DIM" "$N"
-
-  printf '\n  %sHealth%s\n' "$W" "$N"
-  printf '    %sworkframe status%s  %sworkframe doctor%s  %sworkframe update%s  %sworkframe version%s\n' \
-    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
-  printf '    %sworkframe dashboard%s  %sworkframe doctor --fix%s  %sworkframe completion <bash|zsh|fish>%s\n' \
-    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
-
-  printf '\n  %sSelectors%s  %s(a workspace, named any of these ways)%s\n' "$W" "$N" "$DIM" "$N"
-  printf '    %s<city>%s  %s<repo>/<task>%s  %s<repo>/<city>%s  %s<absolute path>%s\n' \
-    "$GRN" "$N" "$GRN" "$N" "$GRN" "$N" "$GRN" "$N"
-
-  printf '\n  %sNotes%s\n' "$W" "$N"
-  printf '    %s• Destructive verbs require --yes without a terminal; they never assume consent.%s\n' "$DIM" "$N"
-  printf '    %s• A workspace is task-owned; choose the agent harness inside the workspace.%s\n' "$DIM" "$N"
-  printf '    %s• Exit 0 success, 3 refused-because-dirty, other non-zero failure.%s\n' "$DIM" "$N"
-  printf '    %s• Use path, not cd: the optional shell integration makes cd change%s\n' "$DIM" "$N"
-  printf '      %sdirectory instead of printing, under both names. path is never intercepted.%s\n' "$DIM" "$N"
-  printf '    %s• status, repos, worktrees, list, archive, and restore offer JSON where documented.%s\n' "$DIM" "$N"
-  printf '    %s• Full reference: docs/reference/automation.md%s\n' "$DIM" "$N"
+  printf '  %sWorkframe is Git-only: never use its lifecycle commands on a Conductor-managed workspace.%s\n' "$DIM" "$N"
 }
 
 # ---- gum helpers (TTY fill-in when a flag/arg is missing) ----
@@ -195,7 +141,8 @@ _progress_filter(){
 _temp_output_file(){
   local tmpdir=${TMPDIR:-/tmp}
   [ -d "$tmpdir" ] || return 1
-  (umask 077; mktemp "$tmpdir/workframe.XXXXXX.out")
+  # BSD mktemp requires its six Xs at the end of the template.
+  (umask 077; mktemp "$tmpdir/workframe.XXXXXX")
 }
 
 _progress_run(){
