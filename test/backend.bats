@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Sibling worktree lifecycle and destructive-action safety.
+# Nested worktree lifecycle and destructive-action safety.
 
 load helper
 
@@ -8,10 +8,10 @@ setup() {
   _seed_repo demo
 }
 
-@test "new creates a named sibling checkout" {
+@test "new creates a task checkout under worktrees" {
   run "$WORKSPACES" new demo fix-login
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT/demo-fix-login" ]
+  [ "$output" = "$WORKSPACES_ROOT/worktrees/demo/fix-login" ]
   [ -e "$output/.git" ]
   [ "$(git -C "$output" branch --show-current)" = fix-login ]
   local git_dir
@@ -35,7 +35,7 @@ setup() {
   run "$WORKSPACES" new demo paused
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT/demo-paused" ]
+  [ "$output" = "$WORKSPACES_ROOT/worktrees/demo/paused" ]
   [ "$(git -C "$output" branch --show-current)" = paused ]
 }
 
@@ -51,20 +51,20 @@ setup() {
   [ ! -e "$WORKSPACES_ROOT/demo/task.txt" ]
 }
 
-@test "new disambiguates an occupied sibling name" {
-  mkdir "$WORKSPACES_ROOT/demo-collision"
+@test "new disambiguates an occupied task name" {
+  mkdir -p "$WORKSPACES_ROOT/worktrees/demo/collision"
 
   run "$WORKSPACES" new demo collision
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT/demo-collision-2" ]
+  [ "$output" = "$WORKSPACES_ROOT/worktrees/demo/collision-2" ]
   [ -e "$output/.git" ]
 }
 
 @test "ownership survives branch and Git worktree renames" {
   local original moved
   original=$("$WORKSPACES" new demo initial)
-  moved="$WORKSPACES_ROOT/demo-better-name"
+  moved="$WORKSPACES_ROOT/worktrees/demo/better-name"
   git -C "$original" branch -m better-branch
   git -C "$WORKSPACES_ROOT/demo" worktree move "$original" "$moved"
 
@@ -79,7 +79,7 @@ setup() {
   git -C "$WORKSPACES_ROOT/demo" show-ref --verify --quiet refs/heads/better-branch
 }
 
-@test "new refuses a marked branch moved outside the sibling layout" {
+@test "new refuses a marked branch moved outside its repository worktree folder" {
   local original outside
   original=$("$WORKSPACES" new demo moved)
   outside="$BATS_TEST_TMPDIR/outside"
@@ -88,12 +88,13 @@ setup() {
   run "$WORKSPACES" new demo moved
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *'outside the managed sibling layout'* ]]
+  [[ "$output" == *'outside worktrees/demo'* ]]
   [ -e "$outside/.git" ]
 }
 
 @test "unmarked worktrees are ignored and cannot be removed" {
-  local foreign="$WORKSPACES_ROOT/demo-manual"
+  local foreign="$WORKSPACES_ROOT/worktrees/demo/manual"
+  mkdir -p "$(dirname "$foreign")"
   git -C "$WORKSPACES_ROOT/demo" worktree add -q -b manual "$foreign" HEAD
 
   run "$WORKSPACES" list

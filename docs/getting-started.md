@@ -10,7 +10,7 @@ The verified installer links `workspaces` into `~/.local/bin`.
 
 ## Clone a repository
 
-Workspaces uses `~/workspaces` by default. Clone directly into it:
+Workspaces uses `~/workspaces` by default:
 
 ```bash
 workspaces clone owner/pi
@@ -18,42 +18,40 @@ cd ~/workspaces/pi
 git status --short --branch
 ```
 
-The result is an ordinary Git checkout, normally on the remote's default
-branch. Workspaces does not reserve it, wrap Git, or move it beneath another
-folder.
-
-To choose another collection once:
+The result is a normal Git checkout, usually on the remote's default branch.
+Top-level directories are reserved for repositories. Setup is optional unless
+you want another collection root:
 
 ```bash
 workspaces setup --root ~/code
 ```
 
-For a one-command override, set `WORKSPACES_ROOT`.
+## Start a task
 
-## Work in parallel
-
-Two agents editing the same checkout can overwrite or commit each other's work.
-Give each task its own sibling checkout:
+Before an automated coding session edits files, create a task worktree and enter
+the exact path printed by the command:
 
 ```bash
-cd "$(workspaces new pi fix-auth)"
-# work or start an agent
-
-cd "$(workspaces new pi update-docs)"
-# work or start another agent
+cd ~/workspaces/pi
+path=$(workspaces new pi fix-auth)
+cd "$path"
+git status --short --branch
+pi
 ```
 
-This creates:
+The task path is:
 
 ```text
-~/workspaces/pi
-~/workspaces/pi-fix-auth
-~/workspaces/pi-update-docs
+~/workspaces/worktrees/pi/fix-auth
 ```
 
 A new task branch starts at the current `HEAD` of the normal repository
-checkout. If an inactive branch already exists, `new` reattaches it instead.
-There is no implicit fetch, pull, reset, or branch deletion.
+checkout. If an inactive branch already exists, `new` reattaches it. There is no
+implicit fetch, pull, reset, or branch deletion.
+
+Do not create top-level task folders manually. Two agents editing the base
+checkout still share files; each editing task needs its own returned worktree
+path.
 
 ## Finish a task
 
@@ -61,6 +59,6 @@ There is no implicit fetch, pull, reset, or branch deletion.
 workspaces remove pi/fix-auth
 ```
 
-Removal deletes the task checkout but retains `fix-auth`. It refuses dirty work;
+Removal deletes the task checkout but retains its branch. It refuses dirty work;
 `--force` explicitly discards uncommitted changes. Delete or merge branches with
 ordinary Git when that is what you intend.

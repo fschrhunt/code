@@ -2,40 +2,44 @@
 
 ## Normal checkout first
 
-A collection is a directory containing normal repositories and optional sibling
-worktrees:
+A collection keeps repository checkouts at the top level and task worktrees in a
+reserved folder:
 
 ```text
 <root>/pi/
-<root>/pi-fix-auth/
-<root>/pi-update-docs/
+<root>/worktrees/pi/fix-auth/
+<root>/worktrees/pi/update-docs/
 ```
 
-`pi/` is not a cache or protected canonical clone. It is the repository checkout
-where a person would normally work. A task worktree shares its Git objects and
-history while keeping a separate index and working files.
+`pi/` is a normal checkout, usually kept on its default branch. It is the place
+to select the repository and create tasks. Automated editing belongs in a task
+worktree, not in this base checkout.
 
-## Parallel isolation
+## Task workflow
 
-Separate terminal sessions are not separate filesystems. Two editors or agents
-started in the same checkout see the same uncommitted changes. Parallel editing
-is isolated only after each task uses a different worktree.
+A second terminal or agent session does not isolate files. Before editing, run:
 
-`workspaces new <repo> <task>` creates `<repo>-<task>` beside the repository and
-prints that path. If the name is occupied, it adds a numeric suffix. The task
-name is both its initial branch and directory suffix. Branches and paths may
-later be renamed with ordinary Git commands while they remain beneath the root.
+```bash
+cd <root>/pi
+path=$(workspaces new pi fix-auth)
+cd "$path"
+```
+
+`new` creates `worktrees/pi/fix-auth`, checks out branch `fix-auth`, and prints
+the authoritative path. Existing inactive branches can be reattached. If a task
+folder is occupied, a numeric suffix keeps the checkout distinct.
+
+Do not create task folders with ordinary filesystem commands or place them at
+the collection root. The reserved hierarchy keeps the root readable and makes
+the repository/task relationship explicit.
 
 ## Worktree ownership
 
-Workspaces places a small marker in the linked worktree's private Git
-administrative directory. The marker follows `git worktree move` and does not
-depend on the branch name, so normal branch renames remain safe.
-
-Lifecycle commands require all of the following:
+Workspaces places a marker in the linked worktree's private Git administrative
+directory. Lifecycle commands require all of the following:
 
 - the checkout is recorded by its repository as a Git worktree;
-- it is an immediate sibling beneath the configured root;
+- it lives at `worktrees/<repo>/<task-folder>`;
 - its private ownership marker exists.
 
 A path pattern or branch name alone is never treated as ownership. Manually

@@ -15,6 +15,7 @@ setup() { _use_test_root; }
   root=$(cd -P "$root" && pwd)
   [ "$output" = "$root" ]
   [ -f "$root/README.md" ]
+  [ -d "$root/worktrees" ]
   [ "$(cat "$XDG_CONFIG_HOME/workspaces/root")" = "$root" ]
   [ ! -e "$root/repos" ]
   [ ! -e "$root/system" ]
@@ -45,6 +46,16 @@ setup() { _use_test_root; }
   [ "$output" = "$WORKSPACES_ROOT/source" ]
   [ -d "$WORKSPACES_ROOT/source/.git" ]
   [ "$(git -C "$WORKSPACES_ROOT/source" branch --show-current)" = main ]
+}
+
+@test "clone reserves the worktrees directory" {
+  local source="$BATS_TEST_TMPDIR/worktrees"
+  git init -q "$source"
+
+  run "$WORKSPACES" clone "$source"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"repository name 'worktrees' is reserved"* ]]
 }
 
 @test "list shows normal repositories and task checkouts" {
