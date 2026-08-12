@@ -19,6 +19,13 @@ setup() {
   git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/fix-login
 }
 
+@test "new prints only its workspace path" {
+  run "$WORKFRAME" new demo clean-output
+  [ "$status" -eq 0 ]
+  [[ "$output" == */workspaces/demo/* ]]
+  [[ "$output" != *$'\n'* ]]
+}
+
 @test "new accepts only repo and task" {
   run "$WORKFRAME" new codex demo fix-login
   [ "$status" -ne 0 ]
