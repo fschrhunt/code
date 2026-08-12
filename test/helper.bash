@@ -28,5 +28,7 @@ _seed_repo() {
   git -C "$seed" push -q -u origin main
   git -C "$origin" symbolic-ref HEAD refs/heads/main
   git clone -q "$origin" "$WORKSPACES_ROOT/$name"
+  git -C "$WORKSPACES_ROOT/$name" config user.email t@example.com
+  git -C "$WORKSPACES_ROOT/$name" config user.name tester
   git -C "$WORKSPACES_ROOT/$name" config worktree.useRelativePaths true
 }
