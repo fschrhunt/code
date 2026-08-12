@@ -1,7 +1,7 @@
 # Contributing to Workspaces
 
-Workspaces is intentionally small: normal Git repositories at the collection
-root and isolated tasks beneath `worktrees/<repo>/`. Contributions should
+Workspaces is intentionally small: normal Git repositories beneath
+`repos/<repo>/` and isolated tasks beneath `worktrees/<repo>/`. Contributions should
 make that workflow safer or clearer rather than turn it into an agent, editor,
 or repository-management platform.
 
@@ -19,7 +19,7 @@ never test destructive behavior against a live collection.
 
 ## Design rules
 
-- Keep normal repository checkouts directly usable.
+- Keep normal repository checkouts directly usable beneath `repos/`.
 - Keep task worktrees grouped beneath `worktrees/<repo>/`.
 - Prove ownership with the worktree-specific marker before removal.
 - Never delete repositories or branches.

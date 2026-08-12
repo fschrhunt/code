@@ -1,39 +1,56 @@
-# Workspaces
+# Workspaces collection
 
-This folder contains normal repository checkouts and their isolated task
-worktrees:
+This folder separates stable repository checkouts from isolated task worktrees:
 
 ```text
-~/workspaces/
-├── pi-cloud/                     repository checkout; keep on main
+<root>/
+├── README.md                     this guide
+├── repos/
+│   └── pi-cloud/                 base repository, usually on main
 └── worktrees/
     └── pi-cloud/
         └── colored-logo/         isolated task checkout and branch
 ```
 
-## Start work
+## Start a task
 
-Enter the repository checkout to choose the project, then create a task before
-editing:
+Choose a base repository, create a task, and enter the exact path printed by
+Workspaces:
 
 ```bash
-cd ~/workspaces/pi-cloud
-path=$(workspaces new pi-cloud colored-logo)
-cd "$path"
+root=$(ws root)
+cd "$root/repos/pi-cloud"
+cd "$(ws new pi-cloud)"
 git status --short --branch
 ```
 
-`workspaces new` prints the authoritative task path. Work only in that returned
-path. The checkout and branch share Git history with the repository while their
-working files remain isolated.
+Without an explicit task name, Workspaces chooses an unused world capital for
+both the folder and branch, such as
+`<root>/worktrees/pi-cloud/reykjavik`. Pass a name when you want one:
+`ws new pi-cloud colored-logo`.
+
+The task shares Git history with the base repository but has independent working
+files and a separate branch.
+
+## Finish a task
+
+```bash
+ws remove pi-cloud/reykjavik
+```
+
+Removal keeps the branch and refuses uncommitted changes. `--force` explicitly
+discards those changes.
 
 ## Rules
 
-- Top-level directories are repository checkouts created with `workspaces clone`.
-- Task checkouts belong only under `worktrees/<repo>/<task>`.
-- Do not create task folders with `mkdir`, `cp`, `git clone`, or raw
-  `git worktree add`; use `workspaces new`.
-- Automated coding sessions must not edit a top-level repository checkout. When
-  started there, create a task and continue in its returned path first.
-- Remove a finished checkout with `workspaces remove <repo>/<task>`. This keeps
-  its branch and refuses dirty work unless `--force` is explicit.
+- Clone base repositories with `ws clone`; they belong in `repos/`.
+- Create task checkouts with `ws new`; they belong in
+  `worktrees/<repo>/<task>`.
+- Do not use `mkdir`, `cp`, `git clone`, or raw `git worktree add` to create a
+  managed task.
+- Automated coding sessions must not edit a base checkout in `repos/`. If one
+  starts there, create a task and continue only in the returned path.
+- Workspaces removes only task worktrees carrying its private ownership marker.
+
+`workspaces` can replace `ws` in every command. Run `ws help` for the complete
+CLI.
