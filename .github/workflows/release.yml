@@ -1,0 +1,86 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version from VERSION and CHANGELOG.md, without a v prefix
+        required: true
+        type: string
+      confirm:
+        description: Type release to create and publish the tag
+        required: true
+        type: string
+
+# Releases are deliberate: this workflow never runs on a merge or tag push.
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: validate, tag, and publish
+    if: inputs.confirm == 'release'
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats shellcheck
+
+      - name: Validate release inputs
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+            echo "version must be semantic versioning without a v prefix" >&2
+            exit 1
+          }
+          test "$(cat VERSION)" = "$VERSION"
+          grep -qx "## $VERSION" CHANGELOG.md
+          ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null
+
+      - name: Validate source
+        run: make check
+
+      - name: Extract release notes
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          awk -v heading="## $VERSION" '
+            $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          test -s RELEASE_NOTES.md
+
+      - name: Create annotated tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "Workframe v$VERSION"
+          git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "v$VERSION"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            --verify-tag \
+            --title "Workframe v$VERSION" \
+            --notes-file RELEASE_NOTES.md
