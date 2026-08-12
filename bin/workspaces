@@ -33,19 +33,35 @@ _select_root(){
   else
     ROOT="$HOME/workspaces"
   fi
+  [ ! -L "$ROOT" ] || _die "refusing symlinked collection root: $ROOT"
   [ -d "$ROOT" ] && ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd)
 }
 _select_root
 
-# Create the collection layout and its guide without replacing user content.
+# Install or refresh only byte-identical Workspaces collection guides.
+_ensure_readme(){
+  local tmp
+  [ ! -L "$ROOT/README.md" ] || _die "refusing to replace symlink: $ROOT/README.md"
+  if [ -e "$ROOT/README.md" ]; then
+    cmp -s "$ROOT/README.md" "$PREFIX/lib/README.md" && return 0
+    cmp -s "$ROOT/README.md" "$PREFIX/lib/README.pre-4.0.md" || return 0
+  fi
+  tmp=$(umask 022; mktemp "$ROOT/.README.XXXXXX") || _die 'could not prepare collection README'
+  if ! { command cat "$PREFIX/lib/README.md" > "$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$ROOT/README.md"; }; then
+    rm -f -- "$tmp"
+    _die "could not write $ROOT/README.md"
+  fi
+}
+
+# Create the current collection layout without following directory symlinks.
 _ensure_root(){
+  [ ! -L "$ROOT/repos" ] || _die "refusing symlinked collection directory: $ROOT/repos"
+  [ ! -L "$ROOT/worktrees" ] || _die "refusing symlinked collection directory: $ROOT/worktrees"
+  [ ! -d "$ROOT/repos/.git" ] || _die "cannot upgrade a root-level repository named 'repos'"
+  [ ! -d "$ROOT/worktrees/.git" ] || _die "cannot upgrade a root-level repository named 'worktrees'"
   mkdir -p "$ROOT/repos" || _die "could not create $ROOT/repos"
   mkdir -p "$ROOT/worktrees" || _die "could not create $ROOT/worktrees"
   ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd) || _die "could not resolve $ROOT"
-  if [ ! -e "$ROOT/README.md" ]; then
-    (set -C; umask 022; command cat "$PREFIX/lib/README.md" > "$ROOT/README.md") 2>/dev/null ||
-      [ -e "$ROOT/README.md" ] || _die "could not create $ROOT/README.md"
-  fi
 }
 
 # Save a custom collection root as a values-only pointer.
@@ -80,6 +96,24 @@ _repositories(){
     name=${path##*/}
     _name_ok "$name" && printf '%s\n' "$name"
   done
+}
+
+# Print pre-4.0 repository checkouts still directly beneath the root.
+_legacy_repositories(){
+  local path name
+  [ -d "$ROOT" ] || return 0
+  for path in "$ROOT"/*; do
+    [ -d "$path/.git" ] || continue
+    name=${path##*/}
+    _name_ok "$name" && printf '%s\n' "$name"
+  done
+}
+
+# Explain how to make a legacy collection usable without changing it.
+_warn_legacy_layout(){
+  local first
+  first=$(_legacy_repositories | head -n 1)
+  [ -z "$first" ] || _warn "repositories still live at the root; run 'ws setup' to move them into repos/"
 }
 
 # Resolve a linked worktree's private Git directory.
@@ -162,14 +196,116 @@ Inspect
   workspaces doctor
   workspaces version
 
-Repositories live in ~/workspaces/repos by default. Task worktrees live in
-~/workspaces/worktrees/<repo>/<task>. Without a task name, `new` chooses an
-unused world capital. `ws` is the short alias for `workspaces`. Workspaces
-only removes worktrees it created.
+`setup` creates or upgrades the root to README.md, repos/, and worktrees/.
+Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
+Without a task name, `new` chooses an unused world capital. `ws` is the short
+alias for `workspaces`. Workspaces only removes worktrees it created.
 EOF
 }
 
-# Initialize the default collection or remember an explicit custom root.
+# Restore moved repositories if an upgrade cannot repair every linked worktree.
+_rollback_restructure(){
+  local i name old new record record_name path status=0
+  for ((i = ${#MOVED_REPOS[@]} - 1; i >= 0; i--)); do
+    name=${MOVED_REPOS[$i]}
+    old="$ROOT/$name"
+    new="$ROOT/repos/$name"
+    local paths=()
+    for record in "${REPAIR_RECORDS[@]}"; do
+      record_name=${record%%$'\034'*}
+      [ "$record_name" = "$name" ] || continue
+      path=${record#*$'\034'}
+      paths+=("$path")
+    done
+    if [ -d "$new/.git" ] && mv "$new" "$old"; then
+      if [ ${#paths[@]} -gt 0 ] && ! git -C "$old" worktree repair "${paths[@]}" >/dev/null 2>&1; then
+        _warn "rollback moved $name but could not repair its worktrees; run 'git -C $old worktree repair <task-path>'"
+        status=1
+        continue
+      fi
+      for path in "${paths[@]}"; do
+        if ! git -C "$path" rev-parse --absolute-git-dir >/dev/null 2>&1; then
+          _warn "rollback could not verify $path; run 'git -C $old worktree repair $path'"
+          status=1
+        fi
+      done
+    else
+      _warn "automatic rollback failed for $name; move $new back to $old and run 'git -C $old worktree repair <task-path>'"
+      status=1
+    fi
+  done
+  return "$status"
+}
+
+# Report whether a failed upgrade was completely rolled back.
+_restructure_failed(){
+  local message=$1
+  if _rollback_restructure; then
+    _die "$message; all moves were rolled back"
+  fi
+  _die "$message; automatic rollback was incomplete — follow the warnings above"
+}
+
+# Move legacy base checkouts into repos/ and repair every live linked worktree.
+_restructure_legacy(){
+  local name old new porcelain line path help
+  local names=() paths=()
+  MOVED_REPOS=()
+  REPAIR_RECORDS=()
+  command -v git >/dev/null 2>&1 || _die 'git is required to upgrade the collection'
+  help=$(git worktree -h 2>&1 || true)
+  case "$help" in *repair*) ;; *) _die "Git does not support 'worktree repair'; upgrade Git before running setup";; esac
+  while IFS= read -r name; do [ -z "$name" ] || names+=("$name"); done < <(_legacy_repositories)
+  [ ${#names[@]} -gt 0 ] || return 0
+
+  for name in "${names[@]}"; do
+    old="$ROOT/$name"
+    new="$ROOT/repos/$name"
+    if [ -e "$new" ] || [ -L "$new" ]; then
+      _die "cannot move $old: destination already exists: $new"
+    fi
+    [ ! -e "$old/.git/index.lock" ] || _die "cannot move $old while Git is locked"
+    git -C "$old" rev-parse --git-dir >/dev/null 2>&1 || _die "cannot inspect repository: $old"
+  done
+
+  for name in "${names[@]}"; do
+    old="$ROOT/$name"
+    new="$ROOT/repos/$name"
+    paths=()
+    porcelain=$(git -C "$old" worktree list --porcelain 2>/dev/null) ||
+      _restructure_failed "could not read worktrees for $old"
+    while IFS= read -r line; do
+      case "$line" in
+        'worktree '*)
+          path=${line#worktree }
+          if [ "$path" != "$old" ] && [ -e "$path/.git" ]; then
+            paths+=("$path")
+            REPAIR_RECORDS+=("$name"$'\034'"$path")
+          fi
+          ;;
+      esac
+    done <<< "$porcelain"
+
+    if ! mv "$old" "$new"; then
+      _restructure_failed "could not move $old to $new"
+    fi
+    MOVED_REPOS+=("$name")
+    if [ ${#paths[@]} -gt 0 ] && ! git -C "$new" worktree repair "${paths[@]}" >/dev/null 2>&1; then
+      _restructure_failed "could not repair linked worktrees for $name"
+    fi
+    for path in "${paths[@]}"; do
+      if ! git -C "$path" rev-parse --absolute-git-dir >/dev/null 2>&1; then
+        _restructure_failed "could not verify $path"
+      fi
+    done
+    git -C "$new" config worktree.useRelativePaths true >/dev/null 2>&1 || true
+    printf 'moved: %s -> %s' "$old" "$new" >&2
+    [ ${#paths[@]} -eq 0 ] || printf ' (repaired %d worktree(s))' "${#paths[@]}" >&2
+    printf '\n' >&2
+  done
+}
+
+# Initialize a collection, upgrading pre-4.0 repository paths when present.
 cmd_setup(){
   local requested=''
   while [ $# -gt 0 ]; do
@@ -185,7 +321,10 @@ cmd_setup(){
     ROOT=$requested
   fi
   _root_path_ok "$ROOT" || _die "invalid root '$ROOT'"
+  [ ! -L "$ROOT" ] || _die "refusing symlinked collection root: $ROOT"
   _ensure_root
+  _restructure_legacy
+  _ensure_readme
   [ -z "$requested" ] || _save_root
   printf '%s\n' "$ROOT"
 }
@@ -215,6 +354,7 @@ cmd_clone(){
   name=$(_clone_name "$source")
   _name_ok "$name" || _die "invalid repository name '$name'"
   _ensure_root
+  _ensure_readme
   destination="$ROOT/repos/$name"
   [ ! -e "$destination" ] || _die "destination already exists: $destination"
   git clone -- "$url" "$destination" >&2 || _die 'clone failed'
@@ -269,6 +409,7 @@ cmd_new(){
   local repo=$1 task=${2:-} canonical destination active created_branch=0 git_dir
   [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
   _ensure_root
+  _ensure_readme
   canonical=$(_repo_path "$repo") || exit $?
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
   if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical") || exit $?; fi
@@ -304,6 +445,7 @@ cmd_new(){
 cmd_list(){
   [ $# -eq 0 ] || _die 'usage: workspaces list'
   local repo path branch dirty found=0
+  _warn_legacy_layout
   printf 'Repositories\n'
   for repo in $(_repositories); do
     path=$(_repo_path "$repo")
@@ -385,6 +527,7 @@ cmd_doctor(){
     return 0
   fi
   printf 'ok: root %s\n' "$ROOT"
+  _warn_legacy_layout
   for repo in $(_repositories); do
     canonical=$(_repo_path "$repo")
     if ! git -C "$canonical" fsck --no-dangling >/dev/null 2>&1; then

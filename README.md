@@ -42,9 +42,10 @@ cd workspaces
 
 ## Quick start
 
-Clone a repository into the default `~/workspaces/repos` collection:
+Create a new collection—or upgrade an existing pre-4.0 collection—then clone:
 
 ```bash
+ws setup
 ws clone owner/pi
 cd ~/workspaces/repos/pi
 ```
@@ -92,22 +93,20 @@ ws help                   Show all commands
 
 ## Upgrading an existing collection
 
-Workspaces does not move existing checkouts automatically. If your repositories
-still sit directly beneath `~/workspaces`, first finish or remove their task
-worktrees, then move each base checkout into `repos/`:
+Run setup after installing a new release:
 
 ```bash
-mkdir -p ~/workspaces/repos
-mv ~/workspaces/pi ~/workspaces/repos/pi
+ws setup
 ```
 
-If a linked task must remain during the move, repair its Git pointers afterward:
+For a pre-4.0 collection, setup moves base checkouts from `<root>/<repo>` to
+`<root>/repos/<repo>` and repairs every live linked worktree. Dirty files,
+branches, and ownership markers are preserved. All destinations are checked
+before the first move; if repair fails, completed moves are rolled back.
 
-```bash
-git -C ~/workspaces/repos/pi worktree repair ~/workspaces/worktrees/pi/fix-auth
-```
-
-Run that repair once for each retained task path.
+Setup also refreshes a Workspaces-generated collection `README.md`. A custom
+README is never replaced. `ws list` and `ws doctor` warn when they find a legacy
+layout that still needs setup.
 
 ## The safety model
 
@@ -130,8 +129,9 @@ The default root is `~/workspaces`. Select another absolute path with:
 ws setup --root ~/code
 ```
 
-Setup creates only `README.md`, `repos/`, and `worktrees/`, and never replaces
-an existing collection README.
+Setup leaves only `README.md`, `repos/`, and `worktrees/` at the collection
+root. It refreshes generated guides but never replaces a custom collection
+README.
 
 For more detail, see [Getting started](docs/getting-started.md), the
 [filesystem reference](docs/reference/filesystem.md), and the

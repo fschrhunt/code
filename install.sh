@@ -27,7 +27,7 @@ for target in "$DESTINATION" "$ALIAS"; do
   ln -s "$SOURCE" "$target"
   printf 'linked %s -> %s\n' "$target" "$SOURCE"
 done
-printf 'next: ws help\n'
+printf 'next: ws setup\n'
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
   *) printf 'note: %s is not on your PATH\n' "$BINDIR";;

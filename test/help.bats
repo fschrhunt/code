@@ -12,10 +12,11 @@ load helper
   run "$WORKSPACES" help
   [ "$status" -eq 0 ]
   [[ "$output" == *'workspaces new <repo> [task]'* ]]
-  [[ "$output" == *'~/workspaces/repos'* ]]
+  [[ "$output" == *'creates or upgrades the root'* ]]
+  [[ "$output" == *'repos/<repo>'* ]]
   [[ "$output" == *'worktrees/<repo>/<task>'* ]]
   [[ "$output" == *'unused world capital'* ]]
-  [[ "$output" == *'`ws` is the short alias'* ]]
+  [[ "$output" == *'`ws` is the short'*'alias for `workspaces`'* ]]
   [[ "$output" != *'archive'* ]]
   [[ "$output" != *'agent'* ]]
 }

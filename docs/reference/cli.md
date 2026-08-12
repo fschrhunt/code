@@ -17,8 +17,13 @@ Every command is also available through the shorter `ws` executable.
 ## `setup`
 
 Creates the collection's `README.md`, `repos/`, and `worktrees/`. `--root`
-remembers a custom absolute path. Existing README content is never replaced.
-Setup is optional for the default `~/workspaces` root.
+remembers a custom absolute path.
+
+When pre-4.0 repositories exist directly beneath the root, setup preflights all
+destinations, moves each base checkout into `repos/`, and repairs its live
+linked worktrees. Dirty files and branches are preserved. A repair failure rolls
+completed moves back. Generated collection guides are refreshed; custom README
+content is never replaced.
 
 ## `clone`
 
@@ -55,8 +60,9 @@ Prints the selected collection root.
 
 ## `doctor`
 
-Checks Git availability, repository object integrity, and stale worktree
-metadata without changing anything.
+Checks Git availability, repository object integrity, stale worktree metadata,
+and legacy root-level repositories without changing anything. Legacy layouts
+are directed to `ws setup`.
 
 ## Environment
 
