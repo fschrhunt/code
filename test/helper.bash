@@ -44,5 +44,5 @@ _seed_repo() {
   git -C "$WORKFRAME_HOME/repos/$name" config worktree.useRelativePaths true
 }
 
-# Echo the "workspace:" path from a `workframe new`/`workframe restore` output block.
-_workspace_path() { sed -n 's/^workspace: //p'; }
+# Echo the path from concise `new` output or the `workspace:` line from restore.
+_workspace_path() { awk '/^workspace: / { sub(/^workspace: /, ""); print; exit } /^\// { print; exit }'; }

@@ -26,15 +26,31 @@ Both install `workframe` and its short alias, `wf`.
 ```bash
 workframe setup --root ~/workframe
 workframe clone owner/repo
-workframe new repo feature-name
+cd "$(workframe new repo feature-name)"
 ```
 
-`new` prints the worktree path, branch, and generated folder label. Use the
-task identity—not the folder label—to find it later:
+`new` prints only the workspace path, so command substitution enters the new
+workspace without exposing the generated directory label. Use the task identity
+to find it later:
 
 ```bash
 workframe path repo/feature-name
 workframe list
+```
+
+A command cannot change its parent shell's directory. If you prefer `wf new`
+to enter the workspace directly, add this opt-in wrapper to `~/.zshrc`:
+
+```zsh
+wf() {
+  if [[ $1 == new ]]; then
+    local workspace
+    workspace=$(command workframe "$@") || return
+    cd "$workspace"
+  else
+    command workframe "$@"
+  fi
+}
 ```
 
 ## Pause or finish work

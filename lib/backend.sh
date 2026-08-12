@@ -173,7 +173,7 @@ cmd_new(){ local repo="${1:-}" feature="${2:-}"
   # New feature branches should not track the default branch. Tracking is set
   # when the user first pushes their feature branch with `git push -u`.
   mkdir -p "$(dirname "$worktree_dir")"
-  git -C "$d" worktree add -b "$branch" --no-track "$worktree_dir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
+  git -C "$d" worktree add -b "$branch" --no-track "$worktree_dir" "origin/$(_default_branch "$repo")" >/dev/null 2>&1 || die "could not create workspace"
   if ! _register_branch "$repo" "$branch"; then
     git -C "$d" worktree remove --force "$worktree_dir" >/dev/null 2>&1 || true
     git -C "$d" branch -D "$branch" >/dev/null 2>&1 || true
@@ -181,7 +181,7 @@ cmd_new(){ local repo="${1:-}" feature="${2:-}"
   fi
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
-  printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$worktree_dir" "$branch" "$city"; }
+  printf '%s\n' "$worktree_dir"; }
 cmd_rename(){ local worktree="${1:-}" feature="${2:-}"; [ -n "$worktree" ] && [ -n "$feature" ] || die "usage: rename <path> <task>"
   case "$worktree" in "$WORK"/*) ;; *) die "not a workframe worktree: $worktree";; esac; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
   local rel=${worktree#"$WORK"/} repo

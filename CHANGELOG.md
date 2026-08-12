@@ -7,6 +7,8 @@ Notable changes to Workframe are documented here. The project follows
 
 ### Changed
 
+- Made `new` emit only its workspace path and removed Git's worktree chatter,
+  so `cd "$(workframe new <repo> <task>)"` enters the new workspace cleanly.
 - Relicensed Workframe under MIT and removed the Code of Conduct from the
   repository's community files.
 
