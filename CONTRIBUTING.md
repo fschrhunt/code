@@ -1,30 +1,44 @@
 # Contributing to Workframe
 
-Workframe is a small local Git-worktree CLI. Keep contributions focused on its
-core contract: allocate an owned task workspace, find it, archive it, and
-restore it safely.
+Workframe is a small local Git-worktree allocator. Contributions should make
+its core workflow safer or clearer—not turn it into a remote-store, agent, or
+editor platform.
+
+## Before changing code
+
+Read [AGENTS.md](AGENTS.md). It is the working contract for humans and coding
+agents. In particular, Workframe manages only branches marked in
+`refs/workframe/managed/*`; it must never infer ownership from a compatible
+worktree path, branch name, or Conductor configuration.
 
 ## Development
 
 ```bash
+make lint
+make test
 make check
 bin/workframe help
 ```
 
-`make check` runs ShellCheck and hermetic Bats tests. Tests use a temporary
-local Git origin through `test/helper.bash`; they must not require a network,
-terminal, mount, editor, or external service.
+`make check` is required for code changes. The Bats suite is hermetic: use the
+fixtures in `test/helper.bash`, never a network, mounted volume, terminal,
+editor, or live store.
 
-## Design constraints
+## Change design
 
-- A task identity is `repo/task`; city labels are directory implementation
-  details, not selectors.
-- Workframe ownership is explicit in `refs/workframe/managed/*`. Never infer
-  ownership from a path, branch pattern, or Conductor configuration.
-- Conductor worktrees are unmarked and out of scope. Do not inspect or write
-  Conductor's private application state.
-- Keep the command surface small. Do not add SSH, shared stores, editor launch,
-  shell hooks, dashboards, or self-update behavior.
-- Update focused tests, help, and documentation with behavior changes.
+- Keep the public model small: a store location, canonical repositories, and
+  task identities written as `repo/task`.
+- City names are collision-free directory labels, not user-facing identifiers.
+- Keep lifecycle behavior explicit and test each safety boundary directly.
+- Do not add remote stores, SSH, mounts, editor launch, shell hooks, dashboards,
+  self-update, or agent orchestration.
+- Update help, `test/golden/help.txt`, focused tests, and documentation with a
+  user-visible command change.
+- Add entries only under `## [Unreleased]` in `CHANGELOG.md`; do not edit a
+  released version section.
 
-Please open a focused PR and preserve unrelated work.
+## Pull requests
+
+Keep a PR focused and explain the problem before the implementation. Include
+validation and any intentional behavior change. Do not include secrets, private
+infrastructure, generated local state, or Conductor application state.

@@ -3,6 +3,8 @@
 Notable changes to Workframe are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
 ## 2.0.0
 
 - **Breaking:** task workspaces and branches no longer include an agent identity.
