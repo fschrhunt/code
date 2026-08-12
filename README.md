@@ -17,16 +17,21 @@ A task is `repo/task`. The city is only a unique directory name.
 
 ## Install
 
+Install the latest verified release:
+
 ```bash
-brew install fschrhunt/tap/workframe
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/workframe/main/scripts/install.sh | sh
 ```
 
-For development:
+The installer downloads a versioned GitHub release, verifies its SHA-256
+checksum, and links `workframe` and `wf` into `~/.local/bin`.
+
+For development, link a checkout instead:
 
 ```bash
 git clone https://github.com/fschrhunt/workframe.git
 cd workframe
-./install.sh
+./install.sh                    # link this checkout into ~/.local/bin
 ```
 
 ## Use
