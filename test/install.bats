@@ -21,6 +21,43 @@
   [ "$output" = "workframe $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }
 
+@test "update reruns the verified release installer" {
+  local version; version=$(cat "$BATS_TEST_DIRNAME/../VERSION")
+  local fixture="$BATS_TEST_TMPDIR/fixture" mockbin="$BATS_TEST_TMPDIR/mockbin"
+  local install_root="$BATS_TEST_TMPDIR/install" bindir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$fixture/workframe-$version/bin" "$mockbin"
+  cat > "$fixture/workframe-$version/bin/workframe" <<'EOF'
+#!/bin/sh
+printf 'workframe fixture\n'
+EOF
+  chmod +x "$fixture/workframe-$version/bin/workframe"
+  tar -czf "$fixture/workframe-$version.tar.gz" -C "$fixture" "workframe-$version"
+  (cd "$fixture" && shasum -a 256 "workframe-$version.tar.gz" > SHA256SUMS)
+  cat > "$mockbin/curl" <<'EOF'
+#!/bin/sh
+output=
+while [ $# -gt 0 ]; do
+  case "$1" in -o) output=$2; shift 2;; *) url=$1; shift;; esac
+done
+if [ -z "$output" ]; then cat "$WORKFRAME_UPDATE_SCRIPT"; exit 0; fi
+case "$url" in
+  *.tar.gz) cp "$WORKFRAME_FIXTURE/workframe-$WORKFRAME_VERSION.tar.gz" "$output";;
+  */SHA256SUMS) cp "$WORKFRAME_FIXTURE/SHA256SUMS" "$output";;
+  *) exit 1;;
+esac
+EOF
+  chmod +x "$mockbin/curl"
+
+  run env PATH="$mockbin:$PATH" WORKFRAME_FIXTURE="$fixture" WORKFRAME_VERSION="$version" \
+    WORKFRAME_INSTALL_ROOT="$install_root" WORKFRAME_BIN_DIR="$bindir" \
+    WORKFRAME_UPDATE_SCRIPT="$BATS_TEST_DIRNAME/../scripts/install.sh" \
+    WORKFRAME_INSTALLER_URL='https://example.test/install.sh' \
+    "$BATS_TEST_DIRNAME/../bin/workframe" update
+
+  [ "$status" -eq 0 ]
+  [ "$(readlink "$bindir/workframe")" = "$install_root/$version/bin/workframe" ]
+}
+
 @test "release installer verifies and links a versioned archive" {
   local version=2.0.0 fixture="$BATS_TEST_TMPDIR/fixture" mockbin="$BATS_TEST_TMPDIR/mockbin"
   local install_root="$BATS_TEST_TMPDIR/install" bindir="$BATS_TEST_TMPDIR/bin"

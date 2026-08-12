@@ -7,8 +7,17 @@ Notable changes to Workframe are documented here. The project follows
 
 ## 2.0.1
 
+### Added
+
+- `sync <repo>` and `sync --all` to refresh canonical repositories and
+  fast-forward only clean, non-diverged checkouts.
+- `update` to rerun the checksum-verified Workframe release installer without
+  changing a configured store.
+
 ### Changed
 
+- Made terminal output inherit the user's foreground and background instead of
+  forcing white; data output remains plain.
 - Made `new` refresh the repository's default branch before creating a task and
   refuse stale work if it cannot fetch; `--offline` explicitly uses the cached
   remote ref for disconnected work.

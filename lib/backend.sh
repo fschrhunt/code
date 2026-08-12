@@ -286,27 +286,39 @@ cmd_delrepo(){
     case "$worktree" in "$WORK"/*) rm -rf "${worktree:?}" 2>/dev/null;; esac; done
   _prog "deleting repo" 90; rm -rf "$d"; _prog "finishing" 100
   printf 'deleted repo: %s\n' "$repo"; }
-# Fast-forward a canonical's checked-out branch to its upstream, but only when it
-# is unambiguously safe: attached HEAD, has an upstream, strictly behind, clean tree.
-# A dirty or diverged canonical is the user's to resolve — we report and move on.
-# Runs backend-side (on the box), so the checkout never goes over the SMB mount,
-# where git's unlink/rename churn is unreliable.
+# Fast-forward a canonical checkout only when it is clean and strictly behind
+# its upstream. Diverged and dirty canonicals remain untouched for the operator.
 _ff_canon(){ local d=$1 r=$2 counts ahead behind
-  git -C "$d" symbolic-ref --quiet HEAD >/dev/null 2>&1 || { ok "synced $r (detached)"; return; }
-  git -C "$d" rev-parse --quiet --verify '@{upstream}' >/dev/null 2>&1 || { ok "synced $r"; return; }
-  counts=$(git -C "$d" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null) || { ok "synced $r"; return; }
+  git -C "$d" symbolic-ref --quiet HEAD >/dev/null 2>&1 || { printf '%s: detached\n' "$r"; return; }
+  git -C "$d" rev-parse --quiet --verify '@{upstream}' >/dev/null 2>&1 || { printf '%s: fetched\n' "$r"; return; }
+  counts=$(git -C "$d" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null) || { printf '%s: fetched\n' "$r"; return; }
   ahead=${counts%%[[:space:]]*}; behind=${counts##*[[:space:]]}
-  [ "$behind" = 0 ] && { ok "synced $r"; return; }
-  [ "$ahead" = 0 ] || { warn "synced $r (diverged +$ahead/-$behind, left alone)"; return; }
-  [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ] && { warn "synced $r (behind $behind, dirty — left alone)"; return; }
-  if git -C "$d" merge --ff-only --quiet '@{upstream}' 2>/dev/null; then ok "synced $r (+$behind)"; else warn "synced $r (ff failed)"; fi; }
-cmd_sync(){ local target="${1:---all}" repos; if [ "$target" = "--all" ]; then repos=$(_repos_all); else repos="$target"; fi
-  local -a repo_list=(); local r; for r in $repos; do repo_list+=("$r"); done
-  local n=${#repo_list[@]} i=0
-  for r in "${repo_list[@]}"; do i=$((i+1)); local d; d=$(_canon "$r")
-    [ "$n" -gt 0 ] && _prog "syncing repos" $(( i * 100 / n )) || _prog "syncing $r" 50
-    [ -d "${d}/.git" ] || { warn "skip $r (no canonical)"; continue; }
-    if git -C "$d" fetch --all --prune --quiet 2>/dev/null; then git -C "$d" remote set-head origin -a >/dev/null 2>&1; git -C "$d" maintenance run --auto --quiet 2>/dev/null; _ff_canon "$d" "$r"; else err "failed $r (auth?)"; fi; done; }
+  [ "$behind" = 0 ] && { printf '%s: up to date\n' "$r"; return; }
+  [ "$ahead" = 0 ] || { warn "$r: diverged (+$ahead/-$behind), left unchanged"; return 1; }
+  [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ] && { warn "$r: behind $behind, dirty, left unchanged"; return 1; }
+  git -C "$d" merge --ff-only --quiet '@{upstream}' 2>/dev/null || { warn "$r: could not fast-forward"; return 1; }
+  printf '%s: updated +%s\n' "$r" "$behind"
+}
+# Refresh one canonical repository or every repository with --all.
+cmd_sync(){
+  local target="${1:-}" repos r d status=0
+  case "$target" in
+    --all) [ $# -eq 1 ] || die 'usage: workframe sync [--all | <repo>]'; repos=$(_repos_all);;
+    *) [ $# -eq 1 ] || die 'usage: workframe sync [--all | <repo>]'; _repo_name_ok "$target" || die "invalid repo name '$target'"; repos=$target;;
+  esac
+  [ -n "$repos" ] || { printf 'no repositories\n'; return; }
+  for r in $repos; do
+    d=$(_canon "$r")
+    [ -d "${d}/.git" ] || { warn "$r: no canonical repository"; status=1; continue; }
+    if ! git -C "$d" fetch --all --prune --quiet >/dev/null 2>&1; then
+      warn "$r: fetch failed"; status=1; continue
+    fi
+    git -C "$d" remote set-head origin -a >/dev/null 2>&1 || true
+    git -C "$d" maintenance run --auto --quiet >/dev/null 2>&1 || true
+    _ff_canon "$d" "$r" || status=1
+  done
+  return "$status"
+}
 cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_repos_all); do repo_list+=("$r"); done
   local n=${#repo_list[@]} ri=0
   for r in "${repo_list[@]}"; do ri=$((ri+1)); local d; d=$(_canon "$r")
