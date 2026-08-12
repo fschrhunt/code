@@ -5,6 +5,25 @@ Notable changes to Workspaces are documented here. The project follows
 
 ## [Unreleased]
 
+## 4.1.0
+
+### Added
+
+- Make `setup` upgrade pre-4.0 collections by moving root-level base checkouts
+  into `repos/` and repairing live linked worktrees. Setup preflights every
+  destination and rolls completed moves back if repair fails.
+- Warn from `list` and `doctor` when a collection still needs `ws setup`.
+
+### Changed
+
+- Refresh Workspaces-generated collection guides during setup while preserving
+  custom README content, and direct newly installed releases to `ws setup`.
+
+### Fixed
+
+- Refuse symlinked collection directories and collection README symlinks instead
+  of following them during setup.
+
 ## 4.0.0
 
 ### Breaking changes
