@@ -10,6 +10,7 @@ canonical repositories live in `repos/`; owned task worktrees live in
 - [CLI reference](reference/cli.md)
 - [Automation reference](reference/automation.md)
 - [Filesystem reference](reference/filesystem.md)
+- [Release procedure](releasing.md)
 
 The Homebrew formula is the supported package. Workframe has no shared-store,
 SSH, mount, editor, dashboard, or shell-integration mode.
