@@ -7,7 +7,7 @@ Users should update before reporting behavior that may already be fixed.
 
 | Version | Supported |
 |---|---|
-| 1.5.x | Yes |
+| 2.0.x | Yes |
 | Earlier versions | No |
 
 ## Report a vulnerability
