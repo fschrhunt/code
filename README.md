@@ -9,14 +9,16 @@ one predictable folder.
 
 ```text
 ~/workspaces/
-├── pi/                    normal checkout
-├── pi-fix-auth/           isolated task worktree
-└── pi-update-docs/        another isolated task worktree
+├── pi/                            normal checkout on main
+└── worktrees/
+    └── pi/
+        ├── fix-auth/              isolated task checkout
+        └── update-docs/           another isolated task checkout
 ```
 
-There is no hidden canonical clone or nested worktree hierarchy. `pi/` is the
-ordinary repository you expect: enter it, see `main`, and use Git normally.
-Task worktrees are visible siblings, so parallel work does not share files.
+`pi/` is the ordinary repository you expect: enter it, see `main`, and use it as
+the base for new tasks. Parallel work lives beneath `worktrees/`, grouped by
+repository, so task folders never obscure the top-level repository list.
 
 ## Install
 
@@ -43,18 +45,22 @@ cd ~/workspaces/pi
 git status --short --branch
 ```
 
-Create separate checkouts before running parallel tasks:
+Create a task checkout before editing:
 
 ```bash
-cd "$(workspaces new pi fix-auth)"
-# start the first agent or work normally
-
-cd "$(workspaces new pi update-docs)"
-# start the second agent or work normally
+cd ~/workspaces/pi
+path=$(workspaces new pi fix-auth)
+cd "$path"
+git status --short --branch
 ```
 
-Both task directories share Git history with `pi/`, but not working files.
-Starting two editing processes directly in `pi/` does not provide isolation.
+This returns `~/workspaces/worktrees/pi/fix-auth`. Start the agent from that
+path. A second task gets another directory beneath `worktrees/pi/`; both share
+Git history with `pi/`, but not working files.
+
+Automated coding sessions must not edit the top-level `pi/` checkout. If an
+agent starts there, it should use `workspaces new` and continue only in the
+returned path. Do not create top-level task folders manually.
 
 ```bash
 workspaces list

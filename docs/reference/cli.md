@@ -26,11 +26,12 @@ resulting path to stdout.
 
 ## `new`
 
-Creates `<root>/<repo>-<task>` from the repository checkout's current `HEAD`.
-If that sibling name is occupied, a numeric suffix keeps the new path distinct.
-If the local branch exists and is inactive, it is reattached. If it is already
-active, `new` returns the existing managed sibling or refuses a checkout outside
-the managed layout. Task names are single path-safe components.
+Creates `<root>/worktrees/<repo>/<task>` from the repository checkout's current
+`HEAD`. If that task folder is occupied, a numeric suffix keeps the new path
+distinct. If the local branch exists and is inactive, it is reattached. If it is
+already active, `new` returns the existing managed task path or refuses a
+checkout outside `worktrees/<repo>/`. Task names are single path-safe
+components.
 
 ## `list`
 

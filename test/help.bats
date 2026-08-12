@@ -8,11 +8,11 @@ load helper
   diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$output_file"
 }
 
-@test "help describes only repositories and sibling task worktrees" {
+@test "help describes repositories and nested task worktrees" {
   run "$WORKSPACES" help
   [ "$status" -eq 0 ]
   [[ "$output" == *'workspaces new <repo> <task>'* ]]
-  [[ "$output" == *'siblings, such as pi-fix-auth'* ]]
+  [[ "$output" == *'worktrees/<repo>/<task>'* ]]
   [[ "$output" != *'archive'* ]]
   [[ "$output" != *'agent'* ]]
 }
