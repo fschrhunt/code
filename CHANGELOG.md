@@ -5,6 +5,12 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Made the store guide and automation documentation lead with the native
+  `cd "$(workframe new ...)"`, Git, and GitHub CLI workflow for both people
+  and coding agents.
+
 ## 2.0.2
 
 ### Added
