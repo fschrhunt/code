@@ -80,5 +80,4 @@ Multiple agents can share a repository. Preserve their work.
 - Add future-facing changes under `## [Unreleased]` in `CHANGELOG.md`; released
   sections are immutable. Use `### Added`, `### Changed`, `### Fixed`,
   `### Removed`, and `### Breaking changes` as applicable.
-- Do not bump `VERSION`, tag, publish, or alter the Homebrew formula without an
-  explicit release request.
+- Do not bump `VERSION`, tag, or publish without an explicit release request.
