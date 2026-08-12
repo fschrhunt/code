@@ -1,17 +1,18 @@
-## Summary
+## Problem
 
-- <!-- What changed and why? -->
+<!-- What user problem does this solve? -->
 
-## Related issue
+## Solution
 
-- Fixes #<!-- issue number -->
+<!-- Explain the behavior change. Keep implementation detail secondary. -->
 
-## Test plan
+## Validation
 
-- <!-- What did you run, or why was validation not run? -->
-- [ ] `make check` (ShellCheck + Bats)
+- [ ] `make check`
+- <!-- Focused command or test, if useful -->
 
-## Review notes
+## Release and safety notes
 
-- <!-- Compatibility notes, risks, screenshots, or intentional follow-ups -->
-- I did not include secrets, private infrastructure values, or generated local state.
+- [ ] No public command behavior changed.
+- [ ] `CHANGELOG.md` has an Unreleased entry when user-visible behavior changed.
+- [ ] No secrets, private infrastructure, generated local state, or Conductor application state is included.
