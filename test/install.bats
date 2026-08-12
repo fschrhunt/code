@@ -1,93 +1,69 @@
 #!/usr/bin/env bats
 
-@test "installer links only the command and short alias" {
+@test "development installer links only workspaces" {
   local bindir="$BATS_TEST_TMPDIR/bin"
-  local expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workframe"
+  local expected
+  expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workspaces"
 
   run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
 
   [ "$status" -eq 0 ]
-  [ "$(readlink "$bindir/workframe")" = "$expected" ]
-  [ "$(readlink "$bindir/wf")" = "$expected" ]
+  [ "$(readlink "$bindir/workspaces")" = "$expected" ]
+  [ ! -e "$bindir/workframe" ]
+  [ ! -e "$bindir/wf" ]
 }
 
-@test "installed short alias runs the Workframe command" {
+@test "development installer refuses an existing regular file" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$bindir"
+  printf 'keep\n' > "$bindir/workspaces"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -ne 0 ]
+  [ "$(cat "$bindir/workspaces")" = keep ]
+}
+
+@test "installed command reports the Workspaces version" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   "$BATS_TEST_DIRNAME/../install.sh" "$bindir" >/dev/null
 
-  run "$bindir/wf" version
+  run "$bindir/workspaces" version
 
   [ "$status" -eq 0 ]
-  [ "$output" = "workframe $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
-}
-
-@test "update reruns the verified release installer" {
-  local version; version=$(cat "$BATS_TEST_DIRNAME/../VERSION")
-  local fixture="$BATS_TEST_TMPDIR/fixture" mockbin="$BATS_TEST_TMPDIR/mockbin"
-  local install_root="$BATS_TEST_TMPDIR/install" bindir="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$fixture/workframe-$version/bin" "$mockbin"
-  cat > "$fixture/workframe-$version/bin/workframe" <<'EOF'
-#!/bin/sh
-printf 'workframe fixture\n'
-EOF
-  chmod +x "$fixture/workframe-$version/bin/workframe"
-  tar -czf "$fixture/workframe-$version.tar.gz" -C "$fixture" "workframe-$version"
-  (cd "$fixture" && shasum -a 256 "workframe-$version.tar.gz" > SHA256SUMS)
-  cat > "$mockbin/curl" <<'EOF'
-#!/bin/sh
-output=
-while [ $# -gt 0 ]; do
-  case "$1" in -o) output=$2; shift 2;; *) url=$1; shift;; esac
-done
-if [ -z "$output" ]; then cat "$WORKFRAME_UPDATE_SCRIPT"; exit 0; fi
-case "$url" in
-  *.tar.gz) cp "$WORKFRAME_FIXTURE/workframe-$WORKFRAME_VERSION.tar.gz" "$output";;
-  */SHA256SUMS) cp "$WORKFRAME_FIXTURE/SHA256SUMS" "$output";;
-  *) exit 1;;
-esac
-EOF
-  chmod +x "$mockbin/curl"
-
-  run env PATH="$mockbin:$PATH" WORKFRAME_FIXTURE="$fixture" WORKFRAME_VERSION="$version" \
-    WORKFRAME_INSTALL_ROOT="$install_root" WORKFRAME_BIN_DIR="$bindir" \
-    WORKFRAME_UPDATE_SCRIPT="$BATS_TEST_DIRNAME/../scripts/install.sh" \
-    WORKFRAME_INSTALLER_URL='https://example.test/install.sh' \
-    "$BATS_TEST_DIRNAME/../bin/workframe" update
-
-  [ "$status" -eq 0 ]
-  [ "$(readlink "$bindir/workframe")" = "$install_root/$version/bin/workframe" ]
+  [ "$output" = "workspaces $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }
 
 @test "release installer verifies and links a versioned archive" {
-  local version=2.0.0 fixture="$BATS_TEST_TMPDIR/fixture" mockbin="$BATS_TEST_TMPDIR/mockbin"
+  local version=3.0.0 fixture="$BATS_TEST_TMPDIR/fixture" mockbin="$BATS_TEST_TMPDIR/mockbin"
   local install_root="$BATS_TEST_TMPDIR/install" bindir="$BATS_TEST_TMPDIR/bin"
-  mkdir -p "$fixture/workframe-$version/bin" "$mockbin"
-  cat > "$fixture/workframe-$version/bin/workframe" <<'EOF'
+  mkdir -p "$fixture/workspaces-$version/bin" "$mockbin"
+  cat > "$fixture/workspaces-$version/bin/workspaces" <<'SCRIPT'
 #!/bin/sh
-printf 'workframe fixture\n'
-EOF
-  chmod +x "$fixture/workframe-$version/bin/workframe"
-  tar -czf "$fixture/workframe-$version.tar.gz" -C "$fixture" "workframe-$version"
-  (cd "$fixture" && shasum -a 256 "workframe-$version.tar.gz" > SHA256SUMS)
-  cat > "$mockbin/curl" <<'EOF'
+printf 'workspaces fixture\n'
+SCRIPT
+  chmod +x "$fixture/workspaces-$version/bin/workspaces"
+  tar -czf "$fixture/workspaces-$version.tar.gz" -C "$fixture" "workspaces-$version"
+  (cd "$fixture" && shasum -a 256 "workspaces-$version.tar.gz" > SHA256SUMS)
+  cat > "$mockbin/curl" <<'SCRIPT'
 #!/bin/sh
 while [ $# -gt 0 ]; do
   case "$1" in -o) output=$2; shift 2;; *) url=$1; shift;; esac
 done
 case "$url" in
-  *.tar.gz) cp "$WORKFRAME_FIXTURE/workframe-$WORKFRAME_VERSION.tar.gz" "$output";;
-  */SHA256SUMS) cp "$WORKFRAME_FIXTURE/SHA256SUMS" "$output";;
+  *.tar.gz) cp "$WORKSPACES_FIXTURE/workspaces-$WORKSPACES_VERSION.tar.gz" "$output";;
+  */SHA256SUMS) cp "$WORKSPACES_FIXTURE/SHA256SUMS" "$output";;
   *) exit 1;;
 esac
-EOF
+SCRIPT
   chmod +x "$mockbin/curl"
 
-  run env PATH="$mockbin:$PATH" WORKFRAME_FIXTURE="$fixture" WORKFRAME_VERSION="$version" \
-    WORKFRAME_INSTALL_ROOT="$install_root" WORKFRAME_BIN_DIR="$bindir" \
+  run env PATH="$mockbin:$PATH" WORKSPACES_FIXTURE="$fixture" WORKSPACES_VERSION="$version" \
+    WORKSPACES_INSTALL_ROOT="$install_root" WORKSPACES_BIN_DIR="$bindir" \
     "$BATS_TEST_DIRNAME/../scripts/install.sh"
 
   [ "$status" -eq 0 ]
-  [ "$(readlink "$bindir/workframe")" = "$install_root/$version/bin/workframe" ]
-  run "$bindir/wf"
-  [ "$output" = 'workframe fixture' ]
+  [ "$(readlink "$bindir/workspaces")" = "$install_root/$version/bin/workspaces" ]
+  run "$bindir/workspaces"
+  [ "$output" = 'workspaces fixture' ]
 }

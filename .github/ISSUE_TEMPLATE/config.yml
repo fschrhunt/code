@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Ask a question
-    url: https://github.com/fschrhunt/workframe/discussions
+    url: https://github.com/fschrhunt/workspaces/discussions
     about: Use GitHub Discussions for setup help and usage questions.
   - name: Report a security vulnerability
-    url: https://github.com/fschrhunt/workframe/security/advisories/new
+    url: https://github.com/fschrhunt/workspaces/security/advisories/new
     about: Send vulnerability details privately to the maintainers.
