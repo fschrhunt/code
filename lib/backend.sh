@@ -11,11 +11,11 @@ _repo_name_ok(){
   esac
   return 0
 }
-# A feature is the second half of the branch name `<agent>/<feature>`. Slashes
+# A task becomes the branch name. Slashes
 # are allowed so `sub/feat` keeps working, but every segment must be a usable
 # ref component: git rejects "..", a ".lock" suffix, and empty segments, and a
 # leading dash makes the branch look like a flag. Without this, `new <repo> "   "`
-# normalized to the branch `<agent>/---`, and anything git refused surfaced as a
+# normalized to the branch `---`, and anything git refused surfaced as a
 # raw `fatal:` instead of an explanation.
 _feature_name_ok(){
   local feature=$1 seg
@@ -52,6 +52,32 @@ _prog(){ printf 'workframe-progress:%s:%s\n' "$1" "$2" >&2; }
 _default_branch(){ local b; b=$(git -C "$(_canon "$1")" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); b=${b#origin/}; printf '%s' "${b:-main}"; }
 _repos_all(){ for d in "$REPOS"/*/; do [ -d "${d}.git" ] && basename "$d"; done; }
 _ensure_relpaths(){ git -C "$(_canon "$1")" config worktree.useRelativePaths true 2>/dev/null; }
+
+# Workframe-owned branches are explicitly marked in a private Git ref namespace.
+# Layout alone is not ownership: Conductor and users may create compatible worktrees.
+_managed_ref(){ printf 'refs/workframe/managed/%s' "$2"; }
+_managed_branch(){ git -C "$(_canon "$1")" show-ref --verify --quiet "$(_managed_ref "$1" "$2")"; }
+_register_branch(){ git -C "$(_canon "$1")" update-ref "$(_managed_ref "$1" "$2")" "refs/heads/$2"; }
+_unregister_branch(){ git -C "$(_canon "$1")" update-ref -d "$(_managed_ref "$1" "$2")"; }
+# Print a worktree's branch from Git's porcelain record, including stale entries.
+_worktree_branch(){
+  local d=$1 wanted=$2 line path="" branch=""
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*)
+        if [ "$path" = "$wanted" ]; then printf '%s' "$branch"; return; fi
+        path=${line#worktree }; branch=""
+        ;;
+      "branch refs/heads/"*) branch=${line#branch refs/heads/};;
+    esac
+  done < <(git -C "$d" worktree list --porcelain 2>/dev/null)
+  [ "$path" = "$wanted" ] && printf '%s' "$branch"
+}
+_managed_worktree(){
+  local repo=$1 worktree=$2 branch
+  branch=$(_worktree_branch "$(_canon "$repo")" "$worktree")
+  [ -n "$branch" ] && _managed_branch "$repo" "$branch"
+}
 cmd_guide(){
   _ensure_store_guide "$ROOT" || die "could not create Workframe guide at $ROOT/WORKFRAME.md"
   printf 'guide: %s\n' "$ROOT/WORKFRAME.md"
@@ -77,11 +103,10 @@ _gen_city_name(){
   printf '%s%s%s' "$p" "$m" "$s"
 }
 
-# Unique folder label under $WORK/<agent>/<repo>/. Samples lib/cities.txt
+# Unique folder label under $WORK/<repo>/. Samples lib/cities.txt
 # (world place names); on collision exhaustion, syllable names, then a suffix.
 _pick_city(){
   local dir="$WORK/$1"
-  [ -z "${2:-}" ] || dir="$dir/$2"
   local file="${WORKFRAME_LIB:-}/cities.txt"
   local n c t=0 idx
   if [ -f "$file" ]; then
@@ -116,29 +141,23 @@ cmd_worktrees(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
     while IFS= read -r worktree; do
       case "$worktree" in "$WORK"/*) ;; *) continue;; esac; [ -e "$worktree/.git" ] || continue
-      local rel=${worktree#"$WORK"/} city legacy=""
+      local rel=${worktree#"$WORK"/} city
       case "$rel" in
         "$r"/*) city=${rel#"$r"/}; case "$city" in */*) continue;; esac;;
-        */"$r"/*) city=${rel##*/}; legacy=${rel%%/*};;
         *) continue;;
       esac
-      # Keep five columns during the transition. `task` is a layout marker,
-      # never an agent identity; legacy records retain their former prefix.
-      [ -n "$legacy" ] || legacy=task
-      printf '%s\t%s\t%s\t%s\t%s\n' "$legacy" "$r" "$city" "$worktree" "$(git -C "$worktree" branch --show-current 2>/dev/null)"
+      local branch; branch=$(git -C "$worktree" branch --show-current 2>/dev/null)
+      _managed_branch "$r" "$branch" || continue
+      printf '%s\t%s\t%s\t%s\n' "$r" "$city" "$worktree" "$branch"
     done < <(_worktree_paths "$d"); done; }
-cmd_new(){ local repo feature agent="" legacy=0
-  if [ $# -eq 2 ]; then repo=$1; feature=$2
-  elif [ $# -eq 3 ]; then agent=$1; repo=$2; feature=$3; legacy=1
-  else die "usage: new <repo> <task>"; fi
-  [ "$legacy" = 0 ] || _is_agent "$agent" || die "unknown agent '$agent'"
+cmd_new(){ local repo="${1:-}" feature="${2:-}"
+  [ $# -eq 2 ] || die "usage: new <repo> <task>"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
   local d; d=$(_canon "$repo")
   [ -d "${d}/.git" ] || die "no repo '$repo' — clone first: workframe clone owner/repo"
   _ensure_relpaths "$repo"
   local city branch="$feature" worktree_dir existing
-  [ "$legacy" = 0 ] || branch="$agent/$feature"
   # Archive keeps the branch; reuse needs restore, not a second -b create.
   if git -C "$d" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
     existing=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk -v want="refs/heads/$branch" '
@@ -150,24 +169,38 @@ cmd_new(){ local repo feature agent="" legacy=0
     fi
     die "branch '$branch' is archived — restore with: workframe restore $repo $branch"
   fi
-  if [ "$legacy" = 1 ]; then city=$(_pick_city "$agent" "$repo"); worktree_dir="$WORK/$agent/$repo/$city"; else city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"; fi
+  city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"
   # New feature branches should not track the default branch. Tracking is set
   # when the user first pushes their feature branch with `git push -u`.
   mkdir -p "$(dirname "$worktree_dir")"
   git -C "$d" worktree add -b "$branch" --no-track "$worktree_dir" "origin/$(_default_branch "$repo")" >&2 || die "worktree add failed"
+  if ! _register_branch "$repo" "$branch"; then
+    git -C "$d" worktree remove --force "$worktree_dir" >/dev/null 2>&1 || true
+    git -C "$d" branch -D "$branch" >/dev/null 2>&1 || true
+    die "could not record workspace ownership"
+  fi
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
   printf 'workspace: %s\nbranch: %s\ncity: %s\n' "$worktree_dir" "$branch" "$city"; }
 cmd_rename(){ local worktree="${1:-}" feature="${2:-}"; [ -n "$worktree" ] && [ -n "$feature" ] || die "usage: rename <path> <task>"
   case "$worktree" in "$WORK"/*) ;; *) die "not a workframe worktree: $worktree";; esac; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
-  local rel=${worktree#"$WORK"/} agent="" repo
+  local rel=${worktree#"$WORK"/} repo
   repo=${rel%%/*}
-  if [ ! -d "$REPOS/$repo/.git" ]; then agent=$repo; repo=$(printf '%s' "$rel" | cut -d/ -f2); _is_agent "$agent" || die "not a Workframe workspace"; fi
+  case "$rel" in "$repo"/*/*) die "not a Workframe workspace";; esac
+  [ -d "$REPOS/$repo/.git" ] || die "not a Workframe workspace"
+  local oldbr; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  _managed_branch "$repo" "$oldbr" || die "not a Workframe-managed workspace"
   feature=$(printf '%s' "$feature" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
   _feature_name_ok "$feature" || die "invalid feature name '$feature' (use letters, numbers, . _ - and /, starting with a letter or number)"
-  local oldbr newbr="$feature"; [ -z "$agent" ] || newbr="$agent/$feature"; oldbr=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  local newbr="$feature"
   [ "$oldbr" = "$newbr" ] && { printf 'branch already %s\n' "$newbr"; return 0; }
-  git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"; printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
+  git -C "$(_canon "$repo")" branch -m "$oldbr" "$newbr" || die "branch rename failed"
+  if ! _register_branch "$repo" "$newbr"; then
+    git -C "$(_canon "$repo")" branch -m "$newbr" "$oldbr" >/dev/null 2>&1 || true
+    die "could not record workspace ownership"
+  fi
+  _unregister_branch "$repo" "$oldbr" || warn "renamed, but could not clear old workspace ownership"
+  printf 'renamed: %s -> %s\n' "$oldbr" "$newbr"; }
 cmd_clone(){ local spec="${1:-}"; [ -n "$spec" ] || die "usage: clone <owner/repo|url|path>"; local url repo
   case "$spec" in
     http*|git@*|file://*) url=$spec; repo=$(_clone_repo_name "$spec");;
@@ -210,8 +243,10 @@ cmd_delrepo(){
   local -a worktrees=() external=()
   while IFS= read -r worktree; do
     [ "$worktree" = "$d" ] && continue
+    # A compatible path is not proof of ownership. Only branches created or
+    # migrated by Workframe carry a managed ref; leave every other worktree alone.
     case "$worktree" in
-      "$WORK"/*) worktrees+=("$worktree");;
+      "$WORK/$repo"/*) _managed_worktree "$repo" "$worktree" && worktrees+=("$worktree") || external+=("$worktree");;
       *) external+=("$worktree");;
     esac
   done < <(_worktree_paths "$d")
@@ -225,10 +260,11 @@ cmd_delrepo(){
   if [ ${#external[@]} -gt 0 ]; then
     for worktree in "${external[@]}"; do printf '  outside the store: %s\n' "$worktree"; done
     if [ "$force" != "--force" ]; then
-      printf 'REFUSED: %s worktree(s) live outside workspaces/ — remove them yourself, or pass --force to delete the repository and leave their files in place\n' "${#external[@]}"
+      printf 'REFUSED: %s worktree(s) are not Workframe-managed — remove them yourself before deleting the repository\n' "${#external[@]}"
       return 3
     fi
-    printf 'note: leaving %s worktree(s) outside workspaces/ on disk\n' "${#external[@]}"
+    printf 'REFUSED: %s worktree(s) are not Workframe-managed — deleting the canonical would break them\n' "${#external[@]}"
+    return 3
   fi
   local n=${#worktrees[@]} i=0
   for worktree in "${worktrees[@]}"; do
@@ -266,7 +302,8 @@ cmd_clean(){ local force="${1:-}"; local -a repo_list=(); local r; for r in $(_r
     [ "$n" -gt 0 ] && _prog "scanning repos" $(( ri * 100 / n )) || _prog "scanning $r" 50
     git -C "$d" fetch --prune --quiet 2>/dev/null || { warn "skip $r (fetch failed)"; continue; }
     while IFS= read -r worktree; do
-      case "$worktree" in "$WORK"/*) ;; *) continue;; esac; local rel=${worktree#"$WORK"/}; _is_agent "${rel%%/*}" || continue
+      case "$worktree" in "$WORK/$r"/*) ;; *) continue;; esac
+      _managed_worktree "$r" "$worktree" || continue
       if [ ! -e "$worktree/.git" ]; then
         printf '  %sorphan%s   %s\n' "$YEL" "$N" "$worktree"
         if [ "$force" = "--yes" ]; then
@@ -314,31 +351,35 @@ cmd_archive(){
   # containment check even though it names a managed worktree.
   [ -d "$worktree" ] && worktree=$(cd -P "$worktree" 2>/dev/null && pwd -P || printf '%s' "$worktree")
   case "$worktree" in "$WORK"/*) ;; *) die "refusing: not under workspaces/";; esac
-  local rel=${worktree#"$WORK"/} repo; repo=${rel%%/*}; if [ ! -d "$REPOS/$repo/.git" ]; then _is_agent "$repo" || die "not a Workframe workspace"; repo=$(printf '%s' "$rel" | cut -d/ -f2); fi; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
+  local rel=${worktree#"$WORK"/} repo; repo=${rel%%/*}; case "$rel" in "$repo"/*/*) die "not a Workframe workspace";; esac; [ -d "$REPOS/$repo/.git" ] || die "not a Workframe workspace"; [ -e "$worktree/.git" ] || die "not a worktree: $worktree"
   _prog "checking status" 25
   [ -n "$(git -C "$worktree" status --porcelain 2>/dev/null)" ] && [ "$force" != "--force" ] && {
     printf 'DIRTY: uncommitted changes — commit first, or archive --force to discard them\n'
     return 3
   }
   local br; br=$(git -C "$worktree" branch --show-current 2>/dev/null)
+  _managed_branch "$repo" "$br" || die "not a Workframe-managed workspace"
   _prog "archiving worktree" 70
   git -C "$(_canon "$repo")" worktree remove --force "$worktree" || die "worktree remove failed"; _prog "finishing" 100
   printf 'archived: %s\n' "$br"; }
-# archived: branches with an agent prefix that have NO worktree (the "archive" list).
+# archived: non-default branches with no managed worktree.
 cmd_archived(){ local r d
   for r in $(_repos_all); do d=$(_canon "$r")
     local checked base; checked=$(git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}'); base=$(_default_branch "$r")
     git -C "$d" for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null | while read -r br; do
-      [ "$br" = "$base" ] && continue; printf '%s\n' "$checked" | grep -qxF "$br" && continue
-      printf '%s\t%s\t%s\t%s\n' "${br%%/*}" "$r" "$br" "$(git -C "$d" log -1 --format='%cr' "$br" 2>/dev/null)"
+      [ "$br" = "$base" ] && continue
+      _managed_branch "$r" "$br" || continue
+      printf '%s\n' "$checked" | grep -qxF "$br" && continue
+      printf '%s\t%s\t%s\n' "$r" "$br" "$(git -C "$d" log -1 --format='%cr' "$br" 2>/dev/null)"
     done; done; }
 # restore: recreate a worktree on an EXISTING (archived) branch, in a fresh city folder.
 cmd_restore(){ local repo="${1:-}" branch="${2:-}"; [ -n "$repo" ] && [ -n "$branch" ] || die "usage: restore <repo> <branch>"
   local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"
   git -C "$d" show-ref --verify --quiet "refs/heads/$branch" || die "no such branch: $branch"
-  local agent=${branch%%/*} city worktree_dir
+  local city worktree_dir
   _ensure_relpaths "$repo"
-  if _is_agent "$agent"; then city=$(_pick_city "$agent" "$repo"); worktree_dir="$WORK/$agent/$repo/$city"; else city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"; fi
+  city=$(_pick_city "$repo"); worktree_dir="$WORK/$repo/$city"
+  _managed_branch "$repo" "$branch" || die "branch is not managed by Workframe"
   mkdir -p "$(dirname "$worktree_dir")"; git -C "$d" worktree add "$worktree_dir" "$branch" >&2 || die "worktree add failed"
   local ex; ex=$(git -C "$worktree_dir" rev-parse --git-path info/exclude 2>/dev/null)
   [ -n "$ex" ] && for cdir in $CACHE_DIRS; do grep -qxF "/$cdir" "$ex" 2>/dev/null || printf '/%s\n' "$cdir" >> "$ex"; done
@@ -354,19 +395,180 @@ cmd_rmbranch(){
     esac
   done
   [ -n "$repo" ] && [ -n "$branch" ] || die "usage: rmbranch <repo> <branch>"
-  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"; _is_agent "${branch%%/*}" || die "not an agent branch: $branch"
+  local d; d=$(_canon "$repo"); [ -d "${d}/.git" ] || die "no canonical repo: $repo"
+  _managed_branch "$repo" "$branch" || die "branch is not managed by Workframe"
   _prog "checking branch" 30
   git -C "$d" worktree list --porcelain 2>/dev/null | awk '/^branch /{sub("refs/heads/","",$2); print $2}' | grep -qxF "$branch" && die "branch is active (worktree exists) — archive it first"
   _prog "deleting branch" 80
-  git -C "$d" branch -D "$branch" >/dev/null 2>&1 && { _prog "finishing" 100; printf 'removed branch: %s\n' "$branch"; } || die "branch delete failed"; }
+  git -C "$d" branch -D "$branch" >/dev/null 2>&1 || die "branch delete failed"
+  _unregister_branch "$repo" "$branch" || warn "branch deleted, but could not clear workspace ownership"
+  _prog "finishing" 100
+  printf 'removed branch: %s\n' "$branch"; }
 cmd_list(){ local rows; rows=$(cmd_worktrees)
-  printf '  %s%-8s %-12s %-22s %-6s %-9s %s%s\n' "$W" AGENT REPO FEATURE DIRTY AHD/BEH CITY "$N"
+  printf '  %s%-12s %-22s %-6s %-9s %s%s\n' "$W" REPO TASK DIRTY AHD/BEH CITY "$N"
   [ -z "$rows" ] && { printf '  %sno worktrees yet — try: workframe new%s\n' "$DIM" "$N"; return; }
-  printf '%s\n' "$rows" | while IFS=$'\t' read -r ag repo city worktree br; do local base; base=$(_default_branch "$repo")
-    local feat dv dc dcell ab; feat=${br#*/}; [ ${#feat} -gt 22 ] && feat="${feat:0:20}.."
+  printf '%s\n' "$rows" | while IFS=$'\t' read -r repo city worktree br; do local base; base=$(_default_branch "$repo")
+    local task dv dc dcell ab; task=$br; [ ${#task} -gt 22 ] && task="${task:0:20}.."
     if [ -n "$(git -C "$worktree" status --porcelain 2>/dev/null)" ]; then dv=yes; dc=$YEL; else dv="-"; dc=$DIM; fi; printf -v dcell '%-6s' "$dv"
     ab=$(git -C "$worktree" rev-list --left-right --count "origin/$base...HEAD" 2>/dev/null | awk '{printf "+%s/-%s",$2,$1}')
-    printf '  %s%-8s%s %-12s %s%-22s%s %s%s%s %-9s %s%s%s\n' "$GRN" "$ag" "$N" "$repo" "$W" "$feat" "$N" "$dc" "$dcell" "$N" "${ab:-?}" "$DIM" "$city" "$N"; done; }
+    printf '  %-12s %s%-22s%s %s%s%s %-9s %s%s%s\n' "$repo" "$W" "$task" "$N" "$dc" "$dcell" "$N" "${ab:-?}" "$DIM" "$city" "$N"; done; }
+
+_legacy_agent_configured(){
+  local want=$1 a
+  for a in $LEGACY_AGENTS; do [ "$a" = "$want" ] && return 0; done
+  return 1
+}
+
+_migration_rollback(){
+  local operations=$1 kind a b c
+  while IFS=$'\t' read -r kind a b c; do
+    case "$kind" in
+      unregister) git -C "$a" update-ref -d "refs/workframe/managed/$b" >/dev/null 2>&1 || true;;
+      rename) git -C "$a" branch -m "$c" "$b" >/dev/null 2>&1 || true;;
+      move) git -C "$a" worktree move "$c" "$b" >/dev/null 2>&1 || true;;
+    esac
+  done <<< "$operations"
+}
+
+# Restore configuration files captured before a migration's Git operations.
+_migration_restore_config(){
+  local current=$1 current_backup=$2 current_exists=$3 legacy=$4 legacy_backup=$5 legacy_exists=$6
+  if [ "$current_exists" = 1 ]; then cp -p "$current_backup" "$current" || return 1; else rm -f -- "$current" || return 1; fi
+  [ "$legacy" = "$current" ] && return 0
+  if [ "$legacy_exists" = 1 ]; then cp -p "$legacy_backup" "$legacy" || return 1; else rm -f -- "$legacy" || return 1; fi
+}
+
+# Keep the test-only config failure seam next to the transactional migration path.
+_migration_save_config(){
+  [ "${WORKFRAME_MIGRATE_FAIL_CONFIG_SAVE:-0}" != 1 ] || return 1
+  _save_user_config
+}
+
+# Convert the pre-1.6 agent/repo/city layout without touching remotes or
+# Conductor. A config's old agents= value is the ownership proof for both active
+# worktrees and archived branches; unknown nested paths are refused, not guessed.
+cmd_migrate(){
+  local yes=0
+  case "${1:-}" in
+    "") ;;
+    --yes|-y) yes=1;;
+    -h|--help) printf 'usage: workframe migrate [--yes]\n'; return 0;;
+    *) die 'usage: workframe migrate [--yes]';;
+  esac
+  [ -n "$LEGACY_AGENTS" ] || die 'no legacy agents= configuration found; nothing to migrate'
+
+  local plans='' problems='' r d worktree rel agent repo city branch task dest existing plan_file
+  plan_file=$(mktemp "${TMPDIR:-/tmp}/workframe-migrate.XXXXXX") || die 'could not create migration plan'
+  for r in $(_repos_all); do
+    d=$(_canon "$r")
+    while IFS= read -r worktree; do
+      case "$worktree" in "$WORK"/*/*/*) ;; *) continue;; esac
+      rel=${worktree#"$WORK"/}; agent=${rel%%/*}; repo=${rel#*/}; repo=${repo%%/*}; city=${rel##*/}
+      case "$rel" in "$agent/$repo/$city") ;; *) problems="${problems}"$'\n'"invalid legacy workspace path: $worktree"; continue;; esac
+      [ "$repo" = "$r" ] || { problems="${problems}"$'\n'"workspace belongs under wrong repository: $worktree"; continue; }
+      _legacy_agent_configured "$agent" || { problems="${problems}"$'\n'"unknown legacy agent '$agent' at $worktree"; continue; }
+      [ -e "$worktree/.git" ] || { problems="${problems}"$'\n'"invalid legacy worktree: $worktree"; continue; }
+      branch=$(git -C "$worktree" branch --show-current 2>/dev/null)
+      case "$branch" in "$agent"/*) task=${branch#"$agent/"};; *) problems="${problems}"$'\n'"legacy workspace branch mismatch: $worktree ($branch)"; continue;; esac
+      [ -n "$task" ] || { problems="${problems}"$'\n'"empty legacy task branch: $branch"; continue; }
+      dest="$WORK/$repo/$city"
+      [ -e "$dest" ] && problems="${problems}"$'\n'"destination exists: $dest"
+      git -C "$d" show-ref --verify --quiet "refs/heads/$task" && problems="${problems}"$'\n'"target branch exists: $repo/$task"
+      plans="${plans}"$'\n'"active"$'\t'"$r"$'\t'"$worktree"$'\t'"$dest"$'\t'"$branch"$'\t'"$task"
+    done < <(_worktree_paths "$d")
+
+    for agent in $LEGACY_AGENTS; do
+      git -C "$d" for-each-ref --format='%(refname:short)' "refs/heads/$agent" 2>/dev/null | while IFS= read -r branch; do
+        [ -n "$branch" ] || continue
+        task=${branch#"$agent/"}
+        # Active branches are already represented above; they move with the worktree.
+        git -C "$d" worktree list --porcelain | grep -qx "branch refs/heads/$branch" && continue
+        git -C "$d" show-ref --verify --quiet "refs/heads/$task" && printf 'problem\t%s\t%s\n' "$r" "target branch exists: $r/$task" || printf 'archived\t%s\t%s\t%s\n' "$r" "$branch" "$task"
+      done
+    done
+  done > "$plan_file"
+  if [ -s "$plan_file" ]; then
+    while IFS=$'\t' read -r kind a b c; do
+      if [ "$kind" = problem ]; then problems="${problems}"$'\n'"$c"; else plans="${plans}"$'\n'"$kind"$'\t'"$a"$'\t'"$b"$'\t'"$c"; fi
+    done < "$plan_file"
+  fi
+  rm -f "$plan_file"
+  plans=$(printf '%s\n' "$plans" | sed '/^$/d')
+  problems=$(printf '%s\n' "$problems" | sed '/^$/d')
+  # Two old agents may have used the same task or city. Detect collisions across
+  # the complete plan, not only against state that existed before migration.
+  local targets='' destinations='' kind a b c d e key
+  while IFS=$'\t' read -r kind a b c d e; do
+    case "$kind" in
+      active)
+        key="$a"$'\t'"$e"
+        printf '%s\n' "$targets" | grep -qxF "$key" && problems="${problems}"$'\n'"multiple legacy branches map to: $a/$e"
+        targets="${targets}"$'\n'"$key"
+        key="$a"$'\t'"$c"
+        printf '%s\n' "$destinations" | grep -qxF "$key" && problems="${problems}"$'\n'"multiple legacy worktrees map to: $c"
+        destinations="${destinations}"$'\n'"$key"
+        ;;
+      archived)
+        key="$a"$'\t'"$c"
+        printf '%s\n' "$targets" | grep -qxF "$key" && problems="${problems}"$'\n'"multiple legacy branches map to: $a/$c"
+        targets="${targets}"$'\n'"$key"
+        ;;
+    esac
+  done <<< "$plans"
+  [ -z "$plans" ] && [ -z "$problems" ] && { ok 'no legacy workspaces or branches to migrate'; return 0; }
+  printf '%s\n' "$plans" | while IFS=$'\t' read -r kind a b c d e; do
+    case "$kind" in
+      active) printf '  active   %s  %s -> %s  %s -> %s\n' "$a" "$b" "$c" "$d" "$e";;
+      archived) printf '  archived %s  %s -> %s\n' "$a" "$b" "$c";;
+    esac
+  done
+  if [ -n "$problems" ]; then
+    printf '%s\n' "$problems" >&2
+    die 'migration refused; resolve every reported conflict before retrying'
+  fi
+  [ "$yes" = 1 ] || { printf 'dry run — rerun with: workframe migrate --yes\n'; return 0; }
+
+  local journal_dir="$ROOT/system/migrations" journal operations='' completed=0 fail_after=${WORKFRAME_MIGRATE_FAIL_AFTER:-0} repo_dir
+  local config_backup legacy_backup current_exists=0 legacy_exists=0
+  mkdir -p "$journal_dir" || die 'could not create migration journal directory'
+  journal=$(mktemp "$journal_dir/agent-layout.XXXXXX") || die 'could not create migration journal'
+  printf '# workframe legacy agent-layout migration\n' > "$journal" || die 'could not create migration journal'
+  config_backup=$(mktemp "$journal_dir/agent-layout-config.XXXXXX") || die 'could not snapshot migration config'
+  legacy_backup=$(mktemp "$journal_dir/agent-layout-legacy.XXXXXX") || die 'could not snapshot migration config'
+  if [ -f "$WORKFRAME_USER_CONFIG" ]; then cp -p "$WORKFRAME_USER_CONFIG" "$config_backup" || die 'could not snapshot migration config'; current_exists=1; fi
+  if [ "$WORKFRAME_LEGACY_CONFIG" != "$WORKFRAME_USER_CONFIG" ] && [ -f "$WORKFRAME_LEGACY_CONFIG" ]; then cp -p "$WORKFRAME_LEGACY_CONFIG" "$legacy_backup" || die 'could not snapshot migration config'; legacy_exists=1; fi
+  while IFS=$'\t' read -r kind a b c d e; do
+    case "$kind" in
+      active)
+        repo_dir=$(_canon "$a")
+        mkdir -p "$(dirname "$c")" || { _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; }
+        if ! git -C "$repo_dir" worktree move "$b" "$c"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'move\t%s\t%s\t%s\n' "$repo_dir" "$b" "$c" >> "$journal"; operations="move"$'\t'"$repo_dir"$'\t'"$b"$'\t'"$c"$'\n'"$operations"
+        if ! git -C "$repo_dir" branch -m "$d" "$e"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'rename\t%s\t%s\t%s\n' "$repo_dir" "$d" "$e" >> "$journal"; operations="rename"$'\t'"$repo_dir"$'\t'"$d"$'\t'"$e"$'\n'"$operations"
+        if ! _register_branch "$a" "$e"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'unregister\t%s\t%s\n' "$repo_dir" "$e" >> "$journal"; operations="unregister"$'\t'"$repo_dir"$'\t'"$e"$'\n'"$operations"
+        ;;
+      archived)
+        repo_dir=$(_canon "$a")
+        if ! git -C "$repo_dir" branch -m "$b" "$c"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'rename\t%s\t%s\t%s\n' "$repo_dir" "$b" "$c" >> "$journal"; operations="rename"$'\t'"$repo_dir"$'\t'"$b"$'\t'"$c"$'\n'"$operations"
+        if ! _register_branch "$a" "$c"; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+        printf 'unregister\t%s\t%s\n' "$repo_dir" "$c" >> "$journal"; operations="unregister"$'\t'"$repo_dir"$'\t'"$c"$'\n'"$operations"
+        ;;
+    esac
+    completed=$((completed + 1))
+    if [ "$fail_after" -gt 0 ] 2>/dev/null && [ "$completed" -ge "$fail_after" ]; then _migration_rollback "$operations"; die "migration failed; rolled back (journal: $journal)"; fi
+  done <<< "$plans"
+  LEGACY_AGENTS=''
+  if ! _migration_save_config; then
+    _migration_restore_config "$WORKFRAME_USER_CONFIG" "$config_backup" "$current_exists" "$WORKFRAME_LEGACY_CONFIG" "$legacy_backup" "$legacy_exists" || warn "could not restore configuration after failed migration"
+    _migration_rollback "$operations"
+    die "migration failed; rolled back (journal: $journal)"
+  fi
+  ok "migrated legacy workspaces and branches  ${DIM}$journal${N}"
+}
+
 cmd_status(){ local n disk; n=$(cmd_worktrees | wc -l | tr -d ' '); printf 'worktrees: %s\ncanonicals:\n' "$n"
   local r; for r in $(_repos_all); do printf '  %-14s %s\n' "$r" "$(git -C "$(_canon "$r")" log -1 --format='%h %cr' 2>/dev/null)"; done
   if [ ! -d "$ROOT" ]; then
@@ -382,9 +584,6 @@ cmd_doctor(){
   else
     warn "store not initialized at $ROOT — run workframe setup"
     initialized=0
-  fi
-  if [ "$initialized" = 1 ]; then
-    if _agents_configured; then ok "agents  ${DIM}$VALID_AGENTS${N}"; else warn "no agents configured — workframe agents add <name>"; fi
   fi
   command -v git >/dev/null 2>&1 && ok "git available" || err "git missing"
   if command -v gh >/dev/null 2>&1; then ok "gh available"; else warn "gh not installed (optional)"; fi

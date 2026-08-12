@@ -3,7 +3,7 @@
 check: lint test
 
 lint:
-	shellcheck -x bin/workframe install.sh lib/*.sh contrib/mount-workframe.sh assets/build.sh
+	shellcheck -x bin/workframe install.sh lib/*.sh assets/build.sh
 
 test:
 	bats -r test

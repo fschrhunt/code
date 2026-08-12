@@ -18,18 +18,19 @@ _workframe() {
     'remove:permanently remove a branch or repo'
     'repos:list repositories'
     'worktrees:machine-readable workspace listing'
-    'agents:manage agents'
     'status:show store status'
     'doctor:diagnose or repair a local store'
     'config:configure preferences'
     'sync:update repositories'
     'clean:clean stale worktrees'
+    'migrate:migrate legacy agent workspaces'
     'update:update Workframe'
     'completion:print shell completion'
   )
   if (( CURRENT == 2 )); then _describe -t commands 'workframe command' commands; return; fi
   case $words[2] in
-    (list) _arguments '--agent[filter by agent]:agent:' '--repo[filter by repo]:repo:' '--dirty[only dirty worktrees]' '--json[JSON output]' 'archived[show archived work]' ;;
+    (list) _arguments '--repo[filter by repo]:repo:' '--dirty[only dirty worktrees]' '--json[JSON output]' 'archived[show archived work]' ;;
+    (migrate) _arguments '--yes[apply migration]' ;;
     (status|repos|worktrees) _arguments '--json[JSON output]' ;;
     (doctor) _arguments '--fix[apply safe local repairs]' ;;
     (completion) _values 'shell' bash zsh fish ;;
