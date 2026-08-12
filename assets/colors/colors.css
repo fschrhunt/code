@@ -1,23 +1,4 @@
-/* Workframe brand tokens. Terminal values mirror lib/palette.sh. */
 :root {
-  /* Brand */
-  --wf-acid: #f0fb29;
-  --wf-ink: #202020;
+  --wf-ink: #09090b;
   --wf-white: #ffffff;
-
-  /* Terminal palette (lib/palette.sh) */
-  --wf-terminal-accent: var(--wf-acid);
-  --wf-teal: #5ecacb;
-  --wf-grey: #aaaaaa;
-
-  /* Default surface pairing */
-  --wf-bg: var(--wf-acid);
-  --wf-fg: var(--wf-ink);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --wf-bg: var(--wf-ink);
-    --wf-fg: var(--wf-acid);
-  }
 }
