@@ -9,6 +9,12 @@ Notable changes to Workframe are documented here. The project follows
 
 ### Changed
 
+- Made `new` refresh the repository's default branch before creating a task and
+  refuse stale work if it cannot fetch; `--offline` explicitly uses the cached
+  remote ref for disconnected work.
+- Replaced the favicon with the square monochrome frame and restored its 16%
+  rounded corners.
+
 - Made `new` emit only its workspace path and removed Git's worktree chatter,
   so `cd "$(workframe new <repo> <task>)"` enters the new workspace cleanly.
 - Relicensed Workframe under MIT and removed the Code of Conduct from the

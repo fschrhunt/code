@@ -1,4 +1,5 @@
-<svg width="751" height="601" viewBox="0 0 751 601" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+<svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
   <title id="title">Workframe</title>
-  <path fill-rule="evenodd" clip-rule="evenodd" d="M750.221 0H0V600.221H750.221V0ZM600.221 150H150.221V450.221L600.221 450V150Z" fill="#09090B"/>
+  <rect width="800" height="800" rx="125" fill="#09090B"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M686 171H113V629H686V171ZM571.434 285.458H227.735V514.542L571.434 514.374V285.458Z" fill="#FFFFFF"/>
 </svg>
