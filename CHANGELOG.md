@@ -5,6 +5,11 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Relicensed Workframe under MIT and removed the Code of Conduct from the
+  repository's community files.
+
 ## 2.0.0
 
 ### Breaking changes
