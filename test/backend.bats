@@ -19,6 +19,36 @@ setup() {
   git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/fix-login
 }
 
+@test "new starts from the freshly fetched default branch" {
+  local origin="$BATS_TEST_TMPDIR/demo-origin.git" seed="$BATS_TEST_TMPDIR/demo-seed"
+  printf 'fresh\n' >> "$seed/README.md"
+  git -C "$seed" add README.md
+  git -C "$seed" commit -qm fresh
+  git -C "$seed" push -q origin main
+
+  run "$WORKFRAME" new demo fresh-tip
+  [ "$status" -eq 0 ]
+  local ws; ws=$(_workspace_path <<<"$output")
+  [ "$(git -C "$ws" rev-parse HEAD)" = "$(git -C "$origin" rev-parse main)" ]
+}
+
+@test "new refuses stale work when it cannot fetch" {
+  git -C "$WORKFRAME_HOME/repos/demo" remote set-url origin "$BATS_TEST_TMPDIR/missing-origin.git"
+
+  run "$WORKFRAME" new demo requires-fetch
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"could not refresh 'demo'"* ]]
+  [ -z "$(git -C "$WORKFRAME_HOME/repos/demo" branch --list requires-fetch)" ]
+}
+
+@test "new offline uses the local remote ref" {
+  git -C "$WORKFRAME_HOME/repos/demo" remote set-url origin "$BATS_TEST_TMPDIR/missing-origin.git"
+
+  run "$WORKFRAME" new --offline demo disconnected
+  [ "$status" -eq 0 ]
+  [ -e "$(_workspace_path <<<"$output")/.git" ]
+}
+
 @test "new prints only its workspace path" {
   run "$WORKFRAME" new demo clean-output
   [ "$status" -eq 0 ]
@@ -29,7 +59,7 @@ setup() {
 @test "new accepts only repo and task" {
   run "$WORKFRAME" new codex demo fix-login
   [ "$status" -ne 0 ]
-  [[ "$output" == *'usage: new <repo> <task>'* ]]
+  [[ "$output" == *'usage: new [--offline] <repo> <task>'* ]]
 }
 
 @test "worktrees uses four stable TSV fields" {
