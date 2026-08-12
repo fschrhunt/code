@@ -24,9 +24,9 @@ cd "$(ws new pi-cloud)"
 git status --short --branch
 ```
 
-Without an explicit task name, Workspaces chooses an unused US state capital
-for both the folder and branch, such as
-`<root>/worktrees/pi-cloud/salem`. Pass a name when you want one:
+Without an explicit task name, Workspaces chooses an unused world capital for
+both the folder and branch, such as
+`<root>/worktrees/pi-cloud/reykjavik`. Pass a name when you want one:
 `ws new pi-cloud colored-logo`.
 
 The task shares Git history with the base repository but has independent working
@@ -35,7 +35,7 @@ files and a separate branch.
 ## Finish a task
 
 ```bash
-ws remove pi-cloud/salem
+ws remove pi-cloud/reykjavik
 ```
 
 Removal keeps the branch and refuses uncommitted changes. `--force` explicitly

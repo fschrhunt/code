@@ -16,5 +16,5 @@ Inspect
 
 Repositories live in ~/workspaces/repos by default. Task worktrees live in
 ~/workspaces/worktrees/<repo>/<task>. Without a task name, `new` chooses an
-unused US state capital. `ws` is the short alias for `workspaces`. Workspaces
+unused world capital. `ws` is the short alias for `workspaces`. Workspaces
 only removes worktrees it created.

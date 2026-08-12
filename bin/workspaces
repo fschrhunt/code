@@ -164,7 +164,7 @@ Inspect
 
 Repositories live in ~/workspaces/repos by default. Task worktrees live in
 ~/workspaces/worktrees/<repo>/<task>. Without a task name, `new` chooses an
-unused US state capital. `ws` is the short alias for `workspaces`. Workspaces
+unused world capital. `ws` is the short alias for `workspaces`. Workspaces
 only removes worktrees it created.
 EOF
 }
@@ -222,17 +222,33 @@ cmd_clone(){
   printf '%s\n' "$destination"
 }
 
-# Pick an unused US state capital for an unnamed task.
+# Pick an unused world capital for an unnamed task.
 _random_task(){
   local repo=$1 canonical=$2 count start i candidate
   local capitals=(
-    montgomery juneau phoenix little-rock sacramento denver hartford dover
-    tallahassee atlanta honolulu boise springfield indianapolis des-moines
-    topeka frankfort baton-rouge augusta annapolis boston lansing saint-paul
-    jackson jefferson-city helena lincoln carson-city concord trenton santa-fe
-    albany raleigh bismarck columbus oklahoma-city salem harrisburg providence
-    columbia pierre nashville austin salt-lake-city montpelier richmond olympia
-    charleston madison cheyenne
+    kabul tirana algiers andorra-la-vella luanda saint-johns buenos-aires yerevan
+    canberra vienna baku nassau manama dhaka bridgetown minsk brussels belmopan
+    porto-novo thimphu sucre sarajevo gaborone brasilia bandar-seri-begawan sofia
+    ouagadougou gitega praia phnom-penh yaounde ottawa bangui ndjamena santiago
+    beijing bogota moroni brazzaville san-jose yamoussoukro zagreb havana nicosia
+    prague kinshasa copenhagen djibouti roseau santo-domingo quito cairo
+    san-salvador malabo asmara tallinn mbabane addis-ababa suva helsinki paris
+    libreville banjul tbilisi berlin accra athens saint-georges guatemala-city
+    conakry bissau georgetown port-au-prince tegucigalpa budapest reykjavik
+    new-delhi jakarta tehran baghdad dublin jerusalem rome kingston tokyo amman
+    astana nairobi south-tarawa pyongyang seoul kuwait-city bishkek vientiane
+    riga beirut maseru monrovia tripoli vaduz vilnius luxembourg antananarivo
+    lilongwe kuala-lumpur male bamako valletta majuro nouakchott port-louis
+    mexico-city palikir chisinau monaco ulaanbaatar podgorica rabat maputo
+    naypyidaw windhoek yaren kathmandu amsterdam wellington managua niamey abuja
+    skopje oslo muscat islamabad ngerulmud ramallah panama-city port-moresby
+    asuncion lima manila warsaw lisbon doha bucharest moscow kigali basseterre
+    castries kingstown apia san-marino sao-tome riyadh dakar belgrade victoria
+    freetown singapore bratislava ljubljana honiara mogadishu pretoria juba
+    madrid sri-jayawardenepura-kotte khartoum paramaribo stockholm bern damascus
+    dushanbe dodoma bangkok dili lome nukualofa port-of-spain tunis ankara
+    ashgabat funafuti kampala kyiv abu-dhabi london washington-dc montevideo
+    tashkent port-vila vatican-city caracas hanoi sanaa lusaka harare
   )
   count=${#capitals[@]}
   start=$((RANDOM % count))

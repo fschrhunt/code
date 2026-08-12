@@ -24,7 +24,7 @@ path=$(ws new pi)
 cd "$path"
 ```
 
-Without a task name, `new` chooses an unused US state capital for both the
+Without a task name, `new` chooses an unused world capital for both the
 folder and branch, then prints the authoritative path. An explicit
 `ws new pi fix-auth` creates `worktrees/pi/fix-auth`; existing inactive branches
 can be reattached. If an explicitly named task folder is occupied, a numeric

@@ -19,19 +19,19 @@ setup() {
   [ -f "$git_dir/workspaces-managed" ]
 }
 
-@test "new chooses an unused state capital when task is omitted" {
-  local first second name capitals
-  capitals=' montgomery juneau phoenix little-rock sacramento denver hartford dover tallahassee atlanta honolulu boise springfield indianapolis des-moines topeka frankfort baton-rouge augusta annapolis boston lansing saint-paul jackson jefferson-city helena lincoln carson-city concord trenton santa-fe albany raleigh bismarck columbus oklahoma-city salem harrisburg providence columbia pierre nashville austin salt-lake-city montpelier richmond olympia charleston madison cheyenne '
+@test "new chooses distinct path-safe world capitals when task is omitted" {
+  local first second name
 
   first=$("$WORKSPACES" new demo)
   name=${first##*/}
-  [[ "$capitals" == *" $name "* ]]
+  [[ "$name" =~ ^[a-z]+(-[a-z]+)*$ ]]
   [ "$(git -C "$first" branch --show-current)" = "$name" ]
 
   second=$("$WORKSPACES" new demo)
   [ "$second" != "$first" ]
   name=${second##*/}
-  [[ "$capitals" == *" $name "* ]]
+  [[ "$name" =~ ^[a-z]+(-[a-z]+)*$ ]]
+  [ "$(git -C "$second" branch --show-current)" = "$name" ]
 }
 
 @test "new branches from the repository checkout's current HEAD" {

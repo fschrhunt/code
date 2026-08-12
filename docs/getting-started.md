@@ -38,11 +38,11 @@ cd "$(ws new pi)"
 git status --short --branch
 ```
 
-Without a task argument, Workspaces chooses an unused US state capital for both
+Without a task argument, Workspaces chooses an unused world capital for both
 the folder and branch. A result might be:
 
 ```text
-~/workspaces/worktrees/pi/salem
+~/workspaces/worktrees/pi/reykjavik
 ```
 
 Use `ws new pi fix-auth` when you want an explicit name. A new task branch
@@ -56,7 +56,7 @@ share files; each editing task needs its own returned worktree path.
 ## Finish a task
 
 ```bash
-ws remove pi/salem
+ws remove pi/reykjavik
 ```
 
 Removal deletes the task checkout but retains its branch. It refuses dirty work;

@@ -18,7 +18,7 @@ Notable changes to Workspaces are documented here. The project follows
 ### Added
 
 - Make the task argument to `new` optional. When omitted, Workspaces chooses an
-  unused US state capital for both the task folder and branch.
+  unused world capital for both the task folder and branch.
 - Install `ws` as a short alias for the `workspaces` command, including shell
   completion support.
 

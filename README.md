@@ -56,11 +56,11 @@ cd "$(ws new pi)"
 git status --short --branch
 ```
 
-When no task is supplied, Workspaces chooses an unused US state capital for
-both the folder and branch. For example, the command may print:
+When no task is supplied, Workspaces chooses an unused world capital for both
+the folder and branch. For example, the command may print:
 
 ```text
-~/workspaces/worktrees/pi/salem
+~/workspaces/worktrees/pi/reykjavik
 ```
 
 Pass an explicit name when you want one: `ws new pi fix-auth` creates the
@@ -70,7 +70,7 @@ Work there, commit normally, and use your ordinary Git hosting workflow. When
 the checkout is no longer needed:
 
 ```bash
-ws remove pi/salem
+ws remove pi/reykjavik
 ```
 
 Removal keeps the branch. It refuses uncommitted changes unless you explicitly
@@ -80,7 +80,7 @@ add `--force`.
 
 ```text
 ws clone owner/repo       Clone into repos/<repo>
-ws new repo [task]        Create a task; omit its name to use a state capital
+ws new repo [task]        Create a task; omit its name to use a world capital
 ws list                   Show base repositories and managed task worktrees
 ws remove repo/task       Remove a clean task checkout, but keep its branch
 ws doctor                 Check Git and local worktree metadata

@@ -29,8 +29,8 @@ resulting path to stdout.
 ## `new`
 
 Creates a task worktree from the repository checkout's current `HEAD`. Without
-a task argument, it chooses an unused lowercase US state capital for both the
-folder and branch. Multiword capitals use hyphens, such as `salt-lake-city`.
+a task argument, it chooses an unused lowercase world capital for both the
+folder and branch. Multiword capitals use hyphens, such as `buenos-aires`.
 
 With an explicit task, it creates `<root>/worktrees/<repo>/<task>`. If that task
 folder is occupied, a numeric suffix keeps the new path distinct. If the local
