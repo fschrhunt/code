@@ -33,7 +33,7 @@ available. These are targets rather than a service-level agreement.
 ## Security model
 
 Workframe runs with the invoking user's permissions and manages Git repositories,
-worktrees, configuration, and optional shared-store connections. Treat its
-configuration and credential seed files as private local state. Review
+worktrees and local configuration. Treat its configuration files as private
+local state. Review
 destructive commands before confirming them, and test automation against a
 disposable `WORKFRAME_HOME`.

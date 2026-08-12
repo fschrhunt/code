@@ -1,82 +1,29 @@
-# Core concepts
+# Concepts
 
-Workframe is a thin control plane over Git worktrees. It keeps repository
-storage predictable while giving every agent and task an isolated directory.
-
-## Store
-
-The store is the root containing canonical clones, active worktrees, and
-system data. Local mode defaults to `~/workframe`; `WORKFRAME_HOME` can point a
-process at another root.
+A Workframe store has one canonical clone per repository and any number of
+owned task worktrees:
 
 ```text
-~/workframe/
-├── repos/
-├── workspaces/
-└── system/
-    ├── config/workframe.conf
-    └── logs/
+repos/<repo>/
+workspaces/<repo>/<city>/
 ```
 
-## Canonical repository
+The generated city is only a collision-free directory name. A workspace's
+identity is `repo/task`, where `task` is its Git branch.
 
-Each managed repository has one canonical clone under `repos/<repo>`. Workframe
-uses it to fetch branches and create or remove worktrees. Day-to-day editing
-happens in workspaces, not in the canonical clone.
+## Ownership and Conductor boundary
 
-## Workspace
+Conductor creates standard Git worktrees too. Its documented local layout is
+usually `~/conductor/workspaces/<repo>/<workspace>`, while its chats, reviews,
+and archive state are associated with the workspace outside Git. A generic Git
+worktree has no universal, stable marker saying who created it.
 
-A workspace is a Git worktree under:
+Workframe does not inspect Conductor's private application state or guess from
+paths, branch names, `.conductor` settings, or checkpoint refs. Instead it
+writes `refs/workframe/managed/<task>` in the canonical repository whenever it
+creates or migrates a task. Lifecycle commands require that positive ownership
+record. Unmarked worktrees—including Conductor and manually created Git
+worktrees—are ignored and cannot be changed by Workframe.
 
-```text
-workspaces/<agent>/<repo>/<city>
-```
-
-The city is a stable folder label chosen when the workspace is created. The
-branch remains the durable identity.
-
-## Agent
-
-An agent is a configured identity used as the first branch segment:
-
-```text
-<agent>/<feature>
-```
-
-For example, `codex/fix-login` belongs to the `codex` identity. Workframe
-requires an explicit configured identity and never silently chooses one.
-
-## Selector
-
-Interactive commands can resolve a workspace by:
-
-- Full path
-- `repo/feature`
-- City label
-- Interactive selection when `gum` and a terminal are available
-
-Ambiguous selectors are rejected rather than guessed.
-
-## Archive versus remove
-
-Archive is reversible: it removes the worktree folder and keeps the branch.
-Restore recreates the folder. Remove is permanent and has separate branch and
-repository forms.
-
-## Local and shared profiles
-
-Local mode executes store operations in-process. Shared mode constructs a
-quoted SSH command that executes the backend at
-`$BOX_ROOT/system/bin/workframe`, while the frontend uses the mounted path to
-open files locally.
-
-Profile choice does not change the public lifecycle commands.
-
-## Safety boundaries
-
-Workframe validates repository names, constrains worktree operations to the
-configured store, refuses risky deletion by default, and treats `--force` as
-an explicit request to discard otherwise protected state.
-
-Continue with the [workspace lifecycle](guides/workspace-lifecycle.md) or
-[configuration reference](reference/configuration.md).
+This is intentionally asymmetric: Workframe can prove its own ownership, but
+does not claim to identify somebody else's workspace.

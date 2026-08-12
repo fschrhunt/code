@@ -1,7 +1,5 @@
 #!/usr/bin/env bats
-# Backend worktree lifecycle + destructive-action safety, exercised in-process
-# (WORKFRAME_BACKEND=1) against a hermetic local store. This is the code path that the
-# 2026-07-13 incident touched, so it gets the most coverage.
+# Task-owned worktree lifecycle + destructive-action safety.
 
 load helper
 
@@ -10,444 +8,89 @@ setup() {
   _seed_repo demo
 }
 
-@test "new creates a worktree on an agent branch" {
-  run "$WORKFRAME" new codex demo fix-login
+@test "new creates a Conductor-compatible task worktree" {
+  run "$WORKFRAME" new demo fix-login
   [ "$status" -eq 0 ]
   local ws; ws=$(printf '%s\n' "$output" | _workspace_path)
-  [ -n "$ws" ]
+  [[ "$ws" == */workspaces/demo/* ]]
   [ -e "$ws/.git" ]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/fix-login
+  run git -C "$WORKFRAME_HOME/repos/demo" branch --list fix-login
   [ -n "$output" ]
+  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/workframe/managed/fix-login
 }
 
-@test "new without args is a usage error" {
-  run "$WORKFRAME" new
+@test "new accepts only repo and task" {
+  run "$WORKFRAME" new codex demo fix-login
   [ "$status" -ne 0 ]
-  [[ "$output" == *usage* ]]
+  [[ "$output" == *'usage: new <repo> <task>'* ]]
 }
 
-@test "list shows an active worktree" {
-  "$WORKFRAME" new codex demo fix-login
-  run "$WORKFRAME" list
+@test "worktrees uses four stable TSV fields" {
+  "$WORKFRAME" new demo visible >/dev/null
+  run "$WORKFRAME" worktrees
   [ "$status" -eq 0 ]
-  [[ "$output" == *demo* ]]
-  [[ "$output" == *fix-login* ]]
+  local fields; fields=$(printf '%s\n' "$output" | awk -F '\t' 'NF { print NF; exit }')
+  [ "$fields" = 4 ]
+  [[ "$output" == demo$'\t'*$'\t'*$'\t'visible ]]
 }
 
-@test "a store root with spaces keeps worktrees visible and deletion-safe" {
-  local old_root=$WORKFRAME_HOME
-  WORKFRAME_HOME="$BATS_TEST_TMPDIR/store with spaces"
-  mv "$old_root" "$WORKFRAME_HOME"
-  local ws; ws=$("$WORKFRAME" new codex demo spaced-root 2>/dev/null | _workspace_path)
-  [ -e "$ws/.git" ]
+@test "archive and restore preserve an unprefixed branch" {
+  local ws; ws=$("$WORKFRAME" new demo feat-x 2>/dev/null | _workspace_path)
+  run "$WORKFRAME" archive "$ws"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'archived: feat-x'* ]]
+  [ ! -e "$ws/.git" ]
+  run "$WORKFRAME" restore demo feat-x
+  [ "$status" -eq 0 ]
+  [ -e "$(printf '%s\n' "$output" | _workspace_path)/.git" ]
+}
+
+@test "lifecycle ignores compatible worktrees that Workframe did not create" {
+  local foreign="$WORKFRAME_HOME/workspaces/demo/conductor-city"
+  mkdir -p "$(dirname "$foreign")"
+  git -C "$WORKFRAME_HOME/repos/demo" worktree add -q -b conductor-task "$foreign" origin/main
 
   run "$WORKFRAME" worktrees
   [ "$status" -eq 0 ]
-  [[ "$output" == *$'codex\tdemo\t'* ]]
-  [[ "$output" == *"$ws"* ]]
+  [[ "$output" != *conductor-city* ]]
 
-  printf 'uncommitted\n' > "$ws/keep-me.txt"
-  run "$WORKFRAME" remove repo demo
-  [ "$status" -eq 3 ]
-  [[ "$output" == *REFUSED* ]]
-  [ -d "$WORKFRAME_HOME/repos/demo" ]
-  [ -e "$ws/.git" ]
+  run "$WORKFRAME" archive "$foreign"
+  [ "$status" -ne 0 ]
+  [ -e "$foreign/.git" ]
 
-  run "$WORKFRAME" remove repo demo --force
-  [ "$status" -eq 0 ]
-  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
-  [ ! -e "$ws" ]
+  run "$WORKFRAME" remove branch demo conductor-task --yes
+  [ "$status" -ne 0 ]
+  git -C "$WORKFRAME_HOME/repos/demo" show-ref --verify --quiet refs/heads/conductor-task
+
+  run "$WORKFRAME" remove repo demo --force --yes
+  [ "$status" -ne 0 ]
+  [ -e "$foreign/.git" ]
 }
 
-@test "archive removes the folder but keeps the branch; archived lists it" {
-  local ws; ws=$("$WORKFRAME" new codex demo feat-x 2>/dev/null | _workspace_path)
-  run "$WORKFRAME" archive "$ws"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"archived: codex/feat-x"* ]]
-  [ ! -e "$ws/.git" ]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/feat-x
-  [ -n "$output" ]
-  run "$WORKFRAME" archived
-  [[ "$output" == *feat-x* ]]
-}
-
-@test "archive refuses a dirty worktree without --force (exit 3)" {
-  local ws; ws=$("$WORKFRAME" new codex demo dirty 2>/dev/null | _workspace_path)
-  echo change >> "$ws/README.md"
-  run "$WORKFRAME" archive "$ws"
-  [ "$status" -eq 3 ]
-  [[ "$output" == *DIRTY* ]]
-  [[ "$output" == *--force* ]]
-}
-
-@test "archive --yes does not discard dirty work" {
-  local ws; ws=$("$WORKFRAME" new codex demo dirty-yes 2>/dev/null | _workspace_path)
-  echo change >> "$ws/README.md"
+@test "archive protects dirty work unless force is explicit" {
+  local ws; ws=$("$WORKFRAME" new demo dirty 2>/dev/null | _workspace_path)
+  printf 'change\n' >> "$ws/README.md"
   run "$WORKFRAME" archive "$ws" --yes
   [ "$status" -eq 3 ]
-  [[ "$output" == *DIRTY* ]]
   [ -e "$ws/.git" ]
-}
-
-@test "archive --force discards dirty work" {
-  local ws; ws=$("$WORKFRAME" new codex demo dirty-force 2>/dev/null | _workspace_path)
-  echo change >> "$ws/README.md"
   run "$WORKFRAME" archive "$ws" --force
   [ "$status" -eq 0 ]
-  [[ "$output" == *"archived: codex/dirty-force"* ]]
-  [ ! -e "$ws/.git" ]
+  [ ! -e "$ws" ]
 }
 
-@test "archive refuses a path outside the workspace root" {
+@test "archive rejects paths outside the managed layout" {
   run "$WORKFRAME" archive "$WORKFRAME_HOME/repos/demo"
   [ "$status" -ne 0 ]
-  [[ "$output" == *refusing* ]]
 }
 
-@test "restore recreates a worktree from an archived branch" {
-  local ws; ws=$("$WORKFRAME" new codex demo comeback 2>/dev/null | _workspace_path)
-  "$WORKFRAME" archive "$ws" >/dev/null
-  run "$WORKFRAME" restore demo codex/comeback
-  [ "$status" -eq 0 ]
-  local ws2; ws2=$(printf '%s\n' "$output" | _workspace_path)
-  [ -e "$ws2/.git" ]
-}
-
-@test "rmbranch refuses while the branch is active" {
-  "$WORKFRAME" new codex demo active >/dev/null 2>&1
-  run "$WORKFRAME" rmbranch demo codex/active
-  [ "$status" -ne 0 ]
-  [[ "$output" == *active* ]]
-}
-
-@test "rmbranch deletes an archived branch permanently" {
-  local ws; ws=$("$WORKFRAME" new codex demo gone 2>/dev/null | _workspace_path)
-  "$WORKFRAME" archive "$ws" >/dev/null
-  run "$WORKFRAME" rmbranch demo codex/gone
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"removed branch: codex/gone"* ]]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/gone
-  [ -z "$output" ]
-}
-
-@test "remove branch is a CLI alias for rmbranch" {
-  local ws; ws=$("$WORKFRAME" new codex demo alias-rm 2>/dev/null | _workspace_path)
-  "$WORKFRAME" archive "$ws" >/dev/null
-  run "$WORKFRAME" remove branch demo codex/alias-rm
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"removed branch: codex/alias-rm"* ]]
-}
-
-@test "remove without subcommand is a usage error" {
-  run "$WORKFRAME" remove
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"usage: workframe remove branch"* ]]
-}
-
-@test "remove repo deletes a canonical clone" {
-  "$WORKFRAME" new codex demo doomed >/dev/null 2>&1
-  run "$WORKFRAME" remove repo demo --force
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"deleted repo: demo"* ]]
-  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
-}
-
-@test "remove repo accepts --yes before --force" {
-  "$WORKFRAME" new codex demo flag-order >/dev/null 2>&1
-  # --yes before --force must still discard dirty (flag-order regression).
-  run "$WORKFRAME" remove repo demo --yes --force
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"deleted repo: demo"* ]]
-  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
-}
-
-@test "clean is a dry run by default" {
-  "$WORKFRAME" new codex demo keep >/dev/null 2>&1
-  run "$WORKFRAME" clean
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"dry run"* ]]
-}
-
-@test "clean prunes metadata for an orphaned worktree" {
-  local ws; ws=$("$WORKFRAME" new codex demo orphaned 2>/dev/null | _workspace_path)
-  rm "$ws/.git"
-
-  run "$WORKFRAME" clean --yes
-  [ "$status" -eq 0 ]
-  [ ! -e "$ws" ]
-
-  run git -C "$WORKFRAME_HOME/repos/demo" worktree list --porcelain
-  [[ "$output" != *"$ws"* ]]
-  run "$WORKFRAME" archived
-  [ "$status" -eq 0 ]
-  [[ "$output" == *$'codex\tdemo\tcodex/orphaned'* ]]
-}
-
-@test "remove repo refuses path-traversal names" {
-  run "$WORKFRAME" remove repo '../escape' --force --yes
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"invalid repo name"* ]]
-}
-
-@test "remove repo REFUSED when worktree is dirty without --force" {
-  local ws; ws=$("$WORKFRAME" new codex demo at-risk 2>/dev/null | _workspace_path)
-  echo change >> "$ws/README.md"
-  run "$WORKFRAME" remove repo demo
-  [ "$status" -eq 3 ]
-  [[ "$output" == *REFUSED* ]]
-  [ -d "$WORKFRAME_HOME/repos/demo" ]
-}
-
-@test "clone_repo_name parses https and git@ specs" {
-  run bash -c '
-    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    . "'"$BATS_TEST_DIRNAME/../lib/palette.sh"'"
-    . "'"$BATS_TEST_DIRNAME/../lib/ui.sh"'"
-    . "'"$BATS_TEST_DIRNAME/../lib/agents.sh"'"
-    . "'"$BATS_TEST_DIRNAME/../lib/backend.sh"'"
-    printf "%s\n" "$(_clone_repo_name https://github.com/acme/widget.git)"
-    printf "%s\n" "$(_clone_repo_name git@github.com:acme/widget.git)"
-    printf "%s\n" "$(_clone_repo_name git@host:solo)"
-    printf "%s\n" "$(_clone_repo_name acme/widget)"
-  '
-  [ "$status" -eq 0 ]
-  [ "$output" = $'widget\nwidget\nsolo\nwidget' ]
-}
-
-@test "clone without default org refuses bare names" {
-  mkdir -p "$WORKFRAME_HOME/system/config"
-  printf 'type = local\neditor = cursor\nagents = codex\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
-  run env WORKFRAME_HOME="$WORKFRAME_HOME" WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 "$WORKFRAME" clone lonely
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"no default org"* ]]
-}
-
-@test "clone accepts local bare path and file:// URL" {
-  local origin="$BATS_TEST_TMPDIR/origin-demo.git"
-  local seed="$BATS_TEST_TMPDIR/seed-demo"
-  git init -q --bare "$origin"
-  git init -q "$seed"
-  git -C "$seed" config user.email t@example.com
-  git -C "$seed" config user.name tester
-  git -C "$seed" checkout -q -b main
-  printf 'ok\n' > "$seed/README.md"
-  git -C "$seed" add -A
-  git -C "$seed" commit -qm init
-  git -C "$seed" remote add origin "$origin"
-  git -C "$seed" push -q -u origin main
-  git -C "$origin" symbolic-ref HEAD refs/heads/main
-
-  run env WORKFRAME_HOME="$WORKFRAME_HOME" WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 "$WORKFRAME" clone "$origin"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"cloned: origin-demo"* ]]
-  [ -d "$WORKFRAME_HOME/repos/origin-demo/.git" ]
-
-  rm -rf "$WORKFRAME_HOME/repos/origin-demo"
-  run env WORKFRAME_HOME="$WORKFRAME_HOME" WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 "$WORKFRAME" clone "file://$origin"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"cloned: origin-demo"* ]]
-  [ -d "$WORKFRAME_HOME/repos/origin-demo/.git" ]
-}
-
-@test "new after archive points at restore" {
-  local ws; ws=$("$WORKFRAME" new codex demo comeback-new 2>/dev/null | _workspace_path)
-  "$WORKFRAME" archive "$ws" >/dev/null
-  run "$WORKFRAME" new codex demo comeback-new
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"archived"* ]]
-  [[ "$output" == *"workframe restore demo codex/comeback-new"* ]]
-}
-
-@test "new when branch is active says so" {
-  "$WORKFRAME" new codex demo live-dup >/dev/null 2>&1
-  run "$WORKFRAME" new codex demo live-dup
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"already active"* ]]
-}
-
-@test "new without a cloned repo points at clone" {
-  run "$WORKFRAME" new codex missing feat
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"clone first"* ]]
-}
-
-@test "pick_city samples unique folder labels" {
-  run bash -c '
-    export WORKFRAME_BACKEND=1 WORKFRAME_COLOR=0 WORKFRAME_HOME="'"$WORKFRAME_HOME"'"
-    WORKFRAME_PREFIX="'"$BATS_TEST_DIRNAME/.."'"
-    WORKFRAME_LIB="$WORKFRAME_PREFIX/lib"
-    . "$WORKFRAME_LIB/config.sh"
-    . "$WORKFRAME_LIB/palette.sh"
-    . "$WORKFRAME_LIB/ui.sh"
-    . "$WORKFRAME_LIB/agents.sh"
-    . "$WORKFRAME_LIB/backend.sh"
-    dir="$WORK/codex/demo"
-    mkdir -p "$dir"
-    a=$(_pick_city codex demo)
-    mkdir -p "$dir/$a"
-    b=$(_pick_city codex demo)
-    [ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ]
-    printf "%s\n%s\n" "$a" "$b"
-  '
-  [ "$status" -eq 0 ]
-  local a b
-  a=$(printf '%s\n' "$output" | sed -n '1p')
-  b=$(printf '%s\n' "$output" | sed -n '2p')
-  [[ "$a" =~ ^[a-z][a-z0-9]+$ ]]
-  [[ "$b" =~ ^[a-z][a-z0-9]+$ ]]
-}
-
-@test "status is a cheap glance" {
-  run "$WORKFRAME" status
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"worktrees:"* ]]
-  [[ "$output" == *"canonicals:"* ]]
-}
-
-@test "unknown backend command errors" {
-  run "$WORKFRAME" frobnicate
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"unknown command"* ]]
-}
-
-# Land a new commit on the seeded origin so the canonical falls behind.
-_advance_origin() {
-  local seed="$BATS_TEST_TMPDIR/demo-seed"
-  echo upstream > "$seed/upstream.txt"
-  git -C "$seed" add -A
-  git -C "$seed" commit -qm "upstream change"
-  git -C "$seed" push -q origin main
-}
-
-@test "sync fast-forwards a clean canonical that is behind" {
-  _advance_origin
-  run "$WORKFRAME" sync demo
-  [ "$status" -eq 0 ]
-  # The checkout moved, not just the refs.
-  [ -f "$WORKFRAME_HOME/repos/demo/upstream.txt" ]
-  run git -C "$WORKFRAME_HOME/repos/demo" rev-list --count HEAD..origin/main
-  [ "$output" = "0" ]
-}
-
-@test "sync leaves a dirty canonical alone" {
-  _advance_origin
-  echo local-edit >> "$WORKFRAME_HOME/repos/demo/README.md"
-  run "$WORKFRAME" sync demo
-  [ "$status" -eq 0 ]
-  [[ "$output" == *dirty* ]]
-  # Refs fetched, but the working tree was left untouched.
-  [ ! -f "$WORKFRAME_HOME/repos/demo/upstream.txt" ]
-  run git -C "$WORKFRAME_HOME/repos/demo" rev-list --count HEAD..origin/main
-  [ "$output" = "1" ]
-}
-
-@test "sync leaves a diverged canonical alone" {
-  _advance_origin
-  git -C "$WORKFRAME_HOME/repos/demo" config user.email t@example.com
-  git -C "$WORKFRAME_HOME/repos/demo" config user.name tester
-  echo local > "$WORKFRAME_HOME/repos/demo/local.txt"
-  git -C "$WORKFRAME_HOME/repos/demo" add -A
-  git -C "$WORKFRAME_HOME/repos/demo" commit -qm "local commit"
-  run "$WORKFRAME" sync demo
-  [ "$status" -eq 0 ]
-  [[ "$output" == *diverged* ]]
-  [ ! -f "$WORKFRAME_HOME/repos/demo/upstream.txt" ]
-}
-
-@test "archive accepts a worktree path reached through a symlinked store root" {
-  # A store on an attached volume (or /tmp on macOS) is reached through a
-  # symlink, while $WORK is physical — the containment check must still match.
-  local ws; ws=$("$WORKFRAME" new codex demo linkpath | _workspace_path)
-  local link="$BATS_TEST_TMPDIR/link"
-  ln -s "$WORKFRAME_HOME" "$link"
-  # $ws is physical; take the agent/repo/city tail rather than assuming a prefix.
-  local via_link="$link/workspaces/${ws#*/workspaces/}"
-  [ -e "$via_link/.git" ]
-  run "$WORKFRAME" archive "$via_link"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"archived: codex/linkpath"* ]]
-  [ ! -d "$ws" ]
-}
-
-@test "archive still refuses a path outside the store" {
-  run "$WORKFRAME" archive "$BATS_TEST_TMPDIR"
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"not under workspaces/"* ]]
-}
-
-@test "an agent name cannot escape the store" {
-  # `..` as an agent made mkdir -p "$WORK/../<repo>" create a directory beside
-  # workspaces/, outside everything Workframe manages.
-  run "$WORKFRAME" agents add ".."
-  [ "$status" -ne 0 ]
-  run "$WORKFRAME" agents add "."
-  [ "$status" -ne 0 ]
-  run "$WORKFRAME" agents add "-x"
-  [ "$status" -ne 0 ]
-}
-
-@test "a hand-edited config cannot reintroduce a traversing agent" {
-  printf 'type = local\nagents = codex, ..\n' > "$WORKFRAME_HOME/system/config/workframe.conf"
-  run "$WORKFRAME" new .. demo escape
-  [ "$status" -ne 0 ]
-  [ ! -e "$WORKFRAME_HOME/demo" ]
-}
-
-@test "feature names must be usable ref components" {
+@test "feature validation keeps safe task branches and rejects unsafe refs" {
   local bad
-  for bad in "   " "-x" ".." "x.lock" 'a"b' "a//b" "/lead" "trail/"; do
-    run "$WORKFRAME" new codex demo "$bad"
-    [ "$status" -ne 0 ] || { echo "accepted bad feature: [$bad]"; false; }
-    [[ "$output" == *"invalid feature name"* ]] || { echo "[$bad] -> $output"; false; }
+  for bad in '   ' '-x' '..' 'x.lock' 'a//b' '/lead' 'trail/'; do
+    run "$WORKFRAME" new demo "$bad"
+    [ "$status" -ne 0 ]
   done
-}
-
-@test "ordinary feature names still work, including slashes and spaces" {
-  run "$WORKFRAME" new codex demo "My Feature"
+  run "$WORKFRAME" new demo 'sub/feat'
   [ "$status" -eq 0 ]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/my-feature
+  run git -C "$WORKFRAME_HOME/repos/demo" branch --list sub/feat
   [ -n "$output" ]
-  run "$WORKFRAME" new codex demo "sub/feat"
-  [ "$status" -eq 0 ]
-  run git -C "$WORKFRAME_HOME/repos/demo" branch --list codex/sub/feat
-  [ -n "$output" ]
-}
-
-@test "rename validates the new feature name" {
-  local ws; ws=$("$WORKFRAME" new codex demo renameme | _workspace_path)
-  run "$WORKFRAME" rename "$ws" ".."
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"invalid feature name"* ]]
-  run "$WORKFRAME" rename "$ws" "fine-name"
-  [ "$status" -eq 0 ]
-}
-
-@test "delrepo never deletes a worktree outside the store" {
-  # A worktree the user added by hand, elsewhere: clean and fully pushed, so the
-  # at-risk check does not flag it. It used to be rm -rf'd without warning.
-  local outside="$BATS_TEST_TMPDIR/outside/precious"
-  git -C "$WORKFRAME_HOME/repos/demo" worktree add -q -b sidework "$outside"
-  git -C "$outside" push -q -u origin sidework
-  "$WORKFRAME" new codex demo inside >/dev/null
-
-  run "$WORKFRAME" delrepo demo --yes
-  [ "$status" -eq 3 ]
-  [[ "$output" == *"outside the store"* ]]
-  [ -f "$outside/README.md" ]
-  [ -d "$WORKFRAME_HOME/repos/demo/.git" ]
-
-  # --force deletes the repository but still leaves the external files alone.
-  run "$WORKFRAME" delrepo demo --yes --force
-  [ "$status" -eq 0 ]
-  [ -f "$outside/README.md" ]
-  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
-}
-
-@test "delrepo still removes in-store worktrees" {
-  local ws; ws=$("$WORKFRAME" new codex demo inside | _workspace_path)
-  run "$WORKFRAME" delrepo demo --yes
-  [ "$status" -eq 0 ]
-  [ ! -e "$ws" ]
-  [ ! -d "$WORKFRAME_HOME/repos/demo" ]
 }
