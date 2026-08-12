@@ -2,38 +2,24 @@
 
 ## Supported versions
 
-Security fixes are applied to the latest released minor version of Workframe.
-Users should update before reporting behavior that may already be fixed.
-
-| Version | Supported |
-|---|---|
-| 2.0.x | Yes |
-| Earlier versions | No |
+Security fixes are applied to the latest released Workspaces version. Users
+should update before reporting behavior that may already be fixed.
 
 ## Report a vulnerability
 
-Do not open a public issue for a suspected vulnerability.
+Do not open a public issue. Use GitHub's
+[private vulnerability reporting](https://github.com/fschrhunt/workspaces/security/advisories/new)
+and include the affected version, platform, smallest safe reproduction, impact,
+and any suggested remediation. Remove credentials, private paths, hostnames,
+and user data.
 
-Use GitHub's
-[private vulnerability reporting](https://github.com/fschrhunt/workframe/security/advisories/new)
-to send the maintainers a confidential report. Include:
-
-- the affected Workframe version and platform;
-- the smallest safe reproduction;
-- the impact and any preconditions;
-- suggested remediation, if known.
-
-Remove real credentials, private hostnames, addresses, and user data. Use
-clearly fake placeholders in reproductions.
-
-The maintainers will acknowledge a report within seven days, provide an initial
-assessment within fourteen days, and coordinate disclosure after a fix is
-available. These are targets rather than a service-level agreement.
+The maintainers aim to acknowledge reports within seven days and provide an
+initial assessment within fourteen days. These are targets, not a service-level
+agreement.
 
 ## Security model
 
-Workframe runs with the invoking user's permissions and manages Git repositories,
-worktrees and local configuration. Treat its configuration files as private
-local state. Review
-destructive commands before confirming them, and test automation against a
-disposable `WORKFRAME_HOME`.
+Workspaces runs with the invoking user's permissions. It clones repositories and
+creates or removes linked Git worktrees. Removal requires a worktree-specific
+ownership marker and refuses uncommitted changes unless `--force` is explicit.
+Test automation against a disposable `WORKSPACES_ROOT`.

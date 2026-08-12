@@ -1,91 +1,72 @@
 #!/usr/bin/env bats
-# Default local store is ~/workframe. Existing pre-Workframe stores are untouched.
+# Root selection defaults to ~/workspaces and ignores the retired namespace.
 
 load helper
 
-@test "default WORKFRAME_USER_DIR is HOME/workframe when WORKFRAME_HOME unset" {
-  local user_home="$BATS_TEST_TMPDIR/home"
-  mkdir -p "$user_home"
-  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WORKFRAME_USER_DIR"
-  '
+setup() { _use_test_root; }
+
+@test "default root is HOME/workspaces" {
+  local home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$home"
+
+  run env -u XDG_CONFIG_HOME -u WORKSPACES_ROOT HOME="$home" "$WORKSPACES" root
+
   [ "$status" -eq 0 ]
-  [ "$output" = "$user_home/workframe" ]
+  [ "$output" = "$home/workspaces" ]
 }
 
-@test "pre-Workframe store is ignored and left untouched" {
-  local user_home="$BATS_TEST_TMPDIR/home"
-  local old_name old_store
-  old_name=$(printf '%s%s' w t)
-  old_store="$user_home/$old_name"
-  mkdir -p "$old_store/repos"
-  echo "type = local" > "$old_store/config"
-  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WORKFRAME_USER_DIR"
-  '
-  [ "$status" -eq 0 ]
-  [ "$output" = "$user_home/workframe" ]
-  [ -d "$old_store/repos" ]
-  [ ! -e "$user_home/workframe" ]
-}
-
-@test "WORKFRAME_HOME override skips the default store" {
-  local user_home="$BATS_TEST_TMPDIR/home"
+@test "WORKSPACES_ROOT overrides the saved and default roots" {
   local override="$BATS_TEST_TMPDIR/override"
   mkdir -p "$override"
-  run env -u XDG_CONFIG_HOME -u WORKFRAME_BACKEND HOME="$user_home" WORKFRAME_HOME="$override" bash -c '
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WORKFRAME_USER_DIR"
-  '
+  override=$(cd -P "$override" && pwd)
+
+  run env WORKSPACES_ROOT="$override" "$WORKSPACES" root
+
   [ "$status" -eq 0 ]
   [ "$output" = "$override" ]
-  [ ! -e "$user_home/workframe" ]
 }
 
-@test "saved root locator selects a custom store" {
-  local user_home="$BATS_TEST_TMPDIR/home"
-  local selected="$BATS_TEST_TMPDIR/selected"
-  mkdir -p "$user_home/.config/workframe" "$selected"
-  printf '%s\n' "$selected" > "$user_home/.config/workframe/root"
+@test "relative WORKSPACES_ROOT is rejected" {
+  run env WORKSPACES_ROOT=relative/path "$WORKSPACES" root
 
-  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WORKFRAME_USER_DIR"
-  '
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'invalid WORKSPACES_ROOT'* ]]
+}
+
+@test "saved root selects a custom collection" {
+  local selected="$BATS_TEST_TMPDIR/selected"
+  mkdir -p "$XDG_CONFIG_HOME/workspaces" "$selected"
+  selected=$(cd -P "$selected" && pwd)
+  printf '%s\n' "$selected" > "$XDG_CONFIG_HOME/workspaces/root"
+  unset WORKSPACES_ROOT
+
+  run "$WORKSPACES" root
 
   [ "$status" -eq 0 ]
   [ "$output" = "$selected" ]
 }
 
-@test "invalid root locator falls back to HOME/workframe" {
-  local user_home="$BATS_TEST_TMPDIR/home"
-  mkdir -p "$user_home/.config/workframe"
-  printf '%s\n' relative/path > "$user_home/.config/workframe/root"
+@test "invalid saved root falls back to HOME/workspaces" {
+  local home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$XDG_CONFIG_HOME/workspaces" "$home"
+  printf 'relative/path\n' > "$XDG_CONFIG_HOME/workspaces/root"
+  unset WORKSPACES_ROOT
 
-  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" bash -c '
-    . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-    printf "%s\n" "$WORKFRAME_USER_DIR"
-  '
+  run env HOME="$home" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" "$WORKSPACES" root
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$user_home/workframe" ]
+  [ "$output" = "$home/workspaces" ]
 }
 
-@test "pre-Workframe environment namespace is ignored" {
-  local user_home="$BATS_TEST_TMPDIR/home"
-  local old_prefix old_override
-  old_prefix=$(printf '%s%s' W T)
-  old_override="$BATS_TEST_TMPDIR/pre-workframe"
-  mkdir -p "$user_home" "$old_override"
+@test "old Workframe roots and environment variables remain untouched" {
+  local home="$BATS_TEST_TMPDIR/home" old="$BATS_TEST_TMPDIR/old"
+  mkdir -p "$home/workframe" "$old"
+  printf 'keep\n' > "$home/workframe/marker"
+  unset WORKSPACES_ROOT
 
-  run env -u XDG_CONFIG_HOME -u WORKFRAME_HOME -u WORKFRAME_BACKEND HOME="$user_home" \
-    "${old_prefix}_HOME=$old_override" bash -c '
-      . "'"$BATS_TEST_DIRNAME/../lib/config.sh"'"
-      printf "%s\n" "$WORKFRAME_USER_DIR"
-    '
+  run env HOME="$home" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" WORKFRAME_HOME="$old" "$WORKSPACES" root
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$user_home/workframe" ]
+  [ "$output" = "$home/workspaces" ]
+  [ "$(cat "$home/workframe/marker")" = keep ]
 }

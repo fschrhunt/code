@@ -15,4 +15,4 @@
 
 - [ ] No public command behavior changed.
 - [ ] `CHANGELOG.md` has an Unreleased entry when user-visible behavior changed.
-- [ ] No secrets, private infrastructure, generated local state, or Conductor application state is included.
+- [ ] No secrets, private infrastructure, or generated local state is included.

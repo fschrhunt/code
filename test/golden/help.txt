@@ -1,30 +1,18 @@
-Workframe — owned Git worktrees for parallel tasks.
+Workspaces — ordinary Git repositories with isolated task checkouts.
 
 Start
-  workframe setup [--root <path>] [--org <name>]
-  workframe clone <owner/repo | url | path>
-  workframe new [--offline] <repo> <task>
-  workframe sync [--all | <repo>]
-  workframe update
+  workspaces setup [--root <path>]
+  workspaces clone <owner/repo | url | path>
 
 Work
-  workframe list [archived] [--repo <name>] [--dirty] [--json]
-  workframe path <repo/task | branch | path>
-  workframe current
-  workframe run <repo/task | branch | path> -- <command> [args...]
-
-Lifecycle
-  workframe archive <selector> --yes [--force]
-  workframe restore <repo> <task>
-  workframe remove branch <repo> <task> --yes
-  workframe migrate [--yes]
+  workspaces new <repo> <task>
+  workspaces list
+  workspaces remove <repo/task | path> [--force]
 
 Inspect
-  workframe repos
-  workframe worktrees [--json]
-  workframe status
-  workframe doctor
+  workspaces root
+  workspaces doctor
+  workspaces version
 
-Workframe only manages branches it created or migrated. They are recorded in
-private Git refs; unmarked Git worktrees, including Conductor workspaces, are
-never listed or changed. Use `wf` as a short alias.
+Repositories live directly in ~/workspaces by default. Task worktrees are named
+siblings, such as pi-fix-auth. Workspaces only removes worktrees it created.
