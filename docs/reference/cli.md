@@ -18,8 +18,10 @@ workframe status
 workframe doctor
 ```
 
-All commands are non-interactive and write their result to stdout. Human list
-output is one workspace per line; use `--json` or `worktrees` for scripts.
+All commands are non-interactive and write their result to stdout. `new` writes
+only its new workspace path, so use `cd "$(workframe new <repo> <task>)"` to
+enter it. Human list output is one workspace per line; use `--json` or
+`worktrees` for scripts.
 
 A selector is an exact workspace path, a branch name when unique, or
 `repo/task`. City folder names are not selectors.
