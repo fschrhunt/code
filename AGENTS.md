@@ -2,8 +2,8 @@
 
 ## Product boundary
 
-Workspaces is a small local CLI for normal repository checkouts at the collection
-root and isolated task worktrees beneath `worktrees/<repo>/<task>`. Its complete
+Workspaces is a small local CLI for normal repository checkouts beneath
+`repos/<repo>` and isolated task worktrees beneath `worktrees/<repo>/<task>`. Its complete
 job is to select a root, clone repositories, create task worktrees, list them,
 remove them safely, and diagnose local Git metadata.
 
@@ -14,8 +14,8 @@ package-management behavior, or automatic Git synchronization.
 ## Safety
 
 - Work only in an isolated Git worktree and preserve unrelated changes.
-- Top-level repository checkouts are task bases, not agent editing locations.
-  When started in one, run `workspaces new <repo> <task>` and continue only in
+- Repository checkouts beneath `repos/` are task bases, not agent editing locations.
+  When started in one, run `workspaces new <repo> [task]` and continue only in
   the exact returned path before changing files.
 - Never create task directories manually or place them at the collection root.
 - A task worktree is owned only when its private Git administrative directory

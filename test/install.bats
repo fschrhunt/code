@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-@test "development installer links only workspaces" {
+@test "development installer links workspaces and ws" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   local expected
   expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workspaces"
@@ -9,6 +9,7 @@
 
   [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/workspaces")" = "$expected" ]
+  [ "$(readlink "$bindir/ws")" = "$expected" ]
   [ ! -e "$bindir/workframe" ]
   [ ! -e "$bindir/wf" ]
 }
@@ -24,12 +25,40 @@
   [ "$(cat "$bindir/workspaces")" = keep ]
 }
 
-@test "installed command reports the Workspaces version" {
+@test "development installer refuses an existing ws file before changing either command" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  mkdir -p "$bindir"
+  printf 'keep\n' > "$bindir/ws"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -ne 0 ]
+  [ "$(cat "$bindir/ws")" = keep ]
+  [ ! -e "$bindir/workspaces" ]
+}
+
+@test "development installer refuses an unrelated ws symlink" {
+  local bindir="$BATS_TEST_TMPDIR/bin" other="$BATS_TEST_TMPDIR/other-command"
+  mkdir -p "$bindir"
+  printf '#!/bin/sh\n' > "$other"
+  ln -s "$other" "$bindir/ws"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -ne 0 ]
+  [ "$(readlink "$bindir/ws")" = "$other" ]
+  [ ! -e "$bindir/workspaces" ]
+}
+
+@test "installed commands report the Workspaces version" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   "$BATS_TEST_DIRNAME/../install.sh" "$bindir" >/dev/null
 
   run "$bindir/workspaces" version
+  [ "$status" -eq 0 ]
+  [ "$output" = "workspaces $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 
+  run "$bindir/ws" version
   [ "$status" -eq 0 ]
   [ "$output" = "workspaces $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }
@@ -64,6 +93,7 @@ SCRIPT
 
   [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/workspaces")" = "$install_root/$version/bin/workspaces" ]
-  run "$bindir/workspaces"
+  [ "$(readlink "$bindir/ws")" = "$install_root/$version/bin/workspaces" ]
+  run "$bindir/ws"
   [ "$output" = 'workspaces fixture' ]
 }

@@ -11,8 +11,11 @@ load helper
 @test "help describes repositories and nested task worktrees" {
   run "$WORKSPACES" help
   [ "$status" -eq 0 ]
-  [[ "$output" == *'workspaces new <repo> <task>'* ]]
+  [[ "$output" == *'workspaces new <repo> [task]'* ]]
+  [[ "$output" == *'~/workspaces/repos'* ]]
   [[ "$output" == *'worktrees/<repo>/<task>'* ]]
+  [[ "$output" == *'unused US state capital'* ]]
+  [[ "$output" == *'`ws` is the short alias'* ]]
   [[ "$output" != *'archive'* ]]
   [[ "$output" != *'agent'* ]]
 }

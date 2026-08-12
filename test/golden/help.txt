@@ -5,7 +5,7 @@ Start
   workspaces clone <owner/repo | url | path>
 
 Work
-  workspaces new <repo> <task>
+  workspaces new <repo> [task]
   workspaces list
   workspaces remove <repo/task | path> [--force]
 
@@ -14,5 +14,7 @@ Inspect
   workspaces doctor
   workspaces version
 
-Repositories live directly in ~/workspaces by default. Task worktrees live at
-worktrees/<repo>/<task>. Workspaces only removes worktrees it created.
+Repositories live in ~/workspaces/repos by default. Task worktrees live in
+~/workspaces/worktrees/<repo>/<task>. Without a task name, `new` chooses an
+unused US state capital. `ws` is the short alias for `workspaces`. Workspaces
+only removes worktrees it created.

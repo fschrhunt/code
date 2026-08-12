@@ -3,7 +3,7 @@
 ```text
 workspaces setup [--root <path>]
 workspaces clone <owner/repo | url | path>
-workspaces new <repo> <task>
+workspaces new <repo> [task]
 workspaces list
 workspaces remove <repo/task | path> [--force]
 workspaces root
@@ -12,26 +12,31 @@ workspaces version
 workspaces help
 ```
 
+Every command is also available through the shorter `ws` executable.
+
 ## `setup`
 
-Creates the collection and its `README.md`. `--root` remembers a custom absolute
-path. Existing README content is never replaced. Setup is optional for the
-default `~/workspaces` root.
+Creates the collection's `README.md`, `repos/`, and `worktrees/`. `--root`
+remembers a custom absolute path. Existing README content is never replaced.
+Setup is optional for the default `~/workspaces` root.
 
 ## `clone`
 
-Creates a normal checkout directly at `<root>/<repo>`. It accepts a GitHub
+Creates a normal checkout at `<root>/repos/<repo>`. It accepts a GitHub
 `owner/repo`, Git URL, or local path. Clone progress is written to stderr and the
 resulting path to stdout.
 
 ## `new`
 
-Creates `<root>/worktrees/<repo>/<task>` from the repository checkout's current
-`HEAD`. If that task folder is occupied, a numeric suffix keeps the new path
-distinct. If the local branch exists and is inactive, it is reattached. If it is
-already active, `new` returns the existing managed task path or refuses a
-checkout outside `worktrees/<repo>/`. Task names are single path-safe
-components.
+Creates a task worktree from the repository checkout's current `HEAD`. Without
+a task argument, it chooses an unused lowercase US state capital for both the
+folder and branch. Multiword capitals use hyphens, such as `salt-lake-city`.
+
+With an explicit task, it creates `<root>/worktrees/<repo>/<task>`. If that task
+folder is occupied, a numeric suffix keeps the new path distinct. If the local
+branch exists and is inactive, it is reattached. If it is already active, `new`
+returns the existing managed task path or refuses a checkout outside
+`worktrees/<repo>/`. Explicit task names are single path-safe components.
 
 ## `list`
 

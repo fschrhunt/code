@@ -5,6 +5,28 @@ Notable changes to Workspaces are documented here. The project follows
 
 ## [Unreleased]
 
+## 4.0.0
+
+### Breaking changes
+
+- Base repository checkouts now live at `<root>/repos/<repo>` instead of
+  `<root>/<repo>`, leaving only `README.md`, `repos/`, and `worktrees/` at the
+  collection root. Existing checkouts are not moved automatically. Remove task
+  worktrees before moving a base checkout, or repair each retained task after
+  the move with `git -C <root>/repos/<repo> worktree repair <task-path>`.
+
+### Added
+
+- Make the task argument to `new` optional. When omitted, Workspaces chooses an
+  unused US state capital for both the task folder and branch.
+- Install `ws` as a short alias for the `workspaces` command, including shell
+  completion support.
+
+### Changed
+
+- Rewrote the project and generated collection READMEs around the directory
+  model, first task workflow, command reference, and removal safety contract.
+
 ## 3.0.1
 
 ### Changed

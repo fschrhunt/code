@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Workspaces keeps ordinary repositories at the root and task worktrees beneath worktrees/.
+# Workspaces keeps base repositories in repos/ and task worktrees beneath worktrees/.
 set -uo pipefail
 
 _src=${BASH_SOURCE[0]}
@@ -39,6 +39,7 @@ _select_root
 
 # Create the collection layout and its guide without replacing user content.
 _ensure_root(){
+  mkdir -p "$ROOT/repos" || _die "could not create $ROOT/repos"
   mkdir -p "$ROOT/worktrees" || _die "could not create $ROOT/worktrees"
   ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd) || _die "could not resolve $ROOT"
   if [ ! -e "$ROOT/README.md" ]; then
@@ -67,14 +68,14 @@ _name_ok(){
 
 _repo_path(){
   _name_ok "$1" || _die "invalid repository name '$1'"
-  printf '%s/%s' "$ROOT" "$1"
+  printf '%s/repos/%s' "$ROOT" "$1"
 }
 
-# Print normal repository checkouts immediately below the collection root.
+# Print normal repository checkouts from the collection's repos directory.
 _repositories(){
   local path name
-  [ -d "$ROOT" ] || return 0
-  for path in "$ROOT"/*; do
+  [ -d "$ROOT/repos" ] || return 0
+  for path in "$ROOT/repos"/*; do
     [ -d "$path/.git" ] || continue
     name=${path##*/}
     _name_ok "$name" && printf '%s\n' "$name"
@@ -152,7 +153,7 @@ Start
   workspaces clone <owner/repo | url | path>
 
 Work
-  workspaces new <repo> <task>
+  workspaces new <repo> [task]
   workspaces list
   workspaces remove <repo/task | path> [--force]
 
@@ -161,8 +162,10 @@ Inspect
   workspaces doctor
   workspaces version
 
-Repositories live directly in ~/workspaces by default. Task worktrees live at
-worktrees/<repo>/<task>. Workspaces only removes worktrees it created.
+Repositories live in ~/workspaces/repos by default. Task worktrees live in
+~/workspaces/worktrees/<repo>/<task>. Without a task name, `new` chooses an
+unused US state capital. `ws` is the short alias for `workspaces`. Workspaces
+only removes worktrees it created.
 EOF
 }
 
@@ -196,7 +199,7 @@ _clone_name(){
   printf '%s' "$name"
 }
 
-# Clone a normal checkout directly into the collection root.
+# Clone a normal checkout into the collection's repos directory.
 cmd_clone(){
   [ $# -eq 1 ] || _die 'usage: workspaces clone <owner/repo | url | path>'
   local source=$1 url name destination
@@ -211,23 +214,48 @@ cmd_clone(){
   fi
   name=$(_clone_name "$source")
   _name_ok "$name" || _die "invalid repository name '$name'"
-  [ "$name" != worktrees ] || _die "repository name 'worktrees' is reserved"
   _ensure_root
-  destination="$ROOT/$name"
+  destination="$ROOT/repos/$name"
   [ ! -e "$destination" ] || _die "destination already exists: $destination"
   git clone -- "$url" "$destination" >&2 || _die 'clone failed'
   git -C "$destination" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   printf '%s\n' "$destination"
 }
 
+# Pick an unused US state capital for an unnamed task.
+_random_task(){
+  local repo=$1 canonical=$2 count start i candidate
+  local capitals=(
+    montgomery juneau phoenix little-rock sacramento denver hartford dover
+    tallahassee atlanta honolulu boise springfield indianapolis des-moines
+    topeka frankfort baton-rouge augusta annapolis boston lansing saint-paul
+    jackson jefferson-city helena lincoln carson-city concord trenton santa-fe
+    albany raleigh bismarck columbus oklahoma-city salem harrisburg providence
+    columbia pierre nashville austin salt-lake-city montpelier richmond olympia
+    charleston madison cheyenne
+  )
+  count=${#capitals[@]}
+  start=$((RANDOM % count))
+  for ((i = 0; i < count; i++)); do
+    candidate=${capitals[$(((start + i) % count))]}
+    if ! git -C "$canonical" show-ref --verify --quiet "refs/heads/$candidate" &&
+      [ ! -e "$ROOT/worktrees/$repo/$candidate" ]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  _die "no unused capital names remain for '$repo' — pass an explicit task name"
+}
+
 # Create or reattach a task branch beneath worktrees/<repo>/.
 cmd_new(){
-  [ $# -eq 2 ] || _die 'usage: workspaces new <repo> <task>'
-  local repo=$1 task=$2 canonical destination active created_branch=0 git_dir
-  _name_ok "$task" || _die "invalid task name '$task'"
+  [ $# -ge 1 ] && [ $# -le 2 ] || _die 'usage: workspaces new <repo> [task]'
+  local repo=$1 task=${2:-} canonical destination active created_branch=0 git_dir
+  [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
   _ensure_root
   canonical=$(_repo_path "$repo") || exit $?
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
+  if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical") || exit $?; fi
   destination="$ROOT/worktrees/$repo/$task"
   active=$(_branch_worktree "$canonical" "$task" || true)
   if [ -n "$active" ]; then
