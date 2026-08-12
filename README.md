@@ -41,7 +41,8 @@ cd workframe
 ```bash
 workframe setup --root ~/workframe
 workframe clone owner/repo
-workframe new repo payment-retry
+cd "$(workframe new repo payment-retry)"
+git status --short --branch
 ```
 
 See [Getting started](docs/getting-started.md) for the complete workflow and
