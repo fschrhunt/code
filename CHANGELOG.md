@@ -5,6 +5,8 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
+## 2.0.1
+
 ### Changed
 
 - Made `new` emit only its workspace path and removed Git's worktree chatter,
