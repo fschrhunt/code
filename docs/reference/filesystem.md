@@ -4,13 +4,15 @@
 <root>/
 ├── README.md
 ├── <repo>/
-├── <repo>-<task>/
-└── <repo>-<other-task>/
+└── worktrees/
+    └── <repo>/
+        ├── <task>/
+        └── <other-task>/
 ```
 
-Repository directories are ordinary non-bare Git clones with a `.git/`
-directory. Task directories are linked Git worktrees with a `.git` file and are
-immediate siblings of their repository.
+Top-level repository directories are ordinary non-bare Git clones with a
+`.git/` directory. Task directories are linked Git worktrees with a `.git` file
+and live only beneath `worktrees/<repo>/`.
 
 The selected root is stored at:
 
@@ -18,6 +20,7 @@ The selected root is stored at:
 ${XDG_CONFIG_HOME:-~/.config}/workspaces/root
 ```
 
-Workspaces stores no configuration, logs, migration journals, clone cache, or
-nested worktree hierarchy inside the collection. Its ownership marker lives in
-the linked worktree's private Git administrative directory.
+The collection README documents the required workflow for people and automated
+coding sessions. Workspaces stores no logs, migration journals, or clone cache
+inside the collection. Its ownership marker lives in each linked worktree's
+private Git administrative directory.

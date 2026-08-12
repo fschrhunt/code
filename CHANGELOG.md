@@ -5,6 +5,15 @@ Notable changes to Workspaces are documented here. The project follows
 
 ## [Unreleased]
 
+## 3.0.1
+
+### Changed
+
+- Group task worktrees beneath `<root>/worktrees/<repo>/<task>` while keeping
+  normal repository checkouts at the collection root.
+- Expanded the collection README with the required task workflow for people and
+  automated coding sessions.
+
 ## 3.0.0
 
 ### Breaking changes

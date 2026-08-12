@@ -1,4 +1,4 @@
-# Shared hermetic fixtures for ordinary repositories and sibling task worktrees.
+# Shared hermetic fixtures for ordinary repositories and nested task worktrees.
 
 WORKSPACES="${BATS_TEST_DIRNAME}/../bin/workspaces"
 
