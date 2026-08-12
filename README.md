@@ -4,6 +4,8 @@
 
 # Workframe
 
+A local CLI for safe, owned Git task worktrees.
+
 Workframe gives each task an owned Git worktree. One canonical clone stays
 clean; each task gets its own branch and directory.
 
@@ -34,31 +36,33 @@ cd workframe
 ./install.sh                    # link this checkout into ~/.local/bin
 ```
 
-## Use
+## Start a task
 
 ```bash
 workframe setup --root ~/workframe
 workframe clone owner/repo
 workframe new repo payment-retry
-
-workframe path repo/payment-retry
-workframe archive repo/payment-retry --yes
-workframe restore repo payment-retry
 ```
 
-`wf` is the short alias. Run `workframe help` for the complete interface.
+See [Getting started](docs/getting-started.md) for the complete workflow and
+[the CLI reference](docs/reference/cli.md) for every command. `wf` is the short
+alias for `workframe`.
 
 ## Ownership
 
-Conductor and raw Git worktrees use the same Git primitive. Workframe does not
-guess ownership from their paths or branches. It records only its own branches
-in `refs/workframe/managed/*`, and lists or changes only those branches.
+Workframe acts only on branches it records in `refs/workframe/managed/*`.
+Conductor and manually created worktrees are unmarked and remain untouched. See
+[Concepts](docs/concepts.md#ownership-and-conductor-boundary) for the boundary.
 
-## Develop
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Run the
+full check before submitting a change:
 
 ```bash
 make check
 ```
 
-See [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), and
-[docs](docs/README.md).
+## Documentation
+
+See the [documentation index](docs/README.md) for guides and references.

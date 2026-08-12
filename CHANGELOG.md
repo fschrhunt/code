@@ -11,6 +11,9 @@ Notable changes to Workframe are documented here. The project follows
   so `cd "$(workframe new <repo> <task>)"` enters the new workspace cleanly.
 - Relicensed Workframe under MIT and removed the Code of Conduct from the
   repository's community files.
+- Reorganized the documentation around task workflows, references, and project
+  policies; simplified the store-local `WORKFRAME.md` guide for humans and
+  coding agents.
 
 ## 2.0.0
 
