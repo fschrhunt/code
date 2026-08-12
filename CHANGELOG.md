@@ -5,6 +5,12 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- A manually dispatched, protected release workflow that validates the version
+  and changelog, runs the complete check suite, then tags and publishes a
+  GitHub release. Merges to `main` remain CI-only.
+
 ### Changed
 
 - Replaced the Workframe mark and reduced the visual system to ink (`#09090B`)
