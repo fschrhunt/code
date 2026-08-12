@@ -33,3 +33,12 @@ _seed_repo() {
   git -C "$WORKSPACES_ROOT/repos/$name" config user.name tester
   git -C "$WORKSPACES_ROOT/repos/$name" config worktree.useRelativePaths true
 }
+
+# Move a fixture repo back to the pre-4.0 root layout and repair any task links.
+_make_legacy_repo() {
+  local name=${1:-demo} task_path=${2:-}
+  mv "$WORKSPACES_ROOT/repos/$name" "$WORKSPACES_ROOT/$name"
+  if [ -n "$task_path" ]; then
+    git -C "$WORKSPACES_ROOT/$name" worktree repair "$task_path" >/dev/null
+  fi
+}
