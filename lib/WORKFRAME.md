@@ -1,159 +1,117 @@
-# WORKFRAME.md — guide to this Workframe store
+# Workframe store guide
 
-This directory is a Workframe store: a safe place to keep one canonical clone
-of each repository and a separate Git worktree for each task. Read this guide
-before creating, changing, or cleaning up work here.
+This directory is a Workframe store. It holds canonical Git clones and isolated
+task worktrees. Read this guide before creating, changing, or removing work.
 
-## The short version
+## Rules
 
-1. Find or create a **task workspace**, not a clone in `repos/`.
-2. Do the work only in that workspace and follow its repository instructions.
-3. Inspect before acting; use reversible lifecycle commands by default.
-4. Commit, validate, and clearly report what remains when handing work off.
-
-Run `workframe help` for the complete command map. `wf` is the same command
-when it is installed.
-
-## Know where you are
+- Work in a task workspace under `workspaces/`, never in a canonical clone
+  under `repos/`.
+- Treat `system/` as private operational state. Do not edit or disclose it.
+- Read the workspace repository's `AGENTS.md`, `CONTRIBUTING.md`, and test
+  documentation before changing code. They take precedence over this guide.
+- Preserve existing changes. Do not inspect or change sibling workspaces unless
+  the task explicitly requires it.
+- Do not reconfigure a store with `workframe setup` unless the operator asks.
 
 ```text
 <store>/
-├── WORKFRAME.md                 this guide
-├── repos/<repo>/                canonical clones — do not develop here
-├── workspaces/<repo>/<city>/    active task worktrees
-└── system/                      configuration and operational state
+├── repos/<repo>/                 canonical clone; not a development directory
+├── workspaces/<repo>/<city>/     active task worktree
+└── system/                       private configuration and operational state
 ```
 
-Some older stores use `workspaces/<agent>/<repo>/<city>/`. Run
-`workframe migrate` for a dry-run conversion, then `workframe migrate --yes`
-only after it reports no conflicts.
+A task is identified as `repo/task`; `task` is the Git branch. The generated
+city name is a directory label, not an identifier to use in commands.
 
-Before editing, confirm the directory and branch:
+## Start or resume work
+
+Inspect before creating anything:
+
+```bash
+workframe list                    # active task workspaces
+workframe list --dirty            # active work with local changes
+workframe list archived           # branches available to restore
+workframe repos                   # canonical repository names
+workframe path <repo/task>        # one active workspace path
+```
+
+Create a canonical clone only when the repository is absent, then create the
+task workspace:
+
+```bash
+workframe clone <owner/repo | url | path>
+workframe new <repo> <task>
+workspace=$(workframe path <repo/task>)
+cd "$workspace"
+```
+
+If the branch already exists without an active workspace, resume it instead:
+
+```bash
+workframe restore <repo> <task>
+```
+
+Before editing, verify the location and branch:
 
 ```bash
 pwd
 git branch --show-current
-workframe current                 # when already inside a Workframe workspace
+workframe current                 # from inside a task workspace
 ```
 
-Only edit an active worktree under `workspaces/`. `repos/` holds the canonical
-clone from which worktrees are made. Do not implement task work in `repos/`.
-`system/` can contain private configuration and operational state, so do not
-put project work there or disclose its contents.
+## Work and validate
 
-Repository-local instructions such as `AGENTS.md`, `CONTRIBUTING.md`, and test
-documentation still apply. Read them before changing code. They are more
-specific than this store-level guide.
+Keep changes limited to the task. Do not move, replace, or delete the
+workspace's `.git` file. Run the repository's documented formatter, build, and
+tests.
 
-## Start or find a task workspace
+At handoff, report the task identity, branch, validation performed, and any
+uncommitted or unpushed changes. Commit, push, open a pull request, or archive
+work only when the task's requested workflow permits it.
 
-Use these commands to see what already exists:
+## Lifecycle is explicit
 
-```bash
-workframe list                    # readable summary of active work
-workframe list --dirty            # active work with uncommitted changes
-workframe list archived           # branches that can be restored
-workframe repos                   # canonical repository names
-workframe path <selector>         # print one active workspace path
-```
+| Goal | Command | Result |
+|---|---|---|
+| Pause clean work | `workframe archive <repo/task> --yes` | Removes the folder; keeps the branch |
+| Resume work | `workframe restore <repo> <task>` | Creates a new task worktree |
+| Delete an archived branch | `workframe remove branch <repo> <task> --yes` | Permanently deletes the branch |
 
-A selector is `repo/task`, a unique branch name, or the full workspace path.
-City labels are random implementation details and are not selectors.
+`archive` refuses dirty work unless `--force` is explicit. Never use
+`archive --force`, `remove`, or a recursive deletion command without explicit
+authorization to discard that exact work. When uncertain, inspect and ask.
 
-When the task calls for a new workspace, create one from a repository already
-in the store:
+## Scripts and agents
 
-```bash
-workframe clone <owner/repo | url | path>   # only when the repo is absent
-workframe new <repo> <task>
-```
-
-`new` creates a task branch and an isolated worktree, then prints its path.
-Use that printed path (or `workframe path <selector>`) to enter the workspace.
-```bash
-workspace=$(workframe path <selector>)
-cd "$workspace"
-```
-
-If the branch already exists but has no active workspace, restore it instead of
-creating another branch:
-
-```bash
-workframe restore <repo> <branch>
-```
-
-Do not reconfigure or switch a store simply to complete a coding task.
-`workframe setup` changes the operator's environment and needs an explicit
-request.
-
-## Work only in the current worktree
-
-Inside the assigned workspace:
-
-- Keep changes limited to the assigned task and preserve pre-existing changes.
-- Do not inspect, edit, or use sibling workspaces to finish the task unless the
-  task explicitly requires it.
-- Do not move, replace, or delete the worktree's `.git` file.
-- Run the repository's documented formatter, build, tests, and review checks.
-- Commit only when that is within the task's requested workflow; do not assume
-  permission to push, open a pull request, or change another branch.
-
-## Validate and hand off
-
-At handoff, report the workspace path, branch, validation performed, and any
-uncommitted or unpushed changes. If work is paused rather than finished,
-archive it only when appropriate:
-
-```bash
-workframe archive <selector> --yes
-```
-
-Archive removes the worktree folder but keeps the branch, so it can be resumed
-with `workframe restore <repo> <branch>`. It refuses dirty work unless
-`--force` is given. `--force` discards uncommitted changes; use it only with
-explicit authorization to lose those changes.
-
-## Use the CLI safely in scripts and agents
-
-For stable, machine-readable discovery, prefer:
+Use stable machine-readable commands rather than formatted list output:
 
 ```bash
 workframe worktrees               # TSV: repo, city, path, branch
-workframe repos                   # one repository name per line
-workframe path <selector>         # one resolved workspace path
-workframe run <selector> -- <command> [args...]
+workframe worktrees --json
+workframe list --json
+workframe path <repo/task>        # exactly one path
+workframe run <repo/task> -- <command> [args...]
 ```
 
-`workframe list` is intentionally formatted for people. Set `WORKFRAME_COLOR=0`
-or `NO_COLOR=1` when plain output is needed. In a non-interactive session,
-supply every required argument rather than expecting a prompt.
+| Variable | Purpose |
+|---|---|
+| `WORKFRAME_HOME` | Use this store root for one command or process |
+| `WORKFRAME_COLOR=0` | Disable color (`NO_COLOR=1` also disables it) |
 
-An exit status of `3` means Workframe refused a potentially destructive action
-and left the work intact—for example, a dirty workspace during archive. Inspect
-the state, commit or preserve the work, and ask before discarding anything.
+In non-interactive sessions, provide every required argument. Exit status `3`
+means Workframe refused a potentially destructive action and left work intact.
+Inspect the state; do not discard changes without authorization.
 
-## Lifecycle boundaries
+## Ownership boundary
 
-These operations have different consequences:
+Workframe records every task branch it creates or migrates in
+`refs/workframe/managed/*`. It acts only on branches with that record.
 
-| Goal | Command | What happens |
-|---|---|---|
-| Inspect active work | `workframe list` | No changes |
-| Pause work | `workframe archive <selector> --yes` | Removes folder, keeps branch |
-| Resume work | `workframe restore <repo> <branch>` | Recreates a worktree |
-| Remove an archived branch | `workframe remove branch <repo> <branch> --yes` | Permanently deletes branch |
-Never run `workframe archive --force`, `workframe remove`, or recursive
-deletion commands unless the task explicitly authorizes that exact destructive
-action. Do not delete a store, canonical repository, or workspace path with a
-raw recursive-delete command.
+Conductor and manually created Git worktrees remain unmarked. Workframe does
+not inspect Conductor's private state or infer ownership from paths, branch
+names, `.conductor` files, or Git worktree records. It cannot list, archive,
+restore, or remove unmarked worktrees.
 
-When in doubt, stop after inspection and ask the task owner which workspace or
-lifecycle action they intend.
-
-## Conductor boundary
-
-Workframe intentionally operates only on Git. It never reads Conductor’s local
-database, sessions, or archive state. Instead it records every branch it creates
-or migrates in a private Git ref and applies lifecycle commands only to those
-owned branches. Conductor and manually created worktrees stay unmarked and are
-not listed or changed.
+For a pre-2.0 agent-scoped store, run `workframe migrate` to preview the
+conversion. Run `workframe migrate --yes` only after it reports no conflicts.
