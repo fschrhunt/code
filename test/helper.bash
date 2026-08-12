@@ -10,6 +10,9 @@ WORKFRAME="${BATS_TEST_DIRNAME}/../bin/workframe"
 _use_backend_store() {
   export WORKFRAME_BACKEND=1
   export WORKFRAME_COLOR=0
+  # setup unsets WORKFRAME_HOME before persisting its selected root. Keep that
+  # pointer under Bats' temporary directory, never the developer's real config.
+  export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
   export WORKFRAME_HOME="$BATS_TEST_TMPDIR/store"
   mkdir -p "$WORKFRAME_HOME/repos" "$WORKFRAME_HOME/workspaces" \
     "$WORKFRAME_HOME/system/config" "$WORKFRAME_HOME/system/logs"

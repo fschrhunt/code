@@ -40,6 +40,11 @@ Notable changes to Workframe are documented here. The project follows
   `workframe migrate --yes` to apply it. Agent commands and `workframe help
   --agent` have been removed.
 
+### Fixed
+
+- Isolated Bats' selected-store pointer under its temporary configuration
+  directory so test setup cannot overwrite a user's configured Workframe root.
+
 ### Added
 
 - A checksum-verified direct installer at `scripts/install.sh` for the latest
