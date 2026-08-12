@@ -1,8 +1,14 @@
 # Automation and coding agents
 
-Workframe is safe for agents because its interface is non-interactive and it
-uses positive ownership records. Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` if a
-caller needs plain diagnostic output.
+Workframe's automation interface is non-interactive and based on positive
+ownership records. It does not inspect Conductor's private state or infer
+ownership from a worktree path, so unmarked worktrees are never listed or
+changed. See [Concepts](../concepts.md#ownership-and-conductor-boundary) for
+that boundary.
+
+## Discover and run work
+
+Use machine-readable commands instead of formatted `list` output:
 
 ```bash
 workframe repos                         # one canonical repo per line
@@ -20,7 +26,7 @@ workframe clone owner/repo
 workframe new repo task
 ```
 
-Lifecycle is explicit:
+## Lifecycle
 
 ```bash
 workframe archive repo/task --yes
@@ -32,14 +38,12 @@ workframe remove branch repo task --yes
 `--yes`, does not contact remotes, and rolls local Git changes back if a later
 operation fails.
 
-Workframe marks its branches in `refs/workframe/managed/*`. It does not read
-Conductor's private application state and never infers ownership from a
-worktree path. Therefore unmarked worktrees—including Conductor worktrees—are
-not listed or changed.
-
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `WORKFRAME_HOME` | Process-scoped store root override |
-| `WORKFRAME_COLOR` | `0` disables color; `1` forces it |
+| `WORKFRAME_HOME` | Process-scoped store-root override |
+| `WORKFRAME_COLOR=0` | Disable color (`NO_COLOR=1` also disables it) |
+
+Supply every required argument in a non-interactive session. Exit status `3`
+means Workframe refused a potentially destructive action and left work intact.
