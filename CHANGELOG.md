@@ -5,6 +5,13 @@ Notable changes to Workframe are documented here. The project follows
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the Workframe mark and reduced the visual system to ink (`#09090B`)
+  and white (`#FFFFFF`). Removed the legacy wordmark, lockups, tiles, PNG
+  exports, and lifecycle diagrams.
+- Simplified the README to the essential install, workflow, and ownership model.
+
 ## 2.0.0
 
 - **Breaking:** task workspaces and branches no longer include an agent identity.
