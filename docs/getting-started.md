@@ -29,9 +29,12 @@ workframe clone owner/repo
 cd "$(workframe new repo feature-name)"
 ```
 
-`new` prints only the workspace path, so command substitution enters the new
-workspace without exposing the generated directory label. Use the task identity
-to find it later:
+`new` fetches the repository's default branch before creating the task, so the
+workspace starts from the current remote tip. It prints only the workspace path,
+so command substitution enters it without exposing the generated directory
+label. For intentional disconnected work, use
+`workframe new --offline repo feature-name`; it uses the locally cached remote
+ref. Use the task identity to find work later:
 
 ```bash
 workframe path repo/feature-name
