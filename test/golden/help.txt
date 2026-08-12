@@ -4,6 +4,8 @@ Start
   workframe setup [--root <path>] [--org <name>]
   workframe clone <owner/repo | url | path>
   workframe new [--offline] <repo> <task>
+  workframe sync [--all | <repo>]
+  workframe update
 
 Work
   workframe list [archived] [--repo <name>] [--dirty] [--json]
