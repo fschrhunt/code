@@ -62,6 +62,28 @@ setup() {
   [[ "$output" == *'usage: new [--offline] <repo> <task>'* ]]
 }
 
+@test "sync refreshes one canonical repository" {
+  local origin="$BATS_TEST_TMPDIR/demo-origin.git" seed="$BATS_TEST_TMPDIR/demo-seed"
+  printf 'fresh\n' >> "$seed/README.md"
+  git -C "$seed" add README.md
+  git -C "$seed" commit -qm fresh
+  git -C "$seed" push -q origin main
+
+  run "$WORKFRAME" sync demo
+  [ "$status" -eq 0 ]
+  [ "$output" = 'demo: updated +1' ]
+  [ "$(git -C "$WORKFRAME_HOME/repos/demo" rev-parse HEAD)" = "$(git -C "$origin" rev-parse main)" ]
+}
+
+@test "sync all refreshes every canonical repository" {
+  _seed_repo other
+
+  run "$WORKFRAME" sync --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'demo: up to date'* ]]
+  [[ "$output" == *'other: up to date'* ]]
+}
+
 @test "worktrees uses four stable TSV fields" {
   "$WORKFRAME" new demo visible >/dev/null
   run "$WORKFRAME" worktrees

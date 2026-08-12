@@ -4,6 +4,8 @@
 workframe setup [--root <path>] [--org <name>]
 workframe clone <owner/repo | url | path>
 workframe new [--offline] <repo> <task>
+workframe sync [--all | <repo>]
+workframe update
 workframe list [archived] [--repo <name>] [--dirty] [--json]
 workframe repos
 workframe worktrees [--json]
@@ -22,7 +24,10 @@ All commands are non-interactive and write their result to stdout. `new` fetches
 and prunes `origin` before creating a task from its current default-branch tip;
 it refuses to create a potentially stale workspace if that refresh fails. Use
 `--offline` only for intentional disconnected work from the cached remote ref.
-`new` writes only its new workspace path, so use
+`sync <repo>` refreshes one canonical repository; `sync --all` refreshes every
+canonical repository and fast-forwards only clean, non-diverged checkouts.
+`update` reruns the checksum-verified release installer and does not change a
+Workframe store. `new` writes only its new workspace path, so use
 `cd "$(workframe new <repo> <task>)"` to enter it. Human list output is one
 workspace per line; use `--json` or `worktrees` for scripts.
 

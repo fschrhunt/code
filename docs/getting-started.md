@@ -41,6 +41,10 @@ workframe path repo/feature-name
 workframe list
 ```
 
+Refresh a canonical repository at any time with `workframe sync repo`, or all
+canonical repositories with `workframe sync --all`. Sync fast-forwards only
+clean, non-diverged canonical checkouts.
+
 A command cannot change its parent shell's directory. If you prefer `wf new`
 to enter the workspace directly, add this opt-in wrapper to `~/.zshrc`:
 
@@ -55,6 +59,15 @@ wf() {
   fi
 }
 ```
+
+## Update Workframe
+
+```bash
+workframe update
+```
+
+This reruns the verified release installer. It replaces Workframe's versioned
+payload and command links; it does not change your store or workspaces.
 
 ## Pause or finish work
 
