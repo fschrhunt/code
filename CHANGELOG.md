@@ -3,6 +3,18 @@
 Notable changes to Workframe are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## 2.0.0
+
+- **Breaking:** task workspaces and branches no longer include an agent identity.
+  Run `workframe migrate` first to preview conversion of a legacy store, then
+  `workframe migrate --yes` to apply it. Agent commands and `workframe help
+  --agent` have been removed.
+- Workframe records ownership of every branch it creates or migrates in a
+  private Git ref. Lifecycle commands list, archive, restore, and delete only
+  those owned branches, so compatible Conductor worktrees are left alone.
+- Homebrew distribution is formula-only: install and upgrade with
+  `brew install fschrhunt/tap/workframe` and `brew upgrade workframe`.
+
 ## 1.5.3
 
 - Workframe is CLI-only. The native macOS menubar companion, Homebrew cask,

@@ -1,154 +1,45 @@
 # Automation and coding agents
 
-Workframe is a command-line tool. Its [CLI reference](cli.md) covers everyday
-use; this page focuses on stable, script-friendly output and safeguards.
-
-The command catalogue ships with the tool:
-
-```bash
-workframe help --agent
-```
-
-`wf` is a short name for the same executable, so every command on this page
-works under either name.
-
-Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` for output without ANSI escapes.
-
-## Set up a store
+Workframe is safe for agents because its interface is non-interactive and it
+uses positive ownership records. Set `WORKFRAME_COLOR=0` or `NO_COLOR=1` if a
+caller needs plain diagnostic output.
 
 ```bash
-workframe init [--root <path>] [--agent <name>] [--editor <cmd>] [--org <name>]
-workframe setup --local --root <path> --agent <name> [--editor <cmd>] [--org <name>]
-workframe agents list
-workframe agents add <name>
-workframe agents remove <name>
+workframe repos                         # one canonical repo per line
+workframe worktrees                     # TSV: repo, city, path, task
+workframe worktrees --json
+workframe list --json
+workframe path repo/task                # exactly one path
+workframe run repo/task -- make check
 ```
 
-`init` is non-interactive and creates a neutral `default` agent when none is
-specified. `setup` is idempotent. Repeating it against an existing store updates the
-selected root and configuration without touching repositories or workspaces,
-and never overwrites an existing `WORKFRAME.md`.
-
-At least one agent identity must exist before a workspace can be created. An
-agent identity is a branch namespace, not a vendor name.
-
-## Repositories
+Create a workspace only after selecting a canonical repository:
 
 ```bash
-workframe clone <owner/repo | url | path>
-workframe repos                       # one canonical repo name per line
-workframe sync [<repo> | --all]
-workframe remove repo <repo> --yes [--force]
+workframe clone owner/repo
+workframe new repo task
 ```
 
-`clone` accepts `owner/repo` (expanded with the configured default
-organization), a full URL, or a local path.
-
-## Workspaces
+Lifecycle is explicit:
 
 ```bash
-workframe new <repo> <feature> --agent <name>
-workframe list [archived]
-workframe worktrees                   # TSV: agent, repo, city, path, branch
-workframe path <selector>             # prints the workspace path
-workframe rename <selector> <feature>
-workframe open <selector>             # opens the configured editor
+workframe archive repo/task --yes
+workframe restore repo task
+workframe remove branch repo task --yes
 ```
 
-`new` prints the workspace path, the branch, and the generated city label.
-`--agent` is required; `WORKFRAME_AGENT` sets it for a whole session.
+`migrate` converts pre-2.0 agent-scoped stores. It is a dry run without
+`--yes`, does not contact remotes, and rolls local Git changes back if a later
+operation fails.
 
-`workframe worktrees` is the machine-readable listing — tab-separated, no
-header, no color. Prefer it over `workframe list`, which is formatted for
-people.
-
-### Use `path`, not `cd`
-
-Workframe offers to install a shell integration that wraps `workframe` in a
-function so that `workframe cd <selector>` changes the shell's directory. Where
-that hook is installed, `cd` prints nothing and `$(workframe cd …)` is empty.
-`wf` is defined in terms of that same function, so `wf cd` behaves the same way.
-
-`workframe path <selector>` is the stable spelling. The shell function passes it
-through untouched, so it behaves identically whether or not the hook is present:
-
-```bash
-ws=$(workframe path webapp/dark-mode)
-cd "$ws"
-```
-
-## Lifecycle
-
-```bash
-workframe archive <selector> --yes [--force]
-workframe restore <repo> <branch>
-workframe remove branch <repo> <branch> --yes
-workframe clean [--yes]
-```
-
-Archive is reversible: it removes the folder and keeps the branch. Restore
-recreates the worktree in a fresh city folder. Deleting a branch or a
-repository is permanent.
-
-`workframe clean` without `--yes` is a dry run.
-
-## Selectors
-
-A workspace can be named any of these ways:
-
-| Form | Example |
-|---|---|
-| City label | `loslaureles` |
-| Repository and feature | `webapp/dark-mode` |
-| Branch | `claude/dark-mode` |
-| Agent, repository, and city | `claude/webapp/loslaureles` |
-| Absolute path | `/home/you/workframe/workspaces/claude/webapp/loslaureles` |
-
-An ambiguous selector is refused rather than guessed. `workframe worktrees`
-supplies every unambiguous form.
-
-## Exit codes
-
-| Code | Meaning |
-|---|---|
-| `0` | Success |
-| `3` | Refused to destroy something — nothing was changed |
-| other non-zero | Failure — the reason is on stderr |
-
-Exit `3` is worth handling separately: it means the work is intact and the
-command declined to destroy it. It is returned when a worktree has uncommitted
-or unpushed work, and when `remove repo` finds worktrees outside the store.
-The message on stdout says which.
-
-## Safety rules that automation must respect
-
-- Destructive verbs require `--yes` when no terminal is attached. Without it
-  they refuse rather than assume consent.
-- `--force` on `archive` discards uncommitted work. `--force` on
-  `remove repo` deletes a canonical clone that still has workspaces.
-- Workframe only deletes worktrees under `workspaces/`. If a repository has a
-  worktree somewhere else, `remove repo` refuses; with `--force` it deletes the
-  repository and leaves those files on disk.
-- Nothing is deleted implicitly. `archive` keeps the branch; only
-  `remove branch` and `remove repo` destroy anything.
+Workframe marks its branches in `refs/workframe/managed/*`. It does not read
+Conductor's private application state and never infers ownership from a
+worktree path. Therefore unmarked worktrees—including Conductor worktrees—are
+not listed or changed.
 
 ## Environment
 
-See the [configuration reference](configuration.md) for the full list.
-The variables that matter most to automation:
-
 | Variable | Purpose |
 |---|---|
-| `WORKFRAME_HOME` | Override the data root and config directory, process-scoped |
-| `WORKFRAME_AGENT` | Default agent for `workframe new` |
-| `WORKFRAME_COLOR` | `0` forces plain output, `1` forces color |
-
-`WORKFRAME_HOME` does not write a root locator, so it is safe for tests and
-throwaway stores.
-
-## The store contract
-
-Every store carries a `WORKFRAME.md` at its root: the safety contract for
-coding agents working inside it. It is created on setup and never overwritten.
-Tools that begin discovery at the Git root do not find it automatically and
-must be pointed at it explicitly.
+| `WORKFRAME_HOME` | Process-scoped store root override |
+| `WORKFRAME_COLOR` | `0` disables color; `1` forces it |

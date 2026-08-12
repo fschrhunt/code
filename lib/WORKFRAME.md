@@ -11,9 +11,8 @@ before creating, changing, or cleaning up work here.
 3. Inspect before acting; use reversible lifecycle commands by default.
 4. Commit, validate, and clearly report what remains when handing work off.
 
-Run `workframe help` for the everyday command map, or
-`workframe help --agent` for the complete non-interactive interface. `wf` is
-the same command when it is installed.
+Run `workframe help` for the complete command map. `wf` is the same command
+when it is installed.
 
 ## Know where you are
 
@@ -25,8 +24,9 @@ the same command when it is installed.
 └── system/                      configuration and operational state
 ```
 
-Some older stores use `workspaces/<agent>/<repo>/<city>/`. Treat those as
-active worktrees too; do not reorganize them merely to match the newer layout.
+Some older stores use `workspaces/<agent>/<repo>/<city>/`. Run
+`workframe migrate` for a dry-run conversion, then `workframe migrate --yes`
+only after it reports no conflicts.
 
 Before editing, confirm the directory and branch:
 
@@ -57,9 +57,8 @@ workframe repos                   # canonical repository names
 workframe path <selector>         # print one active workspace path
 ```
 
-A selector may be a city name, `repo/feature`, a branch name, the full
-workspace path, or (where applicable) `agent/repo/city`. Workframe refuses an
-ambiguous selector instead of guessing.
+A selector is `repo/task`, a unique branch name, or the full workspace path.
+City labels are random implementation details and are not selectors.
 
 When the task calls for a new workspace, create one from a repository already
 in the store:
@@ -71,9 +70,6 @@ workframe new <repo> <task>
 
 `new` creates a task branch and an isolated worktree, then prints its path.
 Use that printed path (or `workframe path <selector>`) to enter the workspace.
-Do not use `workframe cd` in automation: optional shell integration can make it
-change the caller's directory instead of printing a path.
-
 ```bash
 workspace=$(workframe path <selector>)
 cd "$workspace"
@@ -86,9 +82,9 @@ creating another branch:
 workframe restore <repo> <branch>
 ```
 
-Do not initialize, reconfigure, or switch a store simply to complete a coding
-task. Commands such as `workframe init`, `setup`, and `config` change the
-operator's environment and need an explicit request.
+Do not reconfigure or switch a store simply to complete a coding task.
+`workframe setup` changes the operator's environment and needs an explicit
+request.
 
 ## Work only in the current worktree
 
@@ -122,7 +118,7 @@ explicit authorization to lose those changes.
 For stable, machine-readable discovery, prefer:
 
 ```bash
-workframe worktrees               # TSV: agent, repo, city, path, branch
+workframe worktrees               # TSV: repo, city, path, branch
 workframe repos                   # one repository name per line
 workframe path <selector>         # one resolved workspace path
 workframe run <selector> -- <command> [args...]
@@ -146,13 +142,18 @@ These operations have different consequences:
 | Pause work | `workframe archive <selector> --yes` | Removes folder, keeps branch |
 | Resume work | `workframe restore <repo> <branch>` | Recreates a worktree |
 | Remove an archived branch | `workframe remove branch <repo> <branch> --yes` | Permanently deletes branch |
-| Remove a repository | `workframe remove repo <repo> --yes` | Permanently deletes canonical clone when safe |
-| Clear safe stale state | `workframe clean` | Dry run unless `--yes` is supplied |
-
-Never run `workframe archive --force`, `workframe clean --yes`, `workframe
-remove`, or recursive deletion commands unless the task explicitly authorizes
-that exact destructive action. Do not delete a store, canonical repository, or
-workspace path with a raw recursive-delete command.
+Never run `workframe archive --force`, `workframe remove`, or recursive
+deletion commands unless the task explicitly authorizes that exact destructive
+action. Do not delete a store, canonical repository, or workspace path with a
+raw recursive-delete command.
 
 When in doubt, stop after inspection and ask the task owner which workspace or
 lifecycle action they intend.
+
+## Conductor boundary
+
+Workframe intentionally operates only on Git. It never reads Conductor’s local
+database, sessions, or archive state. Instead it records every branch it creates
+or migrates in a private Git ref and applies lifecycle commands only to those
+owned branches. Conductor and manually created worktrees stay unmarked and are
+not listed or changed.

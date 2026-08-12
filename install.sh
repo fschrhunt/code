@@ -7,8 +7,7 @@
 # Both names are linked: `workframe` is the canonical command and `wf` is the
 # short form for everyday use. They are the same executable.
 #
-# This only symlinks the entry point; it never edits a deployed copy or touches
-# a shared store. Deployment to the box is a separate, deliberate step.
+# This only symlinks the entry point; it never changes a Workframe store.
 set -euo pipefail
 
 PREFIX="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,7 +32,6 @@ for name in $NAMES; do
 done
 echo "docs:   $PREFIX/docs/   (start: docs/README.md)"
 echo "next:   workframe help"
-echo "shell:  source <(workframe completion bash)"
 
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
