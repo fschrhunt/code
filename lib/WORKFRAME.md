@@ -41,10 +41,13 @@ task workspace:
 
 ```bash
 workframe clone <owner/repo | url | path>
-workframe new <repo> <task>
+workframe new <repo> <task>          # refreshes origin first
 workspace=$(workframe path <repo/task>)
 cd "$workspace"
 ```
+
+`new` refuses to use a stale default-branch ref when it cannot refresh `origin`.
+Use `new --offline <repo> <task>` only for intentional disconnected work.
 
 If the branch already exists without an active workspace, resume it instead:
 

@@ -3,7 +3,7 @@ Workframe — owned Git worktrees for parallel tasks.
 Start
   workframe setup [--root <path>] [--org <name>]
   workframe clone <owner/repo | url | path>
-  workframe new <repo> <task>
+  workframe new [--offline] <repo> <task>
 
 Work
   workframe list [archived] [--repo <name>] [--dirty] [--json]

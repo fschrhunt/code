@@ -3,7 +3,7 @@
 ```text
 workframe setup [--root <path>] [--org <name>]
 workframe clone <owner/repo | url | path>
-workframe new <repo> <task>
+workframe new [--offline] <repo> <task>
 workframe list [archived] [--repo <name>] [--dirty] [--json]
 workframe repos
 workframe worktrees [--json]
@@ -18,10 +18,13 @@ workframe status
 workframe doctor
 ```
 
-All commands are non-interactive and write their result to stdout. `new` writes
-only its new workspace path, so use `cd "$(workframe new <repo> <task>)"` to
-enter it. Human list output is one workspace per line; use `--json` or
-`worktrees` for scripts.
+All commands are non-interactive and write their result to stdout. `new` fetches
+and prunes `origin` before creating a task from its current default-branch tip;
+it refuses to create a potentially stale workspace if that refresh fails. Use
+`--offline` only for intentional disconnected work from the cached remote ref.
+`new` writes only its new workspace path, so use
+`cd "$(workframe new <repo> <task>)"` to enter it. Human list output is one
+workspace per line; use `--json` or `worktrees` for scripts.
 
 A selector is an exact workspace path, a branch name when unique, or
 `repo/task`. City folder names are not selectors.
