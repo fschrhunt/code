@@ -11,6 +11,16 @@ Notable changes to Workspaces are documented here. The project follows
   previews the resulting layout, and confirms before changing files.
 - Add `-y`/`--yes` for unattended setup. `--root` supplies the path, and
   non-terminal setup remains fully noninteractive.
+- Let `new` discover a base repository from the current directory when the
+  repository argument is omitted, including checkouts created with ordinary
+  `git clone` beneath `repos/`.
+
+### Fixed
+
+- Allow unnamed task worktrees to be created immediately after cloning a
+  repository without commits.
+- Make `doctor` provide the Git cleanup command for stale worktree metadata left
+  after a task directory is deleted manually.
 
 ## 4.1.0
 
