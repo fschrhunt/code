@@ -34,6 +34,30 @@ setup() {
   [ "$(git -C "$second" branch --show-current)" = "$name" ]
 }
 
+@test "new discovers a directly cloned repository from the current folder" {
+  mkdir -p "$WORKSPACES_ROOT/repos/demo/nested"
+  cd "$WORKSPACES_ROOT/repos/demo/nested"
+
+  run "$WORKSPACES" new
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == "$WORKSPACES_ROOT/worktrees/demo/"* ]]
+  [ -e "$output/.git" ]
+}
+
+@test "new does not discover a clone outside repos" {
+  local origin outside="$BATS_TEST_TMPDIR/outside"
+  origin=$(git -C "$WORKSPACES_ROOT/repos/demo" remote get-url origin)
+  git clone -q "$origin" "$outside"
+  cd "$outside"
+
+  run "$WORKSPACES" new
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"run from $WORKSPACES_ROOT/repos/<repo> or pass <repo>"* ]]
+  [ ! -e "$WORKSPACES_ROOT/worktrees/outside" ]
+}
+
 @test "new branches from the repository checkout's current HEAD" {
   printf 'local\n' >> "$WORKSPACES_ROOT/repos/demo/README.md"
   git -C "$WORKSPACES_ROOT/repos/demo" add README.md
@@ -119,6 +143,23 @@ setup() {
   run "$WORKSPACES" remove "$foreign"
   [ "$status" -ne 0 ]
   [ -e "$foreign/.git" ]
+}
+
+@test "list omits a task deleted outside Workspaces" {
+  local path
+  path=$("$WORKSPACES" new demo abandoned)
+  rm -rf "$path"
+
+  run "$WORKSPACES" list
+
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'demo/abandoned'* ]]
+  [[ "$output" != *"$path"* ]]
+
+  run "$WORKSPACES" doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'stale worktree metadata: demo'* ]]
+  [[ "$output" == *"run 'git worktree prune' in $WORKSPACES_ROOT/repos/demo"* ]]
 }
 
 @test "remove refuses dirty work unless force is explicit" {
