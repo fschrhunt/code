@@ -5,6 +5,31 @@ load helper
 
 setup() { _use_test_root; }
 
+@test "setup --yes creates the default collection without prompting" {
+  rm -rf "$WORKSPACES_ROOT"
+
+  run bash -c "printf 'ignored input\\n' | '$WORKSPACES' setup --yes"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$WORKSPACES_ROOT" ]
+  [ -d "$WORKSPACES_ROOT/repos" ]
+  [ -d "$WORKSPACES_ROOT/worktrees" ]
+}
+
+@test "setup accepts home shorthand through --root" {
+  local home="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$home"
+  unset WORKSPACES_ROOT
+
+  run env HOME="$home" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" "$WORKSPACES" setup --root '~/code' --yes
+
+  [ "$status" -eq 0 ]
+  home=$(cd -P "$home" && pwd)
+  [ "$output" = "$home/code" ]
+  [ -d "$home/code/repos" ]
+  [ "$(cat "$XDG_CONFIG_HOME/workspaces/root")" = "$home/code" ]
+}
+
 @test "setup creates the collection and remembers a custom root" {
   local root="$BATS_TEST_TMPDIR/custom workspaces"
   unset WORKSPACES_ROOT
