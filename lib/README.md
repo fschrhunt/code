@@ -20,10 +20,12 @@ Workspaces:
 ```bash
 root=$(ws root)
 cd "$root/repos/pi-cloud"
-cd "$(ws new pi-cloud)"
+cd "$(ws new)"
 git status --short --branch
 ```
 
+From a base checkout in `repos/`, `new` discovers the repository from the
+current folder.
 Without an explicit task name, Workspaces chooses an unused world capital for
 both the folder and branch, such as
 `<root>/worktrees/pi-cloud/reykjavik`. Pass a name when you want one:
@@ -39,11 +41,12 @@ ws remove pi-cloud/reykjavik
 ```
 
 Removal keeps the branch and refuses uncommitted changes. `--force` explicitly
-discards those changes.
+discards those changes. If a task folder is manually deleted, `ws list` omits
+it and `ws doctor` reports the stale Git metadata.
 
 ## Rules
 
-- Clone base repositories with `ws clone`; they belong in `repos/`.
+- Put base repositories in `repos/`; use `ws clone` or ordinary `git clone`.
 - Create task checkouts with `ws new`; they belong in
   `worktrees/<repo>/<task>`.
 - Do not use `mkdir`, `cp`, `git clone`, or raw `git worktree add` to create a

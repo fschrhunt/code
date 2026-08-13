@@ -5,7 +5,7 @@ Start
   workspaces clone <owner/repo | url | path>
 
 Work
-  workspaces new <repo> [task]
+  workspaces new [<repo> [task]]
   workspaces list
   workspaces remove <repo/task | path> [--force]
 
@@ -16,5 +16,7 @@ Inspect
 
 `setup` creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
-Without a task name, `new` chooses an unused world capital. `ws` is the short
-alias for `workspaces`. Workspaces only removes worktrees it created.
+From a base checkout in repos/, `new` can discover the repository. Without a
+task name, it chooses an unused world capital.
+`ws` is the short alias for `workspaces`. Workspaces only removes worktrees it
+created.

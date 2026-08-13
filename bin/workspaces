@@ -87,6 +87,18 @@ _repo_path(){
   printf '%s/repos/%s' "$ROOT" "$1"
 }
 
+# Identify the base repository containing the caller's current directory.
+_current_repository(){
+  local top repo
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  top=$(cd -P "$top" >/dev/null 2>&1 && pwd) || return 1
+  case "$top" in "$ROOT/repos/"*) repo=${top#"$ROOT/repos/"};; *) return 1;; esac
+  case "$repo" in ''|*/*) return 1;; esac
+  _name_ok "$repo" || return 1
+  [ -d "$top/.git" ] || return 1
+  printf '%s' "$repo"
+}
+
 # Print normal repository checkouts from the collection's repos directory.
 _repositories(){
   local path name
@@ -187,7 +199,7 @@ Start
   workspaces clone <owner/repo | url | path>
 
 Work
-  workspaces new <repo> [task]
+  workspaces new [<repo> [task]]
   workspaces list
   workspaces remove <repo/task | path> [--force]
 
@@ -198,8 +210,10 @@ Inspect
 
 `setup` creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
-Without a task name, `new` chooses an unused world capital. `ws` is the short
-alias for `workspaces`. Workspaces only removes worktrees it created.
+From a base checkout in repos/, `new` can discover the repository. Without a
+task name, it chooses an unused world capital.
+`ws` is the short alias for `workspaces`. Workspaces only removes worktrees it
+created.
 EOF
 }
 
@@ -405,11 +419,18 @@ _random_task(){
 
 # Create or reattach a task branch beneath worktrees/<repo>/.
 cmd_new(){
-  if [ $# -lt 1 ] || [ $# -gt 2 ]; then _die 'usage: workspaces new <repo> [task]'; fi
-  local repo=$1 task=${2:-} canonical destination active created_branch=0 git_dir
-  [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
+  [ $# -le 2 ] || _die 'usage: workspaces new [<repo> [task]]'
+  local repo='' task='' canonical destination active created_branch=0 git_dir
   _ensure_root
   _ensure_readme
+  if [ $# -eq 0 ]; then
+    repo=$(_current_repository) ||
+      _die "cannot identify a base repository here — run from $ROOT/repos/<repo> or pass <repo>"
+  else
+    repo=$1
+    task=${2:-}
+  fi
+  [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
   canonical=$(_repo_path "$repo") || exit $?
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
   if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical") || exit $?; fi
@@ -428,8 +449,13 @@ cmd_new(){
   git -C "$canonical" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
     git -C "$canonical" worktree add "$destination" "$task" >/dev/null 2>&1 || _die 'could not create worktree'
-  else
+  elif git -C "$canonical" rev-parse --verify --quiet HEAD >/dev/null; then
     git -C "$canonical" worktree add -b "$task" "$destination" HEAD >/dev/null 2>&1 || _die 'could not create worktree'
+    created_branch=1
+  else
+    # Empty clones need an unborn task branch because there is no HEAD to branch from.
+    git -C "$canonical" worktree add --orphan -b "$task" "$destination" >/dev/null 2>&1 ||
+      _die 'could not create worktree for repository without commits'
     created_branch=1
   fi
   git_dir=$(_worktree_git_dir "$destination") || git_dir=''
@@ -535,7 +561,7 @@ cmd_doctor(){
       status=1
     fi
     if git -C "$canonical" worktree list --porcelain 2>/dev/null | grep -q '^prunable '; then
-      printf 'warning: stale worktree metadata: %s\n' "$repo"
+      printf "warning: stale worktree metadata: %s; run 'git worktree prune' in %s\n" "$repo" "$canonical"
     fi
   done
   return "$status"
