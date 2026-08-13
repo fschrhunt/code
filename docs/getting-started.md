@@ -15,6 +15,7 @@ Workspaces uses `~/workspaces` by default:
 
 ```bash
 ws setup
+# Confirm the collection root and preview.
 ws clone owner/pi
 cd ~/workspaces/repos/pi
 git status --short --branch
@@ -22,8 +23,9 @@ git status --short --branch
 
 The result is a normal Git checkout, usually on the remote's default branch.
 Repositories live in `repos/`; isolated task checkouts live in `worktrees/`.
-Use another collection root with `ws setup --root ~/code`. Setup is safe to run
-again after an upgrade. If it finds pre-4.0 base checkouts directly beneath the
+In a terminal, setup asks for the collection root and confirms a path preview.
+Use `ws setup --root ~/code --yes` to provide every answer noninteractively.
+Setup is safe to run again after an upgrade. If it finds pre-4.0 base checkouts directly beneath the
 root, it moves them into `repos/` and repairs live task worktrees. It preserves
 dirty files and custom collection README content.
 
