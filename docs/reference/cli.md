@@ -1,7 +1,7 @@
 # CLI reference
 
 ```text
-workspaces setup [--root <path>]
+workspaces setup [--root <path>] [--yes]
 workspaces clone <owner/repo | url | path>
 workspaces new [<repo> [task]]
 workspaces list
@@ -16,8 +16,11 @@ Every command is also available through the shorter `ws` executable.
 
 ## `setup`
 
-Creates the collection's `README.md`, `repos/`, and `worktrees/`. `--root`
-remembers a custom absolute path.
+In a terminal, opens a short wizard to choose the collection root and confirm a
+preview of `README.md`, `repos/`, and `worktrees/`. Prompts use stderr, so stdout
+remains the resolved root path. `--root` supplies and remembers the path;
+`-y`/`--yes` accepts defaults and skips every prompt. Non-terminal use remains
+noninteractive.
 
 When pre-4.0 repositories exist directly beneath the root, setup preflights all
 destinations, moves each base checkout into `repos/`, and repairs its live

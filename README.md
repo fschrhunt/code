@@ -46,6 +46,8 @@ Create a new collection—or upgrade an existing pre-4.0 collection—then clone
 
 ```bash
 ws setup
+# ? Collection root [~/workspaces]:
+# ? Set up this collection? [Y/n]:
 ws clone owner/pi
 cd ~/workspaces/repos/pi
 ```
@@ -96,10 +98,17 @@ ws help                   Show all commands
 
 ## Upgrading an existing collection
 
-Run setup after installing a new release:
+Run setup after installing a new release. In a terminal it opens a short wizard
+that confirms the root and previews the resulting paths:
 
 ```bash
 ws setup
+```
+
+Scripts and unattended installs can provide every answer with flags:
+
+```bash
+ws setup --root ~/workspaces --yes
 ```
 
 For a pre-4.0 collection, setup moves base checkouts from `<root>/<repo>` to
@@ -129,10 +138,11 @@ Git worktree metadata; ordinary `git worktree prune` removes that stale record.
 
 ## Custom collection root
 
-The default root is `~/workspaces`. Select another absolute path with:
+The default root is `~/workspaces`. Select another path in the wizard, or skip
+the prompts with:
 
 ```bash
-ws setup --root ~/code
+ws setup --root ~/code --yes
 ```
 
 Setup leaves only `README.md`, `repos/`, and `worktrees/` at the collection

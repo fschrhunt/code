@@ -7,6 +7,10 @@ Notable changes to Workspaces are documented here. The project follows
 
 ### Added
 
+- Turn `ws setup` into a terminal wizard that asks for the collection root,
+  previews the resulting layout, and confirms before changing files.
+- Add `-y`/`--yes` for unattended setup. `--root` supplies the path, and
+  non-terminal setup remains fully noninteractive.
 - Let `new` discover a base repository from the current directory when the
   repository argument is omitted, including checkouts created with ordinary
   `git clone` beneath `repos/`.
