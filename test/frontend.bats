@@ -245,6 +245,22 @@ EOF
   [ "$(git -C "$WORKSPACES_ROOT/repos/source" branch --show-current)" = main ]
 }
 
+@test "an empty clone can create an unnamed task worktree" {
+  local source="$BATS_TEST_TMPDIR/empty-source" path name git_dir
+  git init -q "$source"
+  "$WORKSPACES" clone "$source" >/dev/null 2>&1
+
+  run "$WORKSPACES" new empty-source
+
+  [ "$status" -eq 0 ]
+  path=$output
+  name=${path##*/}
+  [ "$path" = "$WORKSPACES_ROOT/worktrees/empty-source/$name" ]
+  [ "$(git -C "$path" branch --show-current)" = "$name" ]
+  git_dir=$(git -C "$path" rev-parse --absolute-git-dir)
+  [ -f "$git_dir/workspaces-managed" ]
+}
+
 @test "repository names cannot collide with collection directories" {
   local source="$BATS_TEST_TMPDIR/worktrees"
   git init -q "$source"

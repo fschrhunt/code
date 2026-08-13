@@ -52,14 +52,17 @@ ws clone owner/pi
 cd ~/workspaces/repos/pi
 ```
 
-Create an isolated checkout before starting a task:
+Create an isolated checkout before starting a task. From a base checkout,
+Workspaces discovers the repository from the current directory:
 
 ```bash
-cd "$(ws new pi)"
+cd "$(ws new)"
 git status --short --branch
 ```
 
-When no task is supplied, Workspaces chooses an unused world capital for both
+A normal `git clone` placed directly in `repos/<repo>` works the same as
+`ws clone`; Workspaces scans the folder rather than maintaining an index. When
+no task is supplied, Workspaces chooses an unused world capital for both
 the folder and branch. For example, the command may print:
 
 ```text
@@ -83,7 +86,7 @@ add `--force`.
 
 ```text
 ws clone owner/repo       Clone into repos/<repo>
-ws new repo [task]        Create a task; omit its name to use a world capital
+ws new [repo [task]]      Create a task; infer repo here or omit task for a capital
 ws list                   Show base repositories and managed task worktrees
 ws remove repo/task       Remove a clean task checkout, but keep its branch
 ws doctor                 Check Git and local worktree metadata
@@ -126,9 +129,12 @@ Workspaces therefore ignores and refuses to remove manually created or
 third-party worktrees.
 
 Automated coding sessions should never edit a checkout in `repos/`. If a session
-starts there, run `ws new <repo> [task]` and continue only in the exact path it
-prints. One task worktree per editing session keeps files, staging, and commits
-isolated.
+starts there, run `ws new` and continue only in the exact path it prints. One
+task worktree per editing session keeps files, staging, and commits isolated.
+
+Use `ws remove` instead of deleting a task folder manually. If a folder is
+removed outside Workspaces, `ws list` omits it and `ws doctor` reports the stale
+Git worktree metadata; ordinary `git worktree prune` removes that stale record.
 
 ## Custom collection root
 

@@ -3,7 +3,7 @@
 ```text
 workspaces setup [--root <path>] [--yes]
 workspaces clone <owner/repo | url | path>
-workspaces new <repo> [task]
+workspaces new [<repo> [task]]
 workspaces list
 workspaces remove <repo/task | path> [--force]
 workspaces root
@@ -36,9 +36,15 @@ resulting path to stdout.
 
 ## `new`
 
-Creates a task worktree from the repository checkout's current `HEAD`. Without
-a task argument, it chooses an unused lowercase world capital for both the
-folder and branch. Multiword capitals use hyphens, such as `buenos-aires`.
+Creates a task worktree from the repository checkout's current `HEAD`. With no
+arguments, it discovers the base checkout containing the current directory;
+that checkout must be directly beneath `<root>/repos/`. This includes normal
+checkouts placed there with ordinary `git clone`; no repository index is used.
+
+If a freshly cloned repository has no commits, `new` creates an unborn task
+branch so the first commit can be made in the task worktree. Without a task
+argument, it chooses an unused lowercase world capital for both the folder and
+branch. Multiword capitals use hyphens, such as `buenos-aires`.
 
 With an explicit task, it creates `<root>/worktrees/<repo>/<task>`. If that task
 folder is occupied, a numeric suffix keeps the new path distinct. If the local
@@ -49,7 +55,8 @@ returns the existing managed task path or refuses a checkout outside
 ## `list`
 
 Shows normal repository checkouts followed by active task worktrees. Dirty
-checkouts are labeled. Unmanaged worktrees are omitted.
+checkouts are labeled. Unmanaged worktrees and task paths that no longer exist
+are omitted. `doctor` reports any stale Git metadata left by manual deletion.
 
 ## `remove`
 
