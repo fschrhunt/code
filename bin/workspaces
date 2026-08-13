@@ -183,7 +183,7 @@ _help(){
 Workspaces — ordinary Git repositories with isolated task checkouts.
 
 Start
-  workspaces setup [--root <path>]
+  workspaces setup [--root <path>] [--yes]
   workspaces clone <owner/repo | url | path>
 
 Work
@@ -196,7 +196,9 @@ Inspect
   workspaces doctor
   workspaces version
 
-`setup` creates or upgrades the root to README.md, repos/, and worktrees/.
+`setup` is an interactive wizard in a terminal; --root answers the path and
+--yes skips every prompt.
+It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 Without a task name, `new` chooses an unused world capital. `ws` is the short
 alias for `workspaces`. Workspaces only removes worktrees it created.
@@ -305,27 +307,90 @@ _restructure_legacy(){
   done
 }
 
-# Initialize a collection, upgrading pre-4.0 repository paths when present.
-cmd_setup(){
-  local requested=''
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --root) [ $# -ge 2 ] || _die 'missing value for --root'; requested=$2; shift 2;;
-      -h|--help) printf 'usage: workspaces setup [--root <path>]\n'; return 0;;
-      *) _die 'usage: workspaces setup [--root <path>]' ;;
+# Expand the home shorthand accepted by the setup wizard.
+_expand_home(){
+  case "$1" in
+    \~) printf '%s' "$HOME";;
+    \~/*) printf '%s/%s' "$HOME" "${1:2}";;
+    *) printf '%s' "$1";;
+  esac
+}
+
+# Read a path until the user accepts the default or enters a valid absolute root.
+_prompt_setup_root(){
+  local answer display
+  display=$ROOT
+  case "$display" in "$HOME"/*) display=$(printf '%s/%s' '~' "${display#"$HOME"/}");; esac
+  while true; do
+    printf '? Collection root [%s]: ' "$display" >&2
+    if ! IFS= read -r answer; then _die 'setup cancelled: no input available'; fi
+    [ -n "$answer" ] || return 0
+    answer=$(_expand_home "$answer")
+    answer=${answer%/}
+    if _root_path_ok "$answer"; then
+      ROOT=$answer
+      SETUP_REQUESTED=$answer
+      return 0
+    fi
+    printf '  Enter an absolute path, such as %s/workspaces.\n' "$HOME" >&2
+  done
+}
+
+# Show the pending layout and require confirmation before changing files.
+_confirm_setup(){
+  local answer legacy_count=0 name
+  while IFS= read -r name; do [ -z "$name" ] || legacy_count=$((legacy_count + 1)); done < <(_legacy_repositories)
+  printf '\nWorkspaces will use:\n' >&2
+  printf '  Root          %s\n' "$ROOT" >&2
+  printf '  Repositories  %s/repos\n' "$ROOT" >&2
+  printf '  Worktrees     %s/worktrees\n' "$ROOT" >&2
+  if [ "$legacy_count" -gt 0 ]; then
+    printf '  Upgrade       move %d root-level repository checkout(s)\n' "$legacy_count" >&2
+  fi
+  while true; do
+    printf '? Set up this collection? [Y/n]: ' >&2
+    if ! IFS= read -r answer; then _die 'setup cancelled: no input available'; fi
+    case "$answer" in
+      ''|y|Y|yes|Yes|YES) return 0;;
+      n|N|no|No|NO) _die 'setup cancelled; no changes were made';;
+      *) printf '  Answer yes or no.\n' >&2;;
     esac
   done
-  if [ -n "$requested" ]; then
-    requested=${requested%/}
-    _root_path_ok "$requested" || _die "invalid root '$requested'"
-    ROOT=$requested
+}
+
+# Initialize a collection, upgrading pre-4.0 repository paths when present.
+cmd_setup(){
+  local assume_yes=0 interactive=0
+  SETUP_REQUESTED=''
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --root) [ $# -ge 2 ] || _die 'missing value for --root'; SETUP_REQUESTED=$2; shift 2;;
+      -y|--yes) assume_yes=1; shift;;
+      -h|--help)
+        printf 'usage: workspaces setup [--root <path>] [--yes]\n'
+        printf '\nOptions:\n  --root <path>  select and remember an absolute collection path\n  -y, --yes      accept defaults and skip interactive prompts\n'
+        return 0
+        ;;
+      *) _die 'usage: workspaces setup [--root <path>] [--yes]' ;;
+    esac
+  done
+  if [ -n "$SETUP_REQUESTED" ]; then
+    SETUP_REQUESTED=$(_expand_home "$SETUP_REQUESTED")
+    SETUP_REQUESTED=${SETUP_REQUESTED%/}
+    _root_path_ok "$SETUP_REQUESTED" || _die "invalid root '$SETUP_REQUESTED'"
+    ROOT=$SETUP_REQUESTED
+  fi
+  if [ "$assume_yes" = 0 ] && [ -t 0 ] && [ -t 2 ] && [ -z "${WORKSPACES_ROOT:-}" ]; then interactive=1; fi
+  if [ "$interactive" = 1 ] && [ -z "$SETUP_REQUESTED" ] && [ -z "${WORKSPACES_ROOT:-}" ]; then
+    _prompt_setup_root
   fi
   _root_path_ok "$ROOT" || _die "invalid root '$ROOT'"
   [ ! -L "$ROOT" ] || _die "refusing symlinked collection root: $ROOT"
+  [ "$interactive" = 0 ] || _confirm_setup
   _ensure_root
   _restructure_legacy
   _ensure_readme
-  [ -z "$requested" ] || _save_root
+  [ -z "$SETUP_REQUESTED" ] || _save_root
   printf '%s\n' "$ROOT"
 }
 

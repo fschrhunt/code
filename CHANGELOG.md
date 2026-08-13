@@ -5,6 +5,13 @@ Notable changes to Workspaces are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- Turn `ws setup` into a terminal wizard that asks for the collection root,
+  previews the resulting layout, and confirms before changing files.
+- Add `-y`/`--yes` for unattended setup. `--root` supplies the path, and
+  non-terminal setup remains fully noninteractive.
+
 ## 4.1.0
 
 ### Added

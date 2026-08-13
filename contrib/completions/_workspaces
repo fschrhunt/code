@@ -18,7 +18,7 @@ _workspaces() {
     return
   fi
   case $words[2] in
-    setup) _arguments '--root[select an absolute collection path]:path:_directories' ;;
+    setup) _arguments '--root[select an absolute collection path]:path:_directories' '(-y --yes)'{-y,--yes}'[accept defaults and skip prompts]' ;;
     remove) _arguments '--force[discard uncommitted changes]' ;;
   esac
 }
