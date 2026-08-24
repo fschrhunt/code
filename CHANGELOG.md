@@ -19,6 +19,11 @@ Notable changes to Workspaces are documented here. The project follows
 
 - Install and document only the `workspaces` command; upgrades remove a
   Workspaces-managed legacy `ws` symlink without disturbing unrelated paths.
+- Share a single helper between `_repositories` and `_legacy_repositories`,
+  have `_resolve_managed` emit `repo<TAB>path` so `remove` no longer re-iterates
+  every managed worktree to recover the owning repository, drop a redundant
+  `WORKSPACES_ROOT` recheck inside `setup`, and remove dead `|| exit $?` guards
+  after helpers that already `_die` on failure.
 
 ### Fixed
 
