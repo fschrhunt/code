@@ -99,27 +99,22 @@ _current_repository(){
   printf '%s' "$repo"
 }
 
-# Print normal repository checkouts from the collection's repos directory.
-_repositories(){
-  local path name
-  [ -d "$ROOT/repos" ] || return 0
-  for path in "$ROOT/repos"/*; do
+# Print Git checkout names inside an absolute directory.
+_checkouts_under(){
+  local parent=$1 path name
+  [ -d "$parent" ] || return 0
+  for path in "$parent"/*; do
     [ -d "$path/.git" ] || continue
     name=${path##*/}
     _name_ok "$name" && printf '%s\n' "$name"
   done
 }
 
+# Print normal repository checkouts from the collection's repos directory.
+_repositories(){ _checkouts_under "$ROOT/repos"; }
+
 # Print pre-4.0 repository checkouts still directly beneath the root.
-_legacy_repositories(){
-  local path name
-  [ -d "$ROOT" ] || return 0
-  for path in "$ROOT"/*; do
-    [ -d "$path/.git" ] || continue
-    name=${path##*/}
-    _name_ok "$name" && printf '%s\n' "$name"
-  done
-}
+_legacy_repositories(){ _checkouts_under "$ROOT"; }
 
 # Explain how to make a legacy collection usable without changing it.
 _warn_legacy_layout(){
@@ -394,7 +389,7 @@ cmd_setup(){
     ROOT=$SETUP_REQUESTED
   fi
   if [ "$assume_yes" = 0 ] && [ -t 0 ] && [ -t 2 ] && [ -z "${WORKSPACES_ROOT:-}" ]; then interactive=1; fi
-  if [ "$interactive" = 1 ] && [ -z "$SETUP_REQUESTED" ] && [ -z "${WORKSPACES_ROOT:-}" ]; then
+  if [ "$interactive" = 1 ] && [ -z "$SETUP_REQUESTED" ]; then
     _prompt_setup_root
   fi
   _root_path_ok "$ROOT" || _die "invalid root '$ROOT'"
@@ -495,9 +490,9 @@ cmd_new(){
     task=${2:-}
   fi
   [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
-  canonical=$(_repo_path "$repo") || exit $?
+  canonical=$(_repo_path "$repo")
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
-  if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical") || exit $?; fi
+  if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical"); fi
   destination="$ROOT/worktrees/$repo/$task"
   active=$(_branch_worktree "$canonical" "$task" || true)
   if [ -n "$active" ]; then
@@ -556,25 +551,26 @@ cmd_list(){
   [ "$found" = 1 ] || printf '  (none)\n'
 }
 
-# Resolve an exact repo/branch identity or managed worktree path.
+# Resolve an exact repo/branch identity or managed worktree path; emit repo<TAB>path.
 _resolve_managed(){
-  local selector=$1 candidate=$1 repo path branch matches='' count=0
+  local selector=$1 candidate=$1 repo path branch match_repo='' match_path='' count=0
   if [ -d "$candidate" ]; then candidate=$(cd -P "$candidate" >/dev/null 2>&1 && pwd); fi
   while IFS=$'\t' read -r repo path branch; do
     [ -n "$path" ] || continue
     if [ "$selector" = "$repo/$branch" ] || [ "$candidate" = "$path" ]; then
-      matches=$path
+      match_repo=$repo
+      match_path=$path
       count=$((count + 1))
     fi
   done < <(_managed_worktrees)
-  [ "$count" -eq 1 ] && { printf '%s' "$matches"; return 0; }
+  [ "$count" -eq 1 ] && { printf '%s\t%s\n' "$match_repo" "$match_path"; return 0; }
   [ "$count" -eq 0 ] && _die "no managed worktree matching '$selector'"
   _die "'$selector' matches multiple worktrees; use its path"
 }
 
 # Remove only a marked task checkout; retain its branch for ordinary Git use.
 cmd_remove(){
-  local selector='' force=0 path repo canonical rel task_dir
+  local selector='' force=0 repo path canonical rel task_dir
   while [ $# -gt 0 ]; do
     case "$1" in
       --force) force=1; shift;;
@@ -583,7 +579,7 @@ cmd_remove(){
     esac
   done
   [ -n "$selector" ] || _die 'usage: workspaces remove <repo/task | path> [--force]'
-  path=$(_resolve_managed "$selector") || exit $?
+  IFS=$'\t' read -r repo path < <(_resolve_managed "$selector") || exit 1
   case "$path" in "$ROOT/worktrees/"*) rel=${path#"$ROOT/worktrees/"};; *) _die 'refusing to remove a worktree outside worktrees/';; esac
   case "$rel" in */*) task_dir=${rel#*/};; *) _die 'refusing to remove an invalid task path';; esac
   case "$task_dir" in ''|*/*) _die 'refusing to remove an invalid task path';; esac
@@ -591,11 +587,6 @@ cmd_remove(){
     printf 'refused: uncommitted changes; commit them or use --force to discard them\n' >&2
     return 3
   fi
-  repo=''
-  while IFS=$'\t' read -r repo_candidate path_candidate _branch; do
-    if [ "$path_candidate" = "$path" ]; then repo=$repo_candidate; break; fi
-  done < <(_managed_worktrees)
-  [ -n "$repo" ] || _die 'could not identify the owning repository'
   _is_managed_task "$repo" "$path" || _die 'refusing to remove an unmarked worktree'
   canonical=$(_repo_path "$repo")
   if [ "$force" = 1 ]; then
