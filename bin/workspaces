@@ -125,7 +125,7 @@ _legacy_repositories(){
 _warn_legacy_layout(){
   local first
   first=$(_legacy_repositories | head -n 1)
-  [ -z "$first" ] || _warn "repositories still live at the root; run 'ws setup' to move them into repos/"
+  [ -z "$first" ] || _warn "repositories still live at the root; run 'workspaces setup' to move them into repos/"
 }
 
 # Resolve a linked worktree's private Git directory.
@@ -214,8 +214,7 @@ It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 From a base checkout in repos/, `new` can discover the repository. Without a
 task name, it chooses an unused world capital.
-`ws` is the short alias for `workspaces`. Workspaces only removes worktrees it
-created.
+Workspaces only removes worktrees it created.
 EOF
 }
 
