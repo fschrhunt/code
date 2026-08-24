@@ -8,8 +8,8 @@ session:
 
 ```bash
 cd ~/workspaces/repos/pi
-first=$(ws new pi fix-auth)
-second=$(ws new pi update-docs)
+first=$(workspaces new pi fix-auth)
+second=$(workspaces new pi update-docs)
 ```
 
 The resulting layout is:
@@ -37,5 +37,5 @@ Branches may be renamed normally. Keep task directories beneath their matching
 its branch:
 
 ```bash
-ws remove pi/fix-auth
+workspaces remove pi/fix-auth
 ```

@@ -218,11 +218,11 @@ EOF
 
   run "$WORKSPACES" list
   [ "$status" -eq 0 ]
-  [[ "$output" == *"run 'ws setup' to move them into repos/"* ]]
+  [[ "$output" == *"run 'workspaces setup' to move them into repos/"* ]]
 
   run "$WORKSPACES" doctor
   [ "$status" -eq 0 ]
-  [[ "$output" == *"run 'ws setup' to move them into repos/"* ]]
+  [[ "$output" == *"run 'workspaces setup' to move them into repos/"* ]]
   [ -d "$WORKSPACES_ROOT/demo/.git" ]
   [ ! -e "$WORKSPACES_ROOT/repos/demo" ]
 }

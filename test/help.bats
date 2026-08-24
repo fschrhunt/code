@@ -17,7 +17,8 @@ load helper
   [[ "$output" == *'repos/<repo>'* ]]
   [[ "$output" == *'worktrees/<repo>/<task>'* ]]
   [[ "$output" == *'unused world capital'* ]]
-  [[ "$output" == *'`ws` is the short'*'alias for `workspaces`'* ]]
+  [[ "$output" == *'Workspaces only removes worktrees it created.'* ]]
+  [[ "$output" != *'ws'* ]]
   [[ "$output" != *'archive'* ]]
   [[ "$output" != *'agent'* ]]
 }

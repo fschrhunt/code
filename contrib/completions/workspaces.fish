@@ -1,6 +1,5 @@
-# Fish completion for workspaces and its ws alias.
+# Fish completion for workspaces.
 complete -c workspaces -f
-complete -c ws -w workspaces
 for command in setup clone new list remove root doctor version help
   complete -c workspaces -n "__fish_use_subcommand" -a $command
 end
