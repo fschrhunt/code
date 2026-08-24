@@ -18,9 +18,9 @@ Choose a base repository, create a task, and enter the exact path printed by
 Workspaces:
 
 ```bash
-root=$(ws root)
+root=$(workspaces root)
 cd "$root/repos/pi-cloud"
-cd "$(ws new)"
+cd "$(workspaces new)"
 git status --short --branch
 ```
 
@@ -29,7 +29,7 @@ current folder.
 Without an explicit task name, Workspaces chooses an unused world capital for
 both the folder and branch, such as
 `<root>/worktrees/pi-cloud/reykjavik`. Pass a name when you want one:
-`ws new pi-cloud colored-logo`.
+`workspaces new pi-cloud colored-logo`.
 
 The task shares Git history with the base repository but has independent working
 files and a separate branch.
@@ -37,17 +37,17 @@ files and a separate branch.
 ## Finish a task
 
 ```bash
-ws remove pi-cloud/reykjavik
+workspaces remove pi-cloud/reykjavik
 ```
 
 Removal keeps the branch and refuses uncommitted changes. `--force` explicitly
-discards those changes. If a task folder is manually deleted, `ws list` omits
-it and `ws doctor` reports the stale Git metadata.
+discards those changes. If a task folder is manually deleted, `workspaces list` omits
+it and `workspaces doctor` reports the stale Git metadata.
 
 ## Rules
 
-- Put base repositories in `repos/`; use `ws clone` or ordinary `git clone`.
-- Create task checkouts with `ws new`; they belong in
+- Put base repositories in `repos/`; use `workspaces clone` or ordinary `git clone`.
+- Create task checkouts with `workspaces new`; they belong in
   `worktrees/<repo>/<task>`.
 - Do not use `mkdir`, `cp`, `git clone`, or raw `git worktree add` to create a
   managed task.
@@ -55,7 +55,6 @@ it and `ws doctor` reports the stale Git metadata.
   starts there, create a task and continue only in the returned path.
 - Workspaces removes only task worktrees carrying its private ownership marker.
 
-`workspaces` can replace `ws` in every command. Run `ws help` for the complete
-CLI.
+Run `workspaces help` for the complete CLI.
 
 <!-- workspaces-generated-readme -->

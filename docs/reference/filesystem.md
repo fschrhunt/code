@@ -22,7 +22,7 @@ ${XDG_CONFIG_HOME:-~/.config}/workspaces/root
 ```
 
 The collection README documents the required workflow for people and automated
-coding sessions. `ws setup` can relocate pre-4.0 root-level repositories and
+coding sessions. `workspaces setup` can relocate pre-4.0 root-level repositories and
 repair their live linked worktrees without writing migration state. Workspaces
 stores no logs, migration journals, or clone cache inside the collection. Its ownership marker lives in each linked worktree's
 private Git administrative directory.

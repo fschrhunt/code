@@ -6,17 +6,16 @@
 curl -fsSL https://raw.githubusercontent.com/fschrhunt/workspaces/main/scripts/install.sh | sh
 ```
 
-The verified installer links `workspaces` and its `ws` alias into
-`~/.local/bin`.
+The verified installer links `workspaces` into `~/.local/bin`.
 
 ## Set up the collection
 
 Workspaces uses `~/workspaces` by default:
 
 ```bash
-ws setup
+workspaces setup
 # Confirm the collection root and preview.
-ws clone owner/pi
+workspaces clone owner/pi
 cd ~/workspaces/repos/pi
 git status --short --branch
 ```
@@ -26,7 +25,7 @@ Repositories live in `repos/`; isolated task checkouts live in `worktrees/`.
 A checkout created directly with `git clone` is also discovered when placed in
 `repos/<repo>`; Workspaces does not maintain a repository index. In a terminal,
 setup asks for the collection root and confirms a path preview. Use
-`ws setup --root ~/code --yes` to provide every answer noninteractively. Setup
+`workspaces setup --root ~/code --yes` to provide every answer noninteractively. Setup
 is safe to run again after an upgrade. If it finds pre-4.0 base checkouts
 directly beneath the root, it moves them into `repos/` and repairs live task
 worktrees. It preserves
@@ -39,12 +38,12 @@ the exact path printed by the command:
 
 ```bash
 cd ~/workspaces/repos/pi
-cd "$(ws new)"
+cd "$(workspaces new)"
 git status --short --branch
 ```
 
 With no arguments, `new` discovers the base repository containing the current
-directory. You can still run `ws new pi` from elsewhere. Without a task
+directory. You can still run `workspaces new pi` from elsewhere. Without a task
 argument, Workspaces chooses an unused world capital for both
 the folder and branch. A result might be:
 
@@ -52,7 +51,7 @@ the folder and branch. A result might be:
 ~/workspaces/worktrees/pi/reykjavik
 ```
 
-Use `ws new pi fix-auth` when you want an explicit name. A new task branch
+Use `workspaces new pi fix-auth` when you want an explicit name. A new task branch
 starts at the current `HEAD` of the base repository checkout. For a repository
 without commits, it starts as an unborn branch so the first commit can be made
 in the task worktree. If an explicitly named inactive branch already exists,
@@ -64,14 +63,14 @@ share files; each editing task needs its own returned worktree path.
 ## Finish a task
 
 ```bash
-ws remove pi/reykjavik
+workspaces remove pi/reykjavik
 ```
 
 Removal deletes the task checkout but retains its branch. It refuses dirty work;
 `--force` explicitly discards uncommitted changes. If a task directory is
-manually deleted, `ws list` omits it and `ws doctor` reports Git's stale
+manually deleted, `workspaces list` omits it and `workspaces doctor` reports Git's stale
 worktree metadata. Run ordinary `git worktree prune` from the base checkout to
 remove that record. Delete or merge branches with
 ordinary Git when that is what you intend.
 
-`workspaces` can replace `ws` in every example.
+All examples use the `workspaces` command.
