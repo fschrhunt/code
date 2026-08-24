@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-@test "development installer links workspaces and ws" {
+@test "development installer links only workspaces" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   local expected
   expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workspaces"
@@ -9,9 +9,38 @@
 
   [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/workspaces")" = "$expected" ]
-  [ "$(readlink "$bindir/ws")" = "$expected" ]
+  [ ! -e "$bindir/ws" ]
   [ ! -e "$bindir/workframe" ]
   [ ! -e "$bindir/wf" ]
+}
+
+@test "development installer removes its managed legacy ws symlink" {
+  local bindir="$BATS_TEST_TMPDIR/bin"
+  local expected
+  expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workspaces"
+  mkdir -p "$bindir"
+  ln -s "$expected" "$bindir/ws"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -eq 0 ]
+  [ "$(readlink "$bindir/workspaces")" = "$expected" ]
+  [ ! -e "$bindir/ws" ]
+}
+
+@test "development installer replaces a release install and removes its alias" {
+  local bindir="$BATS_TEST_TMPDIR/bin" release="$BATS_TEST_TMPDIR/releases/4.1.0/bin/workspaces"
+  local expected
+  expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/workspaces"
+  mkdir -p "$bindir" "$(dirname "$release")"
+  ln -s "$release" "$bindir/workspaces"
+  ln -s "$release" "$bindir/ws"
+
+  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
+
+  [ "$status" -eq 0 ]
+  [ "$(readlink "$bindir/workspaces")" = "$expected" ]
+  [ ! -e "$bindir/ws" ]
 }
 
 @test "development installer refuses an existing regular file" {
@@ -25,19 +54,19 @@
   [ "$(cat "$bindir/workspaces")" = keep ]
 }
 
-@test "development installer refuses an existing ws file before changing either command" {
+@test "development installer preserves an unrelated ws file" {
   local bindir="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$bindir"
   printf 'keep\n' > "$bindir/ws"
 
   run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
 
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 0 ]
   [ "$(cat "$bindir/ws")" = keep ]
-  [ ! -e "$bindir/workspaces" ]
+  [ -L "$bindir/workspaces" ]
 }
 
-@test "development installer refuses an unrelated ws symlink" {
+@test "development installer preserves an unrelated ws symlink" {
   local bindir="$BATS_TEST_TMPDIR/bin" other="$BATS_TEST_TMPDIR/other-command"
   mkdir -p "$bindir"
   printf '#!/bin/sh\n' > "$other"
@@ -45,9 +74,9 @@
 
   run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
 
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/ws")" = "$other" ]
-  [ ! -e "$bindir/workspaces" ]
+  [ -L "$bindir/workspaces" ]
 }
 
 @test "installed commands report the Workspaces version" {
@@ -57,16 +86,16 @@
   run "$bindir/workspaces" version
   [ "$status" -eq 0 ]
   [ "$output" = "workspaces $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
-
-  run "$bindir/ws" version
-  [ "$status" -eq 0 ]
-  [ "$output" = "workspaces $(cat "$BATS_TEST_DIRNAME/../VERSION")" ]
 }
 
-@test "release installer verifies and links a versioned archive" {
+@test "release installer verifies, cleans up safely, and links a versioned archive" {
   local version=3.0.0 fixture="$BATS_TEST_TMPDIR/fixture" mockbin="$BATS_TEST_TMPDIR/mockbin"
   local install_root="$BATS_TEST_TMPDIR/install" bindir="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$fixture/workspaces-$version/bin" "$mockbin"
+  printf '%s\n' "$version" > "$fixture/workspaces-$version/VERSION"
+  mkdir -p "$install_root/2.9.0/bin" "$bindir"
+  printf '2.9.0\n' > "$install_root/2.9.0/VERSION"
+  ln -s "$install_root/2.9.0/bin/workspaces" "$bindir/ws"
   cat > "$fixture/workspaces-$version/bin/workspaces" <<'SCRIPT'
 #!/bin/sh
 printf 'workspaces fixture\n'
@@ -93,7 +122,18 @@ SCRIPT
 
   [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/workspaces")" = "$install_root/$version/bin/workspaces" ]
-  [ "$(readlink "$bindir/ws")" = "$install_root/$version/bin/workspaces" ]
-  run "$bindir/ws"
+  [ ! -e "$bindir/ws" ]
+  run "$bindir/workspaces"
   [ "$output" = 'workspaces fixture' ]
+
+  local other="$BATS_TEST_TMPDIR/other-command"
+  printf '#!/bin/sh\n' > "$other"
+  ln -s "$other" "$bindir/ws"
+  run env PATH="$mockbin:$PATH" WORKSPACES_FIXTURE="$fixture" WORKSPACES_VERSION="$version" \
+    WORKSPACES_INSTALL_ROOT="$install_root" WORKSPACES_BIN_DIR="$bindir" \
+    "$BATS_TEST_DIRNAME/../scripts/install.sh"
+
+  [ "$status" -eq 0 ]
+  [ "$(readlink "$bindir/ws")" = "$other" ]
+  [ "$(readlink "$bindir/workspaces")" = "$install_root/$version/bin/workspaces" ]
 }

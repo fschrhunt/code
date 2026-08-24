@@ -12,7 +12,7 @@ workspaces version
 workspaces help
 ```
 
-Every command is also available through the shorter `ws` executable.
+The `workspaces` executable is the only installed command.
 
 ## `setup`
 
@@ -72,7 +72,7 @@ Prints the selected collection root.
 
 Checks Git availability, repository object integrity, stale worktree metadata,
 and legacy root-level repositories without changing anything. Legacy layouts
-are directed to `ws setup`.
+are directed to `workspaces setup`.
 
 ## Environment
 

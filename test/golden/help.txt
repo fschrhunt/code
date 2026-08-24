@@ -20,5 +20,4 @@ It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 From a base checkout in repos/, `new` can discover the repository. Without a
 task name, it chooses an unused world capital.
-`ws` is the short alias for `workspaces`. Workspaces only removes worktrees it
-created.
+Workspaces only removes worktrees it created.

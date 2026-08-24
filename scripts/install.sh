@@ -42,28 +42,36 @@ SOURCE="$TMP/workspaces-$VERSION"
 [ -x "$SOURCE/bin/workspaces" ] || fail "release archive has an unexpected layout"
 DESTINATION="$INSTALL_ROOT/$VERSION"
 TARGET="$BIN_DIR/workspaces"
-ALIAS="$BIN_DIR/ws"
+LEGACY_ALIAS="$BIN_DIR/ws"
 mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
-for link in "$TARGET" "$ALIAS"; do
-  [ ! -e "$link" ] || [ -L "$link" ] || fail "refusing to replace existing path: $link"
-  if [ -L "$link" ]; then
-    existing=$(readlink "$link")
-    case "$existing" in
-      "$INSTALL_ROOT"/*/bin/workspaces) ;;
-      *) fail "refusing to replace existing symlink: $link";;
-    esac
-  fi
-done
+[ ! -e "$TARGET" ] || [ -L "$TARGET" ] || fail "refusing to replace existing path: $TARGET"
+if [ -L "$TARGET" ]; then
+  existing=$(readlink "$TARGET")
+  case "$existing" in
+    "$INSTALL_ROOT"/*/bin/workspaces) ;;
+    *) fail "refusing to replace existing symlink: $TARGET";;
+  esac
+fi
+# Release installs own versioned workspaces/bin/workspaces targets. Do not
+# remove an unrelated command that happens to use the retired short name.
+if [ -L "$LEGACY_ALIAS" ]; then
+  existing=$(readlink "$LEGACY_ALIAS")
+  case "$existing" in
+    "$INSTALL_ROOT"/*/bin/workspaces)
+      rm -f "$LEGACY_ALIAS"
+      printf 'removed legacy alias %s\n' "$LEGACY_ALIAS"
+      ;;
+  esac
+fi
+
 rm -rf "$DESTINATION"
 mv "$SOURCE" "$DESTINATION"
-for link in "$TARGET" "$ALIAS"; do
-  rm -f "$link"
-  ln -s "$DESTINATION/bin/workspaces" "$link"
-done
+rm -f "$TARGET"
+ln -s "$DESTINATION/bin/workspaces" "$TARGET"
 
 printf 'Installed Workspaces %s\n' "$VERSION"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) printf 'Add %s to your PATH.\n' "$BIN_DIR";;
 esac
-printf 'Run: ws setup\n'
+printf 'Run: workspaces setup\n'
