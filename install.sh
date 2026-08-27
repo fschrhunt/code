@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Link a development checkout's Workspaces command onto PATH.
+# Link a development checkout's Code command onto PATH.
 set -euo pipefail
 
 PREFIX=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 BINDIR=${1:-$HOME/.local/bin}
-DESTINATION="$BINDIR/workspaces"
-LEGACY_ALIAS="$BINDIR/ws"
-SOURCE="$PREFIX/bin/workspaces"
+DESTINATION="$BINDIR/code"
+SOURCE="$PREFIX/bin/code"
 
 mkdir -p "$BINDIR"
 previous_target=
@@ -17,24 +16,25 @@ fi
 if [ -L "$DESTINATION" ]; then
   previous_target=$(readlink "$DESTINATION")
   case "$previous_target" in
-    "$SOURCE"|*/bin/workspaces) ;;
+    "$SOURCE"|*/bin/code) ;;
     *) printf 'error: refusing to replace existing symlink: %s\n' "$DESTINATION" >&2; exit 1;;
   esac
 fi
+
+# Remove names from previous releases that this install no longer uses.
+for legacy in "$BINDIR/workspaces" "$BINDIR/ws"; do
+  if [ -L "$legacy" ]; then
+    legacy_target=$(readlink "$legacy")
+    case "$legacy_target" in
+      "$SOURCE"|"$previous_target"|*/bin/code|*/bin/workspaces) rm -f "$legacy"; printf 'removed legacy command %s\n' "$legacy";;
+    esac
+  fi
+done
+
 rm -f "$DESTINATION"
 ln -s "$SOURCE" "$DESTINATION"
 printf 'linked %s -> %s\n' "$DESTINATION" "$SOURCE"
-
-# Remove an alias that shared the managed command target. An unrelated ws path
-# belongs to its owner and must remain untouched.
-if [ -L "$LEGACY_ALIAS" ]; then
-  alias_target=$(readlink "$LEGACY_ALIAS")
-  if [ "$alias_target" = "$SOURCE" ] || { [ -n "$previous_target" ] && [ "$alias_target" = "$previous_target" ]; }; then
-    rm -f "$LEGACY_ALIAS"
-    printf 'removed legacy alias %s\n' "$LEGACY_ALIAS"
-  fi
-fi
-printf 'next: workspaces setup\n'
+printf 'next: code setup\n'
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
   *) printf 'note: %s is not on your PATH\n' "$BINDIR";;

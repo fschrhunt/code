@@ -1,14 +1,14 @@
 # Shared hermetic fixtures for ordinary repositories and nested task worktrees.
 
-WORKSPACES="${BATS_TEST_DIRNAME}/../bin/workspaces"
+CODE="${BATS_TEST_DIRNAME}/../bin/code"
 
 # Use a disposable collection and configuration directory for every test.
 _use_test_root() {
   export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
-  export WORKSPACES_ROOT="$BATS_TEST_TMPDIR/workspaces"
-  mkdir -p "$WORKSPACES_ROOT"
-  WORKSPACES_ROOT=$(cd -P "$WORKSPACES_ROOT" && pwd)
-  export WORKSPACES_ROOT
+  export CODE_ROOT="$BATS_TEST_TMPDIR/code"
+  mkdir -p "$CODE_ROOT"
+  CODE_ROOT=$(cd -P "$CODE_ROOT" && pwd)
+  export CODE_ROOT
 }
 
 # Create an origin and clone its main checkout into the collection's repos directory.
@@ -27,18 +27,18 @@ _seed_repo() {
   git -C "$seed" remote add origin "$origin"
   git -C "$seed" push -q -u origin main
   git -C "$origin" symbolic-ref HEAD refs/heads/main
-  mkdir -p "$WORKSPACES_ROOT/repos"
-  git clone -q "$origin" "$WORKSPACES_ROOT/repos/$name"
-  git -C "$WORKSPACES_ROOT/repos/$name" config user.email t@example.com
-  git -C "$WORKSPACES_ROOT/repos/$name" config user.name tester
-  git -C "$WORKSPACES_ROOT/repos/$name" config worktree.useRelativePaths true
+  mkdir -p "$CODE_ROOT/repos"
+  git clone -q "$origin" "$CODE_ROOT/repos/$name"
+  git -C "$CODE_ROOT/repos/$name" config user.email t@example.com
+  git -C "$CODE_ROOT/repos/$name" config user.name tester
+  git -C "$CODE_ROOT/repos/$name" config worktree.useRelativePaths true
 }
 
 # Move a fixture repo back to the pre-4.0 root layout and repair any task links.
 _make_legacy_repo() {
   local name=${1:-demo} task_path=${2:-}
-  mv "$WORKSPACES_ROOT/repos/$name" "$WORKSPACES_ROOT/$name"
+  mv "$CODE_ROOT/repos/$name" "$CODE_ROOT/$name"
   if [ -n "$task_path" ]; then
-    git -C "$WORKSPACES_ROOT/$name" worktree repair "$task_path" >/dev/null
+    git -C "$CODE_ROOT/$name" worktree repair "$task_path" >/dev/null
   fi
 }
