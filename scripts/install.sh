@@ -51,17 +51,6 @@ if [ -L "$TARGET" ]; then
     *) fail "refusing to replace existing symlink: $TARGET";;
   esac
 fi
-# A release installs its own versioned code/bin/code target and retires the
-# former workspaces and ws command names. Remove those prior symlinks only when
-# they point at an installed Code or Workspaces release.
-for legacy in "$BIN_DIR/workspaces" "$BIN_DIR/ws"; do
-  if [ -L "$legacy" ]; then
-    existing=$(readlink "$legacy")
-    case "$existing" in
-      "$INSTALL_ROOT"/*/bin/code|"$INSTALL_ROOT"/*/bin/workspaces) rm -f "$legacy"; printf 'removed legacy command %s\n' "$legacy";;
-    esac
-  fi
-done
 
 rm -rf "$DESTINATION"
 mv "$SOURCE" "$DESTINATION"

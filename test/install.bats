@@ -9,27 +9,8 @@
 
   [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/code")" = "$expected" ]
-  [ ! -e "$bindir/ws" ]
-  [ ! -e "$bindir/workspaces" ]
   [ ! -e "$bindir/workframe" ]
   [ ! -e "$bindir/wf" ]
-}
-
-@test "development installer removes a prior workspaces/ws symlink pointing at an install" {
-  local bindir="$BATS_TEST_TMPDIR/bin"
-  local old_release="$BATS_TEST_TMPDIR/releases/4.1.0/bin/workspaces"
-  local expected
-  expected="$(cd "$BATS_TEST_DIRNAME/.." && pwd)/bin/code"
-  mkdir -p "$bindir" "$(dirname "$old_release")"
-  ln -s "$old_release" "$bindir/workspaces"
-  ln -s "$old_release" "$bindir/ws"
-
-  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
-
-  [ "$status" -eq 0 ]
-  [ "$(readlink "$bindir/code")" = "$expected" ]
-  [ ! -e "$bindir/workspaces" ]
-  [ ! -e "$bindir/ws" ]
 }
 
 @test "development installer refuses an existing regular file" {
@@ -41,19 +22,6 @@
 
   [ "$status" -ne 0 ]
   [ "$(cat "$bindir/code")" = keep ]
-}
-
-@test "development installer preserves an unrelated ws symlink" {
-  local bindir="$BATS_TEST_TMPDIR/bin" other="$BATS_TEST_TMPDIR/other-command"
-  mkdir -p "$bindir"
-  printf '#!/bin/sh\n' > "$other"
-  ln -s "$other" "$bindir/ws"
-
-  run "$BATS_TEST_DIRNAME/../install.sh" "$bindir"
-
-  [ "$status" -eq 0 ]
-  [ "$(readlink "$bindir/ws")" = "$other" ]
-  [ -L "$bindir/code" ]
 }
 
 @test "installed commands report the Code version" {
@@ -72,8 +40,6 @@
   printf '%s\n' "$version" > "$fixture/code-$version/VERSION"
   mkdir -p "$install_root/2.9.0/bin" "$bindir"
   printf '2.9.0\n' > "$install_root/2.9.0/VERSION"
-  ln -s "$install_root/2.9.0/bin/workspaces" "$bindir/ws"
-  ln -s "$install_root/2.9.0/bin/workspaces" "$bindir/workspaces"
   cat > "$fixture/code-$version/bin/code" <<'SCRIPT'
 #!/bin/sh
 printf 'code fixture\n'
@@ -100,19 +66,6 @@ SCRIPT
 
   [ "$status" -eq 0 ]
   [ "$(readlink "$bindir/code")" = "$install_root/$version/bin/code" ]
-  [ ! -e "$bindir/ws" ]
-  [ ! -e "$bindir/workspaces" ]
   run "$bindir/code"
   [ "$output" = 'code fixture' ]
-
-  local other="$BATS_TEST_TMPDIR/other-command"
-  printf '#!/bin/sh\n' > "$other"
-  ln -s "$other" "$bindir/ws"
-  run env PATH="$mockbin:$PATH" CODE_FIXTURE="$fixture" CODE_VERSION="$version" \
-    CODE_INSTALL_ROOT="$install_root" CODE_BIN_DIR="$bindir" \
-    "$BATS_TEST_DIRNAME/../scripts/install.sh"
-
-  [ "$status" -eq 0 ]
-  [ "$(readlink "$bindir/ws")" = "$other" ]
-  [ "$(readlink "$bindir/code")" = "$install_root/$version/bin/code" ]
 }

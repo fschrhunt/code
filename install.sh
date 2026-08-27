@@ -21,16 +21,6 @@ if [ -L "$DESTINATION" ]; then
   esac
 fi
 
-# Remove names from previous releases that this install no longer uses.
-for legacy in "$BINDIR/workspaces" "$BINDIR/ws"; do
-  if [ -L "$legacy" ]; then
-    legacy_target=$(readlink "$legacy")
-    case "$legacy_target" in
-      "$SOURCE"|"$previous_target"|*/bin/code|*/bin/workspaces) rm -f "$legacy"; printf 'removed legacy command %s\n' "$legacy";;
-    esac
-  fi
-done
-
 rm -f "$DESTINATION"
 ln -s "$SOURCE" "$DESTINATION"
 printf 'linked %s -> %s\n' "$DESTINATION" "$SOURCE"
