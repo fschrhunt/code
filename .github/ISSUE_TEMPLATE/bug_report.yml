@@ -7,14 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Workspaces. Do not include credentials, private
+        Thanks for helping improve Code. Do not include credentials, private
         infrastructure details, or vulnerability information in a public issue.
   - type: input
     id: version
     attributes:
-      label: Workspaces version
-      description: Run `workspaces version`.
-      placeholder: workspaces 3.0.0
+      label: Code version
+      description: Run `code version`.
+      placeholder: code 3.0.0
     validations:
       required: true
   - type: dropdown

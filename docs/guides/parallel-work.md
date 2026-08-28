@@ -7,17 +7,17 @@ Keep the repository checkout on `main` and create one task worktree per editing
 session:
 
 ```bash
-cd ~/workspaces/repos/pi
-first=$(workspaces new pi fix-auth)
-second=$(workspaces new pi update-docs)
+cd ~/Code/repos/pi
+first=$(code new pi fix-auth)
+second=$(code new pi update-docs)
 ```
 
 The resulting layout is:
 
 ```text
-~/workspaces/repos/pi
-~/workspaces/worktrees/pi/fix-auth
-~/workspaces/worktrees/pi/update-docs
+~/Code/repos/pi
+~/Code/worktrees/pi/fix-auth
+~/Code/worktrees/pi/update-docs
 ```
 
 Start each process in its returned path:
@@ -37,5 +37,5 @@ Branches may be renamed normally. Keep task directories beneath their matching
 its branch:
 
 ```bash
-workspaces remove pi/fix-auth
+code remove pi/fix-auth
 ```

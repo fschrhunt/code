@@ -1,6 +1,6 @@
-#compdef workspaces
+#compdef code
 
-_workspaces() {
+_code() {
   local -a commands
   commands=(
     'setup:initialize or select the collection root'
@@ -14,7 +14,7 @@ _workspaces() {
     'help:show command help'
   )
   if (( CURRENT == 2 )); then
-    _describe -t commands 'workspaces command' commands
+    _describe -t commands 'code command' commands
     return
   fi
   case $words[2] in
@@ -23,4 +23,4 @@ _workspaces() {
   esac
 }
 
-_workspaces "$@"
+_code "$@"

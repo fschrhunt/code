@@ -1,18 +1,18 @@
 # CLI reference
 
 ```text
-workspaces setup [--root <path>] [--yes]
-workspaces clone <owner/repo | url | path>
-workspaces new [<repo> [task]]
-workspaces list
-workspaces remove <repo/task | path> [--force]
-workspaces root
-workspaces doctor
-workspaces version
-workspaces help
+code setup [--root <path>] [--yes]
+code clone <owner/repo | url | path>
+code new [<repo> [task]]
+code list
+code remove <repo/task | path> [--force]
+code root
+code doctor
+code version
+code help
 ```
 
-The `workspaces` executable is the only installed command.
+The `code` executable is the only installed command.
 
 ## `setup`
 
@@ -72,11 +72,11 @@ Prints the selected collection root.
 
 Checks Git availability, repository object integrity, stale worktree metadata,
 and legacy root-level repositories without changing anything. Legacy layouts
-are directed to `workspaces setup`.
+are directed to `code setup`.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `WORKSPACES_ROOT` | Override the collection root for one process |
+| `CODE_ROOT` | Override the collection root for one process |
 | `XDG_CONFIG_HOME` | Relocate the saved root pointer |
