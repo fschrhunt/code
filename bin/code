@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Workspaces keeps base repositories in repos/ and task worktrees beneath worktrees/.
+# Code keeps base repositories in repos/ and task worktrees beneath worktrees/.
 set -uo pipefail
 
 _src=${BASH_SOURCE[0]}
@@ -10,7 +10,7 @@ while [ -L "$_src" ]; do
 done
 PREFIX=$(cd -P "$(dirname "$_src")/.." >/dev/null 2>&1 && pwd)
 VERSION=$(cat "$PREFIX/VERSION" 2>/dev/null || printf '0.0.0')
-ROOT_POINTER="${XDG_CONFIG_HOME:-$HOME/.config}/workspaces/root"
+ROOT_POINTER="${XDG_CONFIG_HOME:-$HOME/.config}/code/root"
 
 _die(){ printf 'error: %s\n' "$*" >&2; exit 1; }
 _warn(){ printf 'warning: %s\n' "$*" >&2; }
@@ -21,24 +21,24 @@ _root_path_ok(){
   return 0
 }
 
-# Select the process override, saved root, or ~/workspaces in that order.
+# Select the process override, saved root, or ~/Code in that order.
 _select_root(){
-  if [ -n "${WORKSPACES_ROOT:-}" ]; then
-    ROOT=${WORKSPACES_ROOT%/}
-    _root_path_ok "$ROOT" || _die "invalid WORKSPACES_ROOT '$ROOT'"
+  if [ -n "${CODE_ROOT:-}" ]; then
+    ROOT=${CODE_ROOT%/}
+    _root_path_ok "$ROOT" || _die "invalid CODE_ROOT '$ROOT'"
   elif [ -f "$ROOT_POINTER" ]; then
     IFS= read -r ROOT < "$ROOT_POINTER" || ROOT=''
     ROOT=${ROOT%/}
-    _root_path_ok "$ROOT" || ROOT="$HOME/workspaces"
+    _root_path_ok "$ROOT" || ROOT="$HOME/Code"
   else
-    ROOT="$HOME/workspaces"
+    ROOT="$HOME/Code"
   fi
   [ ! -L "$ROOT" ] || _die "refusing symlinked collection root: $ROOT"
   [ -d "$ROOT" ] && ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd)
 }
 _select_root
 
-# Install or refresh only byte-identical Workspaces collection guides.
+# Install or refresh only byte-identical Code collection guides.
 _ensure_readme(){
   local tmp
   [ ! -L "$ROOT/README.md" ] || _die "refusing to replace symlink: $ROOT/README.md"
@@ -120,17 +120,17 @@ _legacy_repositories(){ _checkouts_under "$ROOT"; }
 _warn_legacy_layout(){
   local first
   first=$(_legacy_repositories | head -n 1)
-  [ -z "$first" ] || _warn "repositories still live at the root; run 'workspaces setup' to move them into repos/"
+  [ -z "$first" ] || _warn "repositories still live at the root; run 'code setup' to move them into repos/"
 }
 
 # Resolve a linked worktree's private Git directory.
 _worktree_git_dir(){ git -C "$1" rev-parse --absolute-git-dir 2>/dev/null; }
 
-# Workspaces ownership is attached to the worktree, so branch and path renames remain safe.
+# Code ownership is attached to the worktree, so branch and path renames remain safe.
 _is_managed_worktree(){
   local git_dir
   git_dir=$(_worktree_git_dir "$1") || return 1
-  [ -f "$git_dir/workspaces-managed" ]
+  [ -f "$git_dir/code-managed" ]
 }
 
 # Lifecycle paths must be one task directory beneath worktrees/<repo>/.
@@ -187,21 +187,21 @@ _branch_worktree(){
 
 _help(){
   cat <<'EOF'
-Workspaces — ordinary Git repositories with isolated task checkouts.
+Code — ordinary Git repositories with isolated task checkouts.
 
 Start
-  workspaces setup [--root <path>] [--yes]
-  workspaces clone <owner/repo | url | path>
+  code setup [--root <path>] [--yes]
+  code clone <owner/repo | url | path>
 
 Work
-  workspaces new [<repo> [task]]
-  workspaces list
-  workspaces remove <repo/task | path> [--force]
+  code new [<repo> [task]]
+  code list
+  code remove <repo/task | path> [--force]
 
 Inspect
-  workspaces root
-  workspaces doctor
-  workspaces version
+  code root
+  code doctor
+  code version
 
 `setup` is an interactive wizard in a terminal; --root answers the path and
 --yes skips every prompt.
@@ -209,7 +209,7 @@ It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 From a base checkout in repos/, `new` can discover the repository. Without a
 task name, it chooses an unused world capital.
-Workspaces only removes worktrees it created.
+Code only removes worktrees it created.
 EOF
 }
 
@@ -340,7 +340,7 @@ _prompt_setup_root(){
       SETUP_REQUESTED=$answer
       return 0
     fi
-    printf '  Enter an absolute path, such as %s/workspaces.\n' "$HOME" >&2
+    printf '  Enter an absolute path, such as %s/code.\n' "$HOME" >&2
   done
 }
 
@@ -348,7 +348,7 @@ _prompt_setup_root(){
 _confirm_setup(){
   local answer legacy_count=0 name
   while IFS= read -r name; do [ -z "$name" ] || legacy_count=$((legacy_count + 1)); done < <(_legacy_repositories)
-  printf '\nWorkspaces will use:\n' >&2
+  printf '\nCode will use:\n' >&2
   printf '  Root          %s\n' "$ROOT" >&2
   printf '  Repositories  %s/repos\n' "$ROOT" >&2
   printf '  Worktrees     %s/worktrees\n' "$ROOT" >&2
@@ -375,11 +375,11 @@ cmd_setup(){
       --root) [ $# -ge 2 ] || _die 'missing value for --root'; SETUP_REQUESTED=$2; shift 2;;
       -y|--yes) assume_yes=1; shift;;
       -h|--help)
-        printf 'usage: workspaces setup [--root <path>] [--yes]\n'
+        printf 'usage: code setup [--root <path>] [--yes]\n'
         printf '\nOptions:\n  --root <path>  select and remember an absolute collection path\n  -y, --yes      accept defaults and skip interactive prompts\n'
         return 0
         ;;
-      *) _die 'usage: workspaces setup [--root <path>] [--yes]' ;;
+      *) _die 'usage: code setup [--root <path>] [--yes]' ;;
     esac
   done
   if [ -n "$SETUP_REQUESTED" ]; then
@@ -388,7 +388,7 @@ cmd_setup(){
     _root_path_ok "$SETUP_REQUESTED" || _die "invalid root '$SETUP_REQUESTED'"
     ROOT=$SETUP_REQUESTED
   fi
-  if [ "$assume_yes" = 0 ] && [ -t 0 ] && [ -t 2 ] && [ -z "${WORKSPACES_ROOT:-}" ]; then interactive=1; fi
+  if [ "$assume_yes" = 0 ] && [ -t 0 ] && [ -t 2 ] && [ -z "${CODE_ROOT:-}" ]; then interactive=1; fi
   if [ "$interactive" = 1 ] && [ -z "$SETUP_REQUESTED" ]; then
     _prompt_setup_root
   fi
@@ -413,7 +413,7 @@ _clone_name(){
 
 # Clone a normal checkout into the collection's repos directory.
 cmd_clone(){
-  [ $# -eq 1 ] || _die 'usage: workspaces clone <owner/repo | url | path>'
+  [ $# -eq 1 ] || _die 'usage: code clone <owner/repo | url | path>'
   local source=$1 url name destination
   if [ -e "$source" ]; then
     url=$source
@@ -478,7 +478,7 @@ _random_task(){
 
 # Create or reattach a task branch beneath worktrees/<repo>/.
 cmd_new(){
-  [ $# -le 2 ] || _die 'usage: workspaces new [<repo> [task]]'
+  [ $# -le 2 ] || _die 'usage: code new [<repo> [task]]'
   local repo='' task='' canonical destination active created_branch=0 git_dir
   _ensure_root
   _ensure_readme
@@ -518,7 +518,7 @@ cmd_new(){
     created_branch=1
   fi
   git_dir=$(_worktree_git_dir "$destination") || git_dir=''
-  if [ -z "$git_dir" ] || ! printf '1\n' > "$git_dir/workspaces-managed"; then
+  if [ -z "$git_dir" ] || ! printf '1\n' > "$git_dir/code-managed"; then
     git -C "$canonical" worktree remove --force "$destination" >/dev/null 2>&1 || true
     [ "$created_branch" = 0 ] || git -C "$canonical" branch -D "$task" >/dev/null 2>&1 || true
     _die 'could not record worktree ownership'
@@ -528,7 +528,7 @@ cmd_new(){
 
 # Show normal repositories and active managed task worktrees.
 cmd_list(){
-  [ $# -eq 0 ] || _die 'usage: workspaces list'
+  [ $# -eq 0 ] || _die 'usage: code list'
   local repo path branch dirty found=0
   _warn_legacy_layout
   printf 'Repositories\n'
@@ -574,11 +574,11 @@ cmd_remove(){
   while [ $# -gt 0 ]; do
     case "$1" in
       --force) force=1; shift;;
-      -h|--help) printf 'usage: workspaces remove <repo/task | path> [--force]\n'; return 0;;
-      *) [ -z "$selector" ] || _die 'usage: workspaces remove <repo/task | path> [--force]'; selector=$1; shift;;
+      -h|--help) printf 'usage: code remove <repo/task | path> [--force]\n'; return 0;;
+      *) [ -z "$selector" ] || _die 'usage: code remove <repo/task | path> [--force]'; selector=$1; shift;;
     esac
   done
-  [ -n "$selector" ] || _die 'usage: workspaces remove <repo/task | path> [--force]'
+  [ -n "$selector" ] || _die 'usage: code remove <repo/task | path> [--force]'
   IFS=$'\t' read -r repo path < <(_resolve_managed "$selector") || exit 1
   case "$path" in "$ROOT/worktrees/"*) rel=${path#"$ROOT/worktrees/"};; *) _die 'refusing to remove a worktree outside worktrees/';; esac
   case "$rel" in */*) task_dir=${rel#*/};; *) _die 'refusing to remove an invalid task path';; esac
@@ -599,12 +599,12 @@ cmd_remove(){
 
 # Check the local collection and Git worktree metadata without changing either.
 cmd_doctor(){
-  [ $# -eq 0 ] || _die 'usage: workspaces doctor'
+  [ $# -eq 0 ] || _die 'usage: code doctor'
   local repo canonical status=0
   command -v git >/dev/null 2>&1 || { printf 'error: git is not installed\n'; return 1; }
   printf 'ok: git available\n'
   if [ ! -d "$ROOT" ]; then
-    printf 'warning: collection does not exist; run workspaces setup\n'
+    printf 'warning: collection does not exist; run code setup\n'
     return 0
   fi
   printf 'ok: root %s\n' "$ROOT"
@@ -626,13 +626,13 @@ command_name=${1:-help}
 [ $# -eq 0 ] || shift
 case "$command_name" in
   help|-h|--help) _help;;
-  version|-v|--version) printf 'workspaces %s\n' "$VERSION";;
+  version|-v|--version) printf 'code %s\n' "$VERSION";;
   setup) cmd_setup "$@";;
   clone) cmd_clone "$@";;
   new) cmd_new "$@";;
   list|ls) cmd_list "$@";;
   remove) cmd_remove "$@";;
-  root) [ $# -eq 0 ] || _die 'usage: workspaces root'; printf '%s\n' "$ROOT";;
+  root) [ $# -eq 0 ] || _die 'usage: code root'; printf '%s\n' "$ROOT";;
   doctor) cmd_doctor "$@";;
-  *) _die "unknown command: $command_name (try: workspaces help)";;
+  *) _die "unknown command: $command_name (try: code help)";;
 esac

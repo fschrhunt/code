@@ -1,18 +1,18 @@
-Workspaces — ordinary Git repositories with isolated task checkouts.
+Code — ordinary Git repositories with isolated task checkouts.
 
 Start
-  workspaces setup [--root <path>] [--yes]
-  workspaces clone <owner/repo | url | path>
+  code setup [--root <path>] [--yes]
+  code clone <owner/repo | url | path>
 
 Work
-  workspaces new [<repo> [task]]
-  workspaces list
-  workspaces remove <repo/task | path> [--force]
+  code new [<repo> [task]]
+  code list
+  code remove <repo/task | path> [--force]
 
 Inspect
-  workspaces root
-  workspaces doctor
-  workspaces version
+  code root
+  code doctor
+  code version
 
 `setup` is an interactive wizard in a terminal; --root answers the path and
 --yes skips every prompt.
@@ -20,4 +20,4 @@ It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 From a base checkout in repos/, `new` can discover the repository. Without a
 task name, it chooses an unused world capital.
-Workspaces only removes worktrees it created.
+Code only removes worktrees it created.

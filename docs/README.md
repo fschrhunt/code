@@ -1,9 +1,9 @@
-# Workspaces documentation
+# Code documentation
 
-Workspaces keeps normal repositories beneath `repos/` and groups isolated task
+Code keeps normal repositories beneath `repos/` and groups isolated task
 worktrees beneath `worktrees/<repo>/` at one local root.
 
-## Use Workspaces
+## Use Code
 
 - [Getting started](getting-started.md) — clone a repository and isolate parallel work.
 - [Concepts](concepts.md) — normal checkouts, worktree isolation, and ownership.
