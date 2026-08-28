@@ -2,13 +2,13 @@
 
 ## Supported versions
 
-Security fixes are applied to the latest released Workspaces version. Users
+Security fixes are applied to the latest released Code version. Users
 should update before reporting behavior that may already be fixed.
 
 ## Report a vulnerability
 
 Do not open a public issue. Use GitHub's
-[private vulnerability reporting](https://github.com/fschrhunt/workspaces/security/advisories/new)
+[private vulnerability reporting](https://github.com/fschrhunt/code/security/advisories/new)
 and include the affected version, platform, smallest safe reproduction, impact,
 and any suggested remediation. Remove credentials, private paths, hostnames,
 and user data.
@@ -19,7 +19,7 @@ agreement.
 
 ## Security model
 
-Workspaces runs with the invoking user's permissions. It clones repositories and
+Code runs with the invoking user's permissions. It clones repositories and
 creates or removes linked Git worktrees. Removal requires a worktree-specific
 ownership marker and refuses uncommitted changes unless `--force` is explicit.
-Test automation against a disposable `WORKSPACES_ROOT`.
+Test automation against a disposable `CODE_ROOT`.

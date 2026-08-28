@@ -1,4 +1,4 @@
-# Releasing Workspaces
+# Releasing Code
 
 Merging to `main` runs CI but does not create a release.
 
@@ -13,7 +13,7 @@ Merging to `main` runs CI but does not create a release.
 
 Run the protected **release** GitHub Actions workflow with the version and the
 confirmation value `release`. It validates the source, creates
-`workspaces-<version>.tar.gz` and `SHA256SUMS`, tags `main`, and publishes the
+`code-<version>.tar.gz` and `SHA256SUMS`, tags `main`, and publishes the
 immutable assets.
 
 If validation fails, no tag or release should be created. Never replace an
