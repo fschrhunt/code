@@ -1,5 +1,5 @@
 {
-  "$comment": "Workspaces brand colors.",
+  "$comment": "Code brand colors.",
   "brand": {
     "ink": { "hex": "#09090B", "rgb": [9, 9, 11] },
     "white": { "hex": "#FFFFFF", "rgb": [255, 255, 255] }

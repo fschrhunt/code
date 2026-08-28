@@ -1,13 +1,13 @@
 # Changelog
 
-Notable changes to Workspaces are documented here. The project follows
+Notable changes to Code are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
 ### Added
 
-- Turn `workspaces setup` into a terminal wizard that asks for the collection root,
+- Turn `code setup` into a terminal wizard that asks for the collection root,
   previews the resulting layout, and confirms before changing files.
 - Add `-y`/`--yes` for unattended setup. `--root` supplies the path, and
   non-terminal setup remains fully noninteractive.
@@ -17,12 +17,12 @@ Notable changes to Workspaces are documented here. The project follows
 
 ### Changed
 
-- Install and document only the `workspaces` command; upgrades remove a
-  Workspaces-managed legacy `ws` symlink without disturbing unrelated paths.
+- Install and document only the `code` command; upgrades remove a
+  Code-managed legacy `ws` symlink without disturbing unrelated paths.
 - Share a single helper between `_repositories` and `_legacy_repositories`,
   have `_resolve_managed` emit `repo<TAB>path` so `remove` no longer re-iterates
   every managed worktree to recover the owning repository, drop a redundant
-  `WORKSPACES_ROOT` recheck inside `setup`, and remove dead `|| exit $?` guards
+  `CODE_ROOT` recheck inside `setup`, and remove dead `|| exit $?` guards
   after helpers that already `_die` on failure.
 
 ### Fixed
@@ -43,7 +43,7 @@ Notable changes to Workspaces are documented here. The project follows
 
 ### Changed
 
-- Refresh Workspaces-generated collection guides during setup while preserving
+- Refresh Code-generated collection guides during setup while preserving
   custom README content, and direct newly installed releases to `ws setup`.
 
 ### Fixed
@@ -63,9 +63,9 @@ Notable changes to Workspaces are documented here. The project follows
 
 ### Added
 
-- Make the task argument to `new` optional. When omitted, Workspaces chooses an
+- Make the task argument to `new` optional. When omitted, Code chooses an
   unused world capital for both the task folder and branch.
-- Install `ws` as a short alias for the `workspaces` command, including shell
+- Install `ws` as a short alias for the `code` command, including shell
   completion support.
 
 ### Changed
@@ -86,12 +86,12 @@ Notable changes to Workspaces are documented here. The project follows
 
 ### Breaking changes
 
-- Replaced Workframe with the `workspaces` command and the default
-  `~/workspaces` collection. The retired command, alias, environment variables,
+- Replaced Workframe with the `code` command and the default
+  `~/Code` collection. The retired command, alias, environment variables,
   private refs, and store layout are not migrated automatically.
 - Normal repository checkouts now live directly at `<root>/<repo>`. Task
   worktrees are visible siblings named `<repo>-<task>`; `repos/`, nested
-  `workspaces/`, `system/`, and generated city directories have been removed.
+  `code/`, `system/`, and generated city directories have been removed.
 - Reduced the public CLI to `setup`, `clone`, `new`, `list`, `remove`, `root`,
   and `doctor`. Git remains responsible for fetching, branch deletion, and other
   repository operations.
@@ -139,7 +139,7 @@ Notable changes to Workspaces are documented here. The project follows
 
 ### Breaking changes
 
-- Task workspaces and branches no longer include an agent identity. Run
+- Task code and branches no longer include an agent identity. Run
   `workframe migrate` first to preview conversion of a legacy store, then
   `workframe migrate --yes` to apply it. Agent commands and `workframe help
   --agent` have been removed.
@@ -181,10 +181,10 @@ Notable changes to Workspaces are documented here. The project follows
 - **Data loss fixed:** `workframe remove repo` deleted worktrees that lived
   outside the store. A clean, fully pushed worktree added by hand elsewhere was
   removed with `rm -rf` and no warning. Workframe now only deletes worktrees
-  under `workspaces/`; `remove repo` refuses when others exist, and `--force`
+  under `code/`; `remove repo` refuses when others exist, and `--force`
   deletes the repository while leaving their files in place.
 - **Store containment fixed:** an agent could be named `.` or `..`, which made
-  `workframe new` create directories outside `workspaces/`. Agent names now
+  `workframe new` create directories outside `code/`. Agent names now
   follow the same rules as repository names, and the check is applied wherever
   a name is used, so a hand-edited config cannot reintroduce it.
 - Feature names are validated. `workframe new <repo> "   "` previously created

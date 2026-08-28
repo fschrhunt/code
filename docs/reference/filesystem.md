@@ -18,11 +18,11 @@ worktrees with a `.git` file and live only beneath `worktrees/<repo>/`.
 The selected root is stored at:
 
 ```text
-${XDG_CONFIG_HOME:-~/.config}/workspaces/root
+${XDG_CONFIG_HOME:-~/.config}/code/root
 ```
 
 The collection README documents the required workflow for people and automated
-coding sessions. `workspaces setup` can relocate pre-4.0 root-level repositories and
-repair their live linked worktrees without writing migration state. Workspaces
+coding sessions. `code setup` can relocate pre-4.0 root-level repositories and
+repair their live linked worktrees without writing migration state. Code
 stores no logs, migration journals, or clone cache inside the collection. Its ownership marker lives in each linked worktree's
 private Git administrative directory.

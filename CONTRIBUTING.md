@@ -1,6 +1,6 @@
-# Contributing to Workspaces
+# Contributing to Code
 
-Workspaces is intentionally small: normal Git repositories beneath
+Code is intentionally small: normal Git repositories beneath
 `repos/<repo>/` and isolated tasks beneath `worktrees/<repo>/`. Contributions should
 make that workflow safer or clearer rather than turn it into an agent, editor,
 or repository-management platform.
@@ -11,7 +11,7 @@ or repository-management platform.
 make lint
 make test
 make check
-bin/workspaces help
+bin/code help
 ```
 
 The Bats suite is hermetic. Use the local Git fixtures in `test/helper.bash` and

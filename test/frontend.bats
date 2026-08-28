@@ -6,98 +6,98 @@ load helper
 setup() { _use_test_root; }
 
 @test "setup --yes creates the default collection without prompting" {
-  rm -rf "$WORKSPACES_ROOT"
+  rm -rf "$CODE_ROOT"
 
-  run bash -c "printf 'ignored input\\n' | '$WORKSPACES' setup --yes"
+  run bash -c "printf 'ignored input\\n' | '$CODE' setup --yes"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT" ]
-  [ -d "$WORKSPACES_ROOT/repos" ]
-  [ -d "$WORKSPACES_ROOT/worktrees" ]
+  [ "$output" = "$CODE_ROOT" ]
+  [ -d "$CODE_ROOT/repos" ]
+  [ -d "$CODE_ROOT/worktrees" ]
 }
 
 @test "setup accepts home shorthand through --root" {
   local home="$BATS_TEST_TMPDIR/home"
   mkdir -p "$home"
-  unset WORKSPACES_ROOT
+  unset CODE_ROOT
 
-  run env HOME="$home" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" "$WORKSPACES" setup --root '~/code' --yes
+  run env HOME="$home" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" "$CODE" setup --root '~/Code' --yes
 
   [ "$status" -eq 0 ]
   home=$(cd -P "$home" && pwd)
-  [ "$output" = "$home/code" ]
-  [ -d "$home/code/repos" ]
-  [ "$(cat "$XDG_CONFIG_HOME/workspaces/root")" = "$home/code" ]
+  [ "$output" = "$home/Code" ]
+  [ -d "$home/Code/repos" ]
+  [ "$(cat "$XDG_CONFIG_HOME/code/root")" = "$home/Code" ]
 }
 
 @test "setup creates the collection and remembers a custom root" {
-  local root="$BATS_TEST_TMPDIR/custom workspaces"
-  unset WORKSPACES_ROOT
+  local root="$BATS_TEST_TMPDIR/custom code"
+  unset CODE_ROOT
 
-  run "$WORKSPACES" setup --root "$root"
+  run "$CODE" setup --root "$root"
 
   [ "$status" -eq 0 ]
   root=$(cd -P "$root" && pwd)
   [ "$output" = "$root" ]
   [ -f "$root/README.md" ]
   grep -q '<root>/' "$root/README.md"
-  ! grep -q '~/workspaces/' "$root/README.md"
+  ! grep -q '~/Code/' "$root/README.md"
   [ -d "$root/repos" ]
   [ -d "$root/worktrees" ]
-  [ "$(cat "$XDG_CONFIG_HOME/workspaces/root")" = "$root" ]
+  [ "$(cat "$XDG_CONFIG_HOME/code/root")" = "$root" ]
   [ ! -e "$root/system" ]
 }
 
 @test "setup never replaces an existing README" {
-  printf 'mine\n' > "$WORKSPACES_ROOT/README.md"
+  printf 'mine\n' > "$CODE_ROOT/README.md"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -eq 0 ]
-  [ "$(cat "$WORKSPACES_ROOT/README.md")" = mine ]
+  [ "$(cat "$CODE_ROOT/README.md")" = mine ]
 }
 
 @test "setup refreshes an unedited generated pre-4.0 README" {
-  cp "$BATS_TEST_DIRNAME/../lib/README.pre-4.0.md" "$WORKSPACES_ROOT/README.md"
+  cp "$BATS_TEST_DIRNAME/../lib/README.pre-4.0.md" "$CODE_ROOT/README.md"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -eq 0 ]
-  grep -q '<!-- workspaces-generated-readme -->' "$WORKSPACES_ROOT/README.md"
-  grep -q 'repos/' "$WORKSPACES_ROOT/README.md"
+  grep -q '<!-- code-generated-readme -->' "$CODE_ROOT/README.md"
+  grep -q 'repos/' "$CODE_ROOT/README.md"
 }
 
 @test "setup preserves edits to a generated README" {
-  cp "$BATS_TEST_DIRNAME/../lib/README.md" "$WORKSPACES_ROOT/README.md"
-  printf '\nMy local notes.\n' >> "$WORKSPACES_ROOT/README.md"
+  cp "$BATS_TEST_DIRNAME/../lib/README.md" "$CODE_ROOT/README.md"
+  printf '\nMy local notes.\n' >> "$CODE_ROOT/README.md"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -eq 0 ]
-  grep -q 'My local notes.' "$WORKSPACES_ROOT/README.md"
+  grep -q 'My local notes.' "$CODE_ROOT/README.md"
 }
 
 @test "setup moves legacy repositories and repairs active dirty tasks" {
   local task git_dir
   _seed_repo demo
-  task=$("$WORKSPACES" new demo repair-me)
-  printf 'base change\n' > "$WORKSPACES_ROOT/repos/demo/base.txt"
+  task=$("$CODE" new demo repair-me)
+  printf 'base change\n' > "$CODE_ROOT/repos/demo/base.txt"
   printf 'task change\n' > "$task/task.txt"
   _make_legacy_repo demo "$task"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"moved: $WORKSPACES_ROOT/demo -> $WORKSPACES_ROOT/repos/demo (repaired 1 worktree(s))"* ]]
-  [ ! -e "$WORKSPACES_ROOT/demo" ]
-  [ -d "$WORKSPACES_ROOT/repos/demo/.git" ]
-  [ "$(cat "$WORKSPACES_ROOT/repos/demo/base.txt")" = 'base change' ]
+  [[ "$output" == *"moved: $CODE_ROOT/demo -> $CODE_ROOT/repos/demo (repaired 1 worktree(s))"* ]]
+  [ ! -e "$CODE_ROOT/demo" ]
+  [ -d "$CODE_ROOT/repos/demo/.git" ]
+  [ "$(cat "$CODE_ROOT/repos/demo/base.txt")" = 'base change' ]
   [ "$(cat "$task/task.txt")" = 'task change' ]
   [ "$(git -C "$task" branch --show-current)" = repair-me ]
   git_dir=$(git -C "$task" rev-parse --absolute-git-dir)
-  [ -f "$git_dir/workspaces-managed" ]
+  [ -f "$git_dir/code-managed" ]
 
-  run "$WORKSPACES" remove demo/repair-me
+  run "$CODE" remove demo/repair-me
   [ "$status" -eq 3 ]
   [ -e "$task/.git" ]
 }
@@ -107,29 +107,29 @@ setup() { _use_test_root; }
   _seed_repo second
   _make_legacy_repo first
   _make_legacy_repo second
-  cp "$BATS_TEST_DIRNAME/../lib/README.pre-4.0.md" "$WORKSPACES_ROOT/README.md"
-  cp "$WORKSPACES_ROOT/README.md" "$BATS_TEST_TMPDIR/README.before"
-  mkdir "$WORKSPACES_ROOT/repos/second"
-  printf 'keep\n' > "$WORKSPACES_ROOT/repos/second/marker"
+  cp "$BATS_TEST_DIRNAME/../lib/README.pre-4.0.md" "$CODE_ROOT/README.md"
+  cp "$CODE_ROOT/README.md" "$BATS_TEST_TMPDIR/README.before"
+  mkdir "$CODE_ROOT/repos/second"
+  printf 'keep\n' > "$CODE_ROOT/repos/second/marker"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'destination already exists'* ]]
-  [ -d "$WORKSPACES_ROOT/first/.git" ]
-  [ -d "$WORKSPACES_ROOT/second/.git" ]
-  [ "$(cat "$WORKSPACES_ROOT/repos/second/marker")" = keep ]
-  cmp -s "$BATS_TEST_TMPDIR/README.before" "$WORKSPACES_ROOT/README.md"
+  [ -d "$CODE_ROOT/first/.git" ]
+  [ -d "$CODE_ROOT/second/.git" ]
+  [ "$(cat "$CODE_ROOT/repos/second/marker")" = keep ]
+  cmp -s "$BATS_TEST_TMPDIR/README.before" "$CODE_ROOT/README.md"
 }
 
 @test "setup rolls every repository back when worktree repair fails" {
   local first_task second_task mockbin="$BATS_TEST_TMPDIR/mockbin" real_git
   real_git=$(command -v git)
   _seed_repo first
-  first_task=$("$WORKSPACES" new first task-one)
+  first_task=$("$CODE" new first task-one)
   _make_legacy_repo first "$first_task"
   _seed_repo second
-  second_task=$("$WORKSPACES" new second task-two)
+  second_task=$("$CODE" new second task-two)
   _make_legacy_repo second "$second_task"
   mkdir -p "$mockbin"
   cat > "$mockbin/git" <<'EOF'
@@ -141,14 +141,14 @@ exec "$REAL_GIT" "$@"
 EOF
   chmod +x "$mockbin/git"
 
-  run env PATH="$mockbin:$PATH" REAL_GIT="$real_git" "$WORKSPACES" setup
+  run env PATH="$mockbin:$PATH" REAL_GIT="$real_git" "$CODE" setup
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'all moves were rolled back'* ]]
-  [ -d "$WORKSPACES_ROOT/first/.git" ]
-  [ -d "$WORKSPACES_ROOT/second/.git" ]
-  [ ! -e "$WORKSPACES_ROOT/repos/first" ]
-  [ ! -e "$WORKSPACES_ROOT/repos/second" ]
+  [ -d "$CODE_ROOT/first/.git" ]
+  [ -d "$CODE_ROOT/second/.git" ]
+  [ ! -e "$CODE_ROOT/repos/first" ]
+  [ ! -e "$CODE_ROOT/repos/second" ]
   git -C "$first_task" status --porcelain >/dev/null
   git -C "$second_task" status --porcelain >/dev/null
 }
@@ -158,7 +158,7 @@ EOF
   mkdir "$target"
   ln -s "$target" "$link"
 
-  run env WORKSPACES_ROOT="$link" "$WORKSPACES" setup
+  run env CODE_ROOT="$link" "$CODE" setup
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'refusing symlinked collection root'* ]]
@@ -169,9 +169,9 @@ EOF
   local target="$BATS_TEST_TMPDIR/root-target" link="$BATS_TEST_TMPDIR/root-link"
   mkdir "$target"
   ln -s "$target" "$link"
-  unset WORKSPACES_ROOT
+  unset CODE_ROOT
 
-  run "$WORKSPACES" setup --root "$link"
+  run "$CODE" setup --root "$link"
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'refusing symlinked collection root'* ]]
@@ -181,31 +181,31 @@ EOF
 @test "setup symlinked collection directories" {
   local target="$BATS_TEST_TMPDIR/repos-target"
   mkdir "$target"
-  ln -s "$target" "$WORKSPACES_ROOT/repos"
+  ln -s "$target" "$CODE_ROOT/repos"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'refusing symlinked collection directory'* ]]
-  [ -L "$WORKSPACES_ROOT/repos" ]
+  [ -L "$CODE_ROOT/repos" ]
 }
 
 @test "setup refuses legacy repositories with reserved layout names" {
-  git init -q "$WORKSPACES_ROOT/repos"
+  git init -q "$CODE_ROOT/repos"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"root-level repository named 'repos'"* ]]
-  [ -d "$WORKSPACES_ROOT/repos/.git" ]
+  [ -d "$CODE_ROOT/repos/.git" ]
 }
 
 @test "setup refuses a collection README symlink" {
   local target="$BATS_TEST_TMPDIR/readme-target"
   printf 'keep\n' > "$target"
-  ln -s "$target" "$WORKSPACES_ROOT/README.md"
+  ln -s "$target" "$CODE_ROOT/README.md"
 
-  run "$WORKSPACES" setup
+  run "$CODE" setup
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'refusing to replace symlink'* ]]
@@ -216,15 +216,15 @@ EOF
   _seed_repo demo
   _make_legacy_repo demo
 
-  run "$WORKSPACES" list
+  run "$CODE" list
   [ "$status" -eq 0 ]
-  [[ "$output" == *"run 'workspaces setup' to move them into repos/"* ]]
+  [[ "$output" == *"run 'code setup' to move them into repos/"* ]]
 
-  run "$WORKSPACES" doctor
+  run "$CODE" doctor
   [ "$status" -eq 0 ]
-  [[ "$output" == *"run 'workspaces setup' to move them into repos/"* ]]
-  [ -d "$WORKSPACES_ROOT/demo/.git" ]
-  [ ! -e "$WORKSPACES_ROOT/repos/demo" ]
+  [[ "$output" == *"run 'code setup' to move them into repos/"* ]]
+  [ -d "$CODE_ROOT/demo/.git" ]
+  [ ! -e "$CODE_ROOT/repos/demo" ]
 }
 
 @test "clone creates a normal checkout inside repos" {
@@ -237,47 +237,47 @@ EOF
   git -C "$source" add README.md
   git -C "$source" commit -qm init
 
-  run bash -c "'$WORKSPACES' clone '$source' 2>/dev/null"
+  run bash -c "'$CODE' clone '$source' 2>/dev/null"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT/repos/source" ]
-  [ -d "$WORKSPACES_ROOT/repos/source/.git" ]
-  [ "$(git -C "$WORKSPACES_ROOT/repos/source" branch --show-current)" = main ]
+  [ "$output" = "$CODE_ROOT/repos/source" ]
+  [ -d "$CODE_ROOT/repos/source/.git" ]
+  [ "$(git -C "$CODE_ROOT/repos/source" branch --show-current)" = main ]
 }
 
 @test "an empty clone can create an unnamed task worktree" {
   local source="$BATS_TEST_TMPDIR/empty-source" path name git_dir
   git init -q "$source"
-  "$WORKSPACES" clone "$source" >/dev/null 2>&1
+  "$CODE" clone "$source" >/dev/null 2>&1
 
-  run "$WORKSPACES" new empty-source
+  run "$CODE" new empty-source
 
   [ "$status" -eq 0 ]
   path=$output
   name=${path##*/}
-  [ "$path" = "$WORKSPACES_ROOT/worktrees/empty-source/$name" ]
+  [ "$path" = "$CODE_ROOT/worktrees/empty-source/$name" ]
   [ "$(git -C "$path" branch --show-current)" = "$name" ]
   git_dir=$(git -C "$path" rev-parse --absolute-git-dir)
-  [ -f "$git_dir/workspaces-managed" ]
+  [ -f "$git_dir/code-managed" ]
 }
 
 @test "repository names cannot collide with collection directories" {
   local source="$BATS_TEST_TMPDIR/worktrees"
   git init -q "$source"
 
-  run bash -c "'$WORKSPACES' clone '$source' 2>/dev/null"
+  run bash -c "'$CODE' clone '$source' 2>/dev/null"
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT/repos/worktrees" ]
-  [ -d "$WORKSPACES_ROOT/repos/worktrees/.git" ]
-  [ -d "$WORKSPACES_ROOT/worktrees" ]
+  [ "$output" = "$CODE_ROOT/repos/worktrees" ]
+  [ -d "$CODE_ROOT/repos/worktrees/.git" ]
+  [ -d "$CODE_ROOT/worktrees" ]
 }
 
 @test "list shows normal repositories and task checkouts" {
   _seed_repo demo
-  "$WORKSPACES" new demo docs >/dev/null
+  "$CODE" new demo docs >/dev/null
 
-  run "$WORKSPACES" list
+  run "$CODE" list
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'Repositories'* ]]
@@ -287,15 +287,15 @@ EOF
 }
 
 @test "root prints the selected collection" {
-  run "$WORKSPACES" root
+  run "$CODE" root
   [ "$status" -eq 0 ]
-  [ "$output" = "$WORKSPACES_ROOT" ]
+  [ "$output" = "$CODE_ROOT" ]
 }
 
 @test "legacy lifecycle and automation commands are absent" {
   local command
   for command in archive restore migrate sync run path current worktrees repos update; do
-    run "$WORKSPACES" "$command"
+    run "$CODE" "$command"
     [ "$status" -ne 0 ]
   done
 }
