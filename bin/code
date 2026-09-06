@@ -133,12 +133,12 @@ _is_managed_worktree(){
   [ -f "$git_dir/code-managed" ]
 }
 
-# Lifecycle paths must be one task directory beneath worktrees/<repo>/.
+# A managed checkout is a live linked worktree of the repository, marked in
+# its private Git administrative directory, and located beneath worktrees/.
 _is_managed_task(){
-  local repo=$1 path=$2 rel
+  local path=$1
   [ -e "$path/.git" ] || return 1
-  case "$path" in "$ROOT/worktrees/$repo"/*) rel=${path#"$ROOT/worktrees/$repo"/};; *) return 1;; esac
-  case "$rel" in */*) return 1;; esac
+  case "$path" in "$ROOT/worktrees/"*) ;; *) return 1;; esac
   _is_managed_worktree "$path"
 }
 
@@ -146,7 +146,7 @@ _is_managed_task(){
 _emit_managed_record(){
   local repo=$1 canonical=$2 path=$3 branch=$4
   [ -n "$path" ] && [ "$path" != "$canonical" ] || return 0
-  _is_managed_task "$repo" "$path" || return 0
+  _is_managed_task "$path" || return 0
   printf '%s\t%s\t%s\n' "$repo" "$path" "${branch:--}"
 }
 
@@ -187,16 +187,16 @@ _branch_worktree(){
 
 _help(){
   cat <<'EOF'
-Code — ordinary Git repositories with isolated task checkouts.
+Code — ordinary Git repositories with isolated agent worktrees.
 
 Start
   code setup [--root <path>] [--yes]
   code clone <owner/repo | url | path>
 
 Work
-  code new [<repo> [task]]
+  code new <agent>
   code list
-  code remove <repo/task | path> [--force]
+  code remove <branch | path> [--force]
 
 Inspect
   code root
@@ -206,9 +206,9 @@ Inspect
 `setup` is an interactive wizard in a terminal; --root answers the path and
 --yes skips every prompt.
 It creates or upgrades the root to README.md, repos/, and worktrees/.
-Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
-From a base checkout in repos/, `new` can discover the repository. Without a
-task name, it chooses an unused world capital.
+Repositories live in repos/<repo>; agent worktrees live flat in
+worktrees/<agent>-<repo>. From a base checkout in repos/, `new` discovers the
+repository and suffixes -1, -2, ... when the name is occupied.
 Code only removes worktrees it created.
 EOF
 }
@@ -435,76 +435,32 @@ cmd_clone(){
   printf '%s\n' "$destination"
 }
 
-# Pick an unused world capital for an unnamed task.
-_random_task(){
-  local repo=$1 canonical=$2 count start i candidate
-  local capitals=(
-    kabul tirana algiers andorra-la-vella luanda saint-johns buenos-aires yerevan
-    canberra vienna baku nassau manama dhaka bridgetown minsk brussels belmopan
-    porto-novo thimphu sucre sarajevo gaborone brasilia bandar-seri-begawan sofia
-    ouagadougou gitega praia phnom-penh yaounde ottawa bangui ndjamena santiago
-    beijing bogota moroni brazzaville san-jose yamoussoukro zagreb havana nicosia
-    prague kinshasa copenhagen djibouti roseau santo-domingo quito cairo
-    san-salvador malabo asmara tallinn mbabane addis-ababa suva helsinki paris
-    libreville banjul tbilisi berlin accra athens saint-georges guatemala-city
-    conakry bissau georgetown port-au-prince tegucigalpa budapest reykjavik
-    new-delhi jakarta tehran baghdad dublin jerusalem rome kingston tokyo amman
-    astana nairobi south-tarawa pyongyang seoul kuwait-city bishkek vientiane
-    riga beirut maseru monrovia tripoli vaduz vilnius luxembourg antananarivo
-    lilongwe kuala-lumpur male bamako valletta majuro nouakchott port-louis
-    mexico-city palikir chisinau monaco ulaanbaatar podgorica rabat maputo
-    naypyidaw windhoek yaren kathmandu amsterdam wellington managua niamey abuja
-    skopje oslo muscat islamabad ngerulmud ramallah panama-city port-moresby
-    asuncion lima manila warsaw lisbon doha bucharest moscow kigali basseterre
-    castries kingstown apia san-marino sao-tome riyadh dakar belgrade victoria
-    freetown singapore bratislava ljubljana honiara mogadishu pretoria juba
-    madrid sri-jayawardenepura-kotte khartoum paramaribo stockholm bern damascus
-    dushanbe dodoma bangkok dili lome nukualofa port-of-spain tunis ankara
-    ashgabat funafuti kampala kyiv abu-dhabi london washington-dc montevideo
-    tashkent port-vila vatican-city caracas hanoi sanaa lusaka harare
-  )
-  count=${#capitals[@]}
-  start=$((RANDOM % count))
-  for ((i = 0; i < count; i++)); do
-    candidate=${capitals[$(((start + i) % count))]}
-    if ! git -C "$canonical" show-ref --verify --quiet "refs/heads/$candidate" &&
-      [ ! -e "$ROOT/worktrees/$repo/$candidate" ]; then
-      printf '%s' "$candidate"
-      return 0
-    fi
-  done
-  _die "no unused capital names remain for '$repo' — pass an explicit task name"
-}
-
-# Create or reattach a task branch beneath worktrees/<repo>/.
+# Create or reattach a flat agent worktree beneath worktrees/.
+# Run from a base checkout: `code new <agent>` names the checkout
+# <agent>-<repo>, suffixing -1, -2, and so on when the name is occupied.
 cmd_new(){
-  [ $# -le 2 ] || _die 'usage: code new [<repo> [task]]'
-  local repo='' task='' canonical destination active created_branch=0 git_dir
+  [ $# -eq 1 ] || _die 'usage: code new <agent>'
+  local agent=$1 repo canonical destination active created_branch=0 git_dir task
+  _name_ok "$agent" || _die "invalid agent name '$agent'"
   _ensure_root
   _ensure_readme
-  if [ $# -eq 0 ]; then
-    repo=$(_current_repository) ||
-      _die "cannot identify a base repository here — run from $ROOT/repos/<repo> or pass <repo>"
-  else
-    repo=$1
-    task=${2:-}
-  fi
-  [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
+  repo=$(_current_repository) ||
+    _die "cannot identify a base repository here — run from $ROOT/repos/<repo>"
   canonical=$(_repo_path "$repo")
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
-  if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical"); fi
-  destination="$ROOT/worktrees/$repo/$task"
-  active=$(_branch_worktree "$canonical" "$task" || true)
-  if [ -n "$active" ]; then
-    if _is_managed_task "$repo" "$active"; then printf '%s\n' "$active"; return 0; fi
-    _die "branch '$task' is already checked out outside worktrees/$repo at $active"
-  fi
+  destination="$ROOT/worktrees/$agent-$repo"
   if [ -e "$destination" ]; then
-    local suffix=2
+    local suffix=1
     while [ -e "$destination-$suffix" ]; do suffix=$((suffix + 1)); done
     destination="$destination-$suffix"
   fi
-  mkdir -p "$ROOT/worktrees/$repo" || _die "could not create worktrees/$repo"
+  task=${destination##*/}
+  active=$(_branch_worktree "$canonical" "$task" || true)
+  if [ -n "$active" ]; then
+    if _is_managed_task "$active"; then printf '%s\n' "$active"; return 0; fi
+    _die "branch '$task' is already checked out outside worktrees/$repo at $active"
+  fi
+  mkdir -p "$ROOT/worktrees" || _die 'could not create worktrees'
   git -C "$canonical" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
     git -C "$canonical" worktree add "$destination" "$task" >/dev/null 2>&1 || _die 'could not create worktree'
@@ -512,7 +468,7 @@ cmd_new(){
     git -C "$canonical" worktree add -b "$task" "$destination" HEAD >/dev/null 2>&1 || _die 'could not create worktree'
     created_branch=1
   else
-    # Empty clones need an unborn task branch because there is no HEAD to branch from.
+    # Empty clones need an unborn agent branch because there is no HEAD to branch from.
     git -C "$canonical" worktree add --orphan -b "$task" "$destination" >/dev/null 2>&1 ||
       _die 'could not create worktree for repository without commits'
     created_branch=1
@@ -540,7 +496,7 @@ cmd_list(){
     found=1
   done
   [ "$found" = 1 ] || printf '  (none)\n'
-  printf '\nTask worktrees\n'
+  printf '\nWorktrees\n'
   found=0
   while IFS=$'\t' read -r repo path branch; do
     [ -n "$path" ] || continue
@@ -557,7 +513,7 @@ _resolve_managed(){
   if [ -d "$candidate" ]; then candidate=$(cd -P "$candidate" >/dev/null 2>&1 && pwd); fi
   while IFS=$'\t' read -r repo path branch; do
     [ -n "$path" ] || continue
-    if [ "$selector" = "$repo/$branch" ] || [ "$candidate" = "$path" ]; then
+    if [ "$selector" = "$repo/$branch" ] || [ "$selector" = "$branch" ] || [ "$candidate" = "$path" ]; then
       match_repo=$repo
       match_path=$path
       count=$((count + 1))
@@ -574,20 +530,21 @@ cmd_remove(){
   while [ $# -gt 0 ]; do
     case "$1" in
       --force) force=1; shift;;
-      -h|--help) printf 'usage: code remove <repo/task | path> [--force]\n'; return 0;;
-      *) [ -z "$selector" ] || _die 'usage: code remove <repo/task | path> [--force]'; selector=$1; shift;;
+      -h|--help) printf 'usage: code remove <branch | path> [--force]\n'; return 0;;
+      *) [ -z "$selector" ] || _die 'usage: code remove <branch | path> [--force]'; selector=$1; shift;;
     esac
   done
-  [ -n "$selector" ] || _die 'usage: code remove <repo/task | path> [--force]'
+  [ -n "$selector" ] || _die 'usage: code remove <branch | path> [--force]'
   IFS=$'\t' read -r repo path < <(_resolve_managed "$selector") || exit 1
   case "$path" in "$ROOT/worktrees/"*) rel=${path#"$ROOT/worktrees/"};; *) _die 'refusing to remove a worktree outside worktrees/';; esac
-  case "$rel" in */*) task_dir=${rel#*/};; *) _die 'refusing to remove an invalid task path';; esac
+  # Legacy tasks add a folder level; agent worktrees sit flat in worktrees/.
+  case "$rel" in */*) task_dir=${rel#*/};; *) task_dir=$rel;; esac
   case "$task_dir" in ''|*/*) _die 'refusing to remove an invalid task path';; esac
   if [ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ] && [ "$force" = 0 ]; then
     printf 'refused: uncommitted changes; commit them or use --force to discard them\n' >&2
     return 3
   fi
-  _is_managed_task "$repo" "$path" || _die 'refusing to remove an unmarked worktree'
+  _is_managed_task "$path" || _die 'refusing to remove an unmarked worktree'
   canonical=$(_repo_path "$repo")
   if [ "$force" = 1 ]; then
     git -C "$canonical" worktree remove --force "$path" >/dev/null || _die 'could not remove worktree'
