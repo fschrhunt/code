@@ -133,12 +133,22 @@ _is_managed_worktree(){
   [ -f "$git_dir/code-managed" ]
 }
 
-# Lifecycle paths must be one task directory beneath worktrees/<repo>/.
+# Lifecycle paths: a task directory beneath worktrees/<repo>/, or a flat
+# agent worktree named worktrees/<agent>-<repo>.
 _is_managed_task(){
   local repo=$1 path=$2 rel
   [ -e "$path/.git" ] || return 1
-  case "$path" in "$ROOT/worktrees/$repo"/*) rel=${path#"$ROOT/worktrees/$repo"/};; *) return 1;; esac
-  case "$rel" in */*) return 1;; esac
+  case "$path" in
+    "$ROOT/worktrees/$repo"/*)
+      rel=${path#"$ROOT/worktrees/$repo"/}
+      case "$rel" in */*) return 1;; esac
+      ;;
+    "$ROOT/worktrees/"*)
+      rel=${path#"$ROOT/worktrees/"}
+      case "$rel" in *-"$repo") ;; *) return 1;; esac
+      ;;
+    *) return 1;;
+  esac
   _is_managed_worktree "$path"
 }
 
@@ -209,6 +219,8 @@ It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 From a base checkout in repos/, `new` can discover the repository. Without a
 task name, it chooses an unused world capital.
+With CODE_AGENT set, `new` creates a flat agent worktree named
+worktrees/<agent>-<repo>, suffixing -1, -2, ... when occupied.
 Code only removes worktrees it created.
 EOF
 }
@@ -490,21 +502,42 @@ cmd_new(){
     task=${2:-}
   fi
   [ -z "$task" ] || _name_ok "$task" || _die "invalid task name '$task'"
+  local agent=${CODE_AGENT:-}
+  if [ -n "$agent" ]; then
+    _name_ok "$agent" || _die "invalid agent name in CODE_AGENT '$agent'"
+    [ -z "$task" ] || _die 'agent worktrees are named <agent>-<repo>; omit the task name'
+  fi
   canonical=$(_repo_path "$repo")
   [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
-  if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical"); fi
-  destination="$ROOT/worktrees/$repo/$task"
+  if [ -n "$agent" ]; then
+    # Agents get a flat, self-describing checkout: worktrees/<agent>-<repo>.
+    # An occupied name suffixes -1, -2, and so on.
+    destination="$ROOT/worktrees/$agent-$repo"
+    if [ -e "$destination" ]; then
+      local suffix=1
+      while [ -e "$destination-$suffix" ]; do suffix=$((suffix + 1)); done
+      destination="$destination-$suffix"
+    fi
+    task=${destination##*/}
+  else
+    if [ -z "$task" ]; then task=$(_random_task "$repo" "$canonical"); fi
+    destination="$ROOT/worktrees/$repo/$task"
+  fi
   active=$(_branch_worktree "$canonical" "$task" || true)
   if [ -n "$active" ]; then
     if _is_managed_task "$repo" "$active"; then printf '%s\n' "$active"; return 0; fi
     _die "branch '$task' is already checked out outside worktrees/$repo at $active"
   fi
-  if [ -e "$destination" ]; then
+  if [ -z "$agent" ] && [ -e "$destination" ]; then
     local suffix=2
     while [ -e "$destination-$suffix" ]; do suffix=$((suffix + 1)); done
     destination="$destination-$suffix"
   fi
-  mkdir -p "$ROOT/worktrees/$repo" || _die "could not create worktrees/$repo"
+  if [ -n "$agent" ]; then
+    mkdir -p "$ROOT/worktrees" || _die 'could not create worktrees'
+  else
+    mkdir -p "$ROOT/worktrees/$repo" || _die "could not create worktrees/$repo"
+  fi
   git -C "$canonical" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
     git -C "$canonical" worktree add "$destination" "$task" >/dev/null 2>&1 || _die 'could not create worktree'
@@ -581,7 +614,8 @@ cmd_remove(){
   [ -n "$selector" ] || _die 'usage: code remove <repo/task | path> [--force]'
   IFS=$'\t' read -r repo path < <(_resolve_managed "$selector") || exit 1
   case "$path" in "$ROOT/worktrees/"*) rel=${path#"$ROOT/worktrees/"};; *) _die 'refusing to remove a worktree outside worktrees/';; esac
-  case "$rel" in */*) task_dir=${rel#*/};; *) _die 'refusing to remove an invalid task path';; esac
+  # Legacy tasks add a folder level; agent worktrees sit flat in worktrees/.
+  case "$rel" in */*) task_dir=${rel#*/};; *) task_dir=$rel;; esac
   case "$task_dir" in ''|*/*) _die 'refusing to remove an invalid task path';; esac
   if [ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ] && [ "$force" = 0 ]; then
     printf 'refused: uncommitted changes; commit them or use --force to discard them\n' >&2

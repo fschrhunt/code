@@ -20,4 +20,6 @@ It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
 From a base checkout in repos/, `new` can discover the repository. Without a
 task name, it chooses an unused world capital.
+With CODE_AGENT set, `new` creates a flat agent worktree named
+worktrees/<agent>-<repo>, suffixing -1, -2, ... when occupied.
 Code only removes worktrees it created.

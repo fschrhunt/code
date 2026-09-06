@@ -52,6 +52,14 @@ branch exists and is inactive, it is reattached. If it is already active, `new`
 returns the existing managed task path or refuses a checkout outside
 `worktrees/<repo>/`. Explicit task names are single path-safe components.
 
+With `CODE_AGENT` set to a valid name, `new` creates an agent worktree
+instead: a flat checkout named `<root>/worktrees/<agent>-<repo>` whose branch
+matches the folder. An occupied name suffixes `-1`, `-2`, and so on, and a
+removed agent worktree's branch is reused by the next checkout of the same
+pair. An explicit task argument is rejected in agent mode. `list` shows agent
+worktrees as `<repo>/<branch>`, and `remove` takes the same selectors as task
+worktrees.
+
 ## `list`
 
 Shows normal repository checkouts followed by active task worktrees. Dirty

@@ -20,7 +20,8 @@ never test destructive behavior against a live collection.
 ## Design rules
 
 - Keep normal repository checkouts directly usable beneath `repos/`.
-- Keep task worktrees grouped beneath `worktrees/<repo>/`.
+- Keep task worktrees grouped beneath `worktrees/<repo>/` and agent worktrees
+  flat as `worktrees/<agent>-<repo>`.
 - Prove ownership with the worktree-specific marker before removal.
 - Never delete repositories or branches.
 - Keep Git operations native when the CLI adds no safety or clarity.

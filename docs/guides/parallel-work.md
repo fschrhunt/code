@@ -39,3 +39,17 @@ its branch:
 ```bash
 code remove pi/fix-auth
 ```
+
+## Agent sessions
+
+Automated sessions can skip task naming by setting `CODE_AGENT`. The checkout
+lands flat in `worktrees/` as `<agent>-<repo>`, with a numeric suffix when the
+name is taken:
+
+```bash
+cd ~/Code/repos/pi
+CODE_AGENT=e code new        # ~/Code/worktrees/e-pi
+```
+
+`code list` and `code remove` treat these checkouts like any other managed
+worktree.

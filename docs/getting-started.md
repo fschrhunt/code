@@ -57,6 +57,10 @@ without commits, it starts as an unborn branch so the first commit can be made
 in the task worktree. If an explicitly named inactive branch already exists,
 `new` reattaches it. There is no implicit fetch, pull, reset, or branch deletion.
 
+With `CODE_AGENT` set, `new` creates a flat agent worktree named
+`<agent>-<repo>` in `worktrees/` instead of a capital-named task folder, and
+suffixes the name when occupied.
+
 Do not create task folders manually. Two processes editing a base checkout still
 share files; each editing task needs its own returned worktree path.
 

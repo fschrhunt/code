@@ -33,6 +33,10 @@ folder and branch, then prints the authoritative path. An explicit
 can be reattached. If an explicitly named task folder is occupied, a numeric
 suffix keeps the checkout distinct.
 
+Coding agents use the same lifecycle with a flat, self-describing name. With
+`CODE_AGENT` set, `new` creates `worktrees/<agent>-<repo>` — `e-e` when the
+agent `e` works on the repository `e` — and suffixes the name when occupied.
+
 Do not create task folders with ordinary filesystem commands or place them in
 `repos/`. The separate hierarchies keep the collection readable and make the
 repository/task relationship explicit.

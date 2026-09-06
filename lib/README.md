@@ -31,6 +31,10 @@ both the folder and branch, such as
 `<root>/worktrees/pi-cloud/reykjavik`. Pass a name when you want one:
 `code new pi-cloud colored-logo`.
 
+With `CODE_AGENT` set, `new` instead creates a flat agent worktree named
+`<agent>-<repo>`, such as `<root>/worktrees/e-pi-cloud`, and suffixes the
+name `-1`, `-2`, ... when occupied.
+
 The task shares Git history with the base repository but has independent working
 files and a separate branch.
 
@@ -48,7 +52,8 @@ it and `code doctor` reports the stale Git metadata.
 
 - Put base repositories in `repos/`; use `code clone` or ordinary `git clone`.
 - Create task checkouts with `code new`; they belong in
-  `worktrees/<repo>/<task>`.
+  `worktrees/<repo>/<task>`, or flat as `worktrees/<agent>-<repo>` when
+  `CODE_AGENT` is set.
 - Do not use `mkdir`, `cp`, `git clone`, or raw `git worktree add` to create a
   managed task.
 - Automated coding sessions must not edit a base checkout in `repos/`. If one

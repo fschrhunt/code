@@ -16,9 +16,11 @@ load helper
   [[ "$output" == *'creates or upgrades the root'* ]]
   [[ "$output" == *'repos/<repo>'* ]]
   [[ "$output" == *'worktrees/<repo>/<task>'* ]]
+  [[ "$output" == *'CODE_AGENT'* ]]
+  [[ "$output" == *'agent worktree'* ]]
   [[ "$output" == *'unused world capital'* ]]
   [[ "$output" == *'Code only removes worktrees it created.'* ]]
   [[ "$output" != *'ws'* ]]
   [[ "$output" != *'archive'* ]]
-  [[ "$output" != *'agent'* ]]
+  [[ "$output" != *'orchestrat'* ]]
 }

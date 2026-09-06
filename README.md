@@ -72,6 +72,14 @@ the folder and branch. For example, the command may print:
 Pass an explicit name when you want one: `code new pi fix-auth` creates the
 `fix-auth` folder and branch.
 
+Coding agents can ask for a flat, self-describing checkout instead. With
+`CODE_AGENT` set, `code new` names the folder and branch `<agent>-<repo>`
+and suffixes `-1`, `-2`, ... when the name is taken:
+
+```bash
+CODE_AGENT=e code new          # run inside repos/e; prints ~/Code/worktrees/e-e
+```
+
 Work there, commit normally, and use your ordinary Git hosting workflow. When
 the checkout is no longer needed:
 
@@ -123,10 +131,10 @@ layout that still needs setup.
 ## The safety model
 
 A task checkout is managed only when it is both beneath
-`worktrees/<repo>/` **and** carries Code’ marker in its private Git
-administrative directory. A matching path or branch name alone is not enough.
-Code therefore ignores and refuses to remove manually created or
-third-party worktrees.
+`worktrees/<repo>/` or a flat `worktrees/<agent>-<repo>` **and** carries
+Code’ marker in its private Git administrative directory. A matching path or
+branch name alone is not enough. Code therefore ignores and refuses to remove
+manually created or third-party worktrees.
 
 Automated coding sessions should never edit a checkout in `repos/`. If a session
 starts there, run `code new` and continue only in the exact path it prints. One

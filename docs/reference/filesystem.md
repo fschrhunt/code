@@ -6,14 +6,17 @@
 ├── repos/
 │   └── <repo>/
 └── worktrees/
-    └── <repo>/
-        ├── <task>/
-        └── <other-task>/
+    ├── <repo>/
+    │   ├── <task>/
+    │   └── <other-task>/
+    └── <agent>-<repo>/
 ```
 
 Base repository directories are ordinary non-bare Git clones with a `.git/`
 directory. They live only beneath `repos/`. Task directories are linked Git
-worktrees with a `.git` file and live only beneath `worktrees/<repo>/`.
+worktrees with a `.git` file and live only beneath `worktrees/<repo>/`. Agent
+worktrees created with `CODE_AGENT` sit flat in `worktrees/` and are named
+`<agent>-<repo>`, suffixed `-1`, `-2`, ... when occupied.
 
 The selected root is stored at:
 

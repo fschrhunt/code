@@ -14,6 +14,9 @@ Notable changes to Code are documented here. The project follows
 - Let `new` discover a base repository from the current directory when the
   repository argument is omitted, including checkouts created with ordinary
   `git clone` beneath `repos/`.
+- Let `new` create flat agent worktrees when `CODE_AGENT` is set: named
+  `worktrees/<agent>-<repo>`, suffixed `-1`, `-2`, ... when occupied, and
+  listed and removed like ordinary task worktrees.
 
 ### Changed
 

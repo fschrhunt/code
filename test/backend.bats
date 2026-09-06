@@ -184,3 +184,75 @@ setup() {
     [ "$status" -ne 0 ]
   done
 }
+
+@test "agent worktrees are named <agent>-<repo> and branch to match" {
+  run env CODE_AGENT=e "$CODE" new demo
+  [ "$status" -eq 0 ]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo" ]
+  [ -e "$output/.git" ]
+  [ "$(git -C "$output" branch --show-current)" = e-demo ]
+  local git_dir
+  git_dir=$(git -C "$output" rev-parse --absolute-git-dir)
+  [ -f "$git_dir/code-managed" ]
+}
+
+@test "agent worktrees suffix -1 when the agent name is occupied" {
+  mkdir -p "$CODE_ROOT/worktrees/e-demo"
+
+  run env CODE_AGENT=e "$CODE" new demo
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo-1" ]
+  [ -e "$output/.git" ]
+}
+
+@test "agent worktrees reuse the branch after a worktree is removed" {
+  local first
+  first=$(env CODE_AGENT=e "$CODE" new demo)
+  run "$CODE" remove "$first"
+  [ "$status" -eq 0 ]
+
+  run env CODE_AGENT=e "$CODE" new demo
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$first" ]
+  [ "$(git -C "$output" branch --show-current)" = e-demo ]
+}
+
+@test "agent worktrees list and remove by repo/branch" {
+  local path
+  path=$(env CODE_AGENT=e "$CODE" new demo)
+
+  run "$CODE" list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"demo/e-demo"* ]]
+
+  run "$CODE" remove demo/e-demo
+  [ "$status" -eq 0 ]
+  [ ! -e "$path" ]
+  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/e-demo
+}
+
+@test "agent mode rejects a task name and an invalid agent name" {
+  run env CODE_AGENT=e "$CODE" new demo fix-login
+  [ "$status" -ne 0 ]
+  [ ! -e "$CODE_ROOT/worktrees/e-demo" ]
+
+  run env CODE_AGENT='bad name' "$CODE" new demo
+  [ "$status" -ne 0 ]
+  [ ! -e "$CODE_ROOT/worktrees" ] || [ -z "$(ls "$CODE_ROOT/worktrees")" ]
+}
+
+@test "unmarked flat worktrees are ignored and cannot be removed" {
+  local foreign="$CODE_ROOT/worktrees/manual-demo"
+  mkdir -p "$CODE_ROOT/worktrees"
+  git -C "$CODE_ROOT/repos/demo" worktree add -q -b manual-demo "$foreign" HEAD
+
+  run "$CODE" list
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"manual-demo"* ]]
+
+  run "$CODE" remove "$foreign"
+  [ "$status" -ne 0 ]
+  [ -e "$foreign/.git" ]
+}

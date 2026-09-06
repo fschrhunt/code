@@ -3,7 +3,8 @@
 ## Product boundary
 
 Code is a small local CLI for normal repository checkouts beneath
-`repos/<repo>` and isolated task worktrees beneath `worktrees/<repo>/<task>`. Its complete
+`repos/<repo>`, isolated task worktrees beneath `worktrees/<repo>/<task>`, and
+flat agent worktrees named `worktrees/<agent>-<repo>`. Its complete
 job is to select a root, clone repositories, create task worktrees, list them,
 remove them safely, and diagnose local Git metadata.
 
@@ -22,7 +23,7 @@ package-management behavior, or automatic Git synchronization.
   carries the Code marker.
 - A path, name, branch, or Git worktree record alone is not ownership.
 - Never remove an unmarked checkout or any checkout outside
-  `<root>/worktrees/<repo>/`.
+  `<root>/worktrees/`.
 - Never discard dirty work unless `--force` is explicit.
 - Never delete repository checkouts or branches.
 - Add a focused Bats test for every destructive behavior or safety boundary.
