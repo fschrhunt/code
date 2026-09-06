@@ -1,64 +1,53 @@
 # Code collection
 
-This folder separates stable repository checkouts from isolated task worktrees:
+This folder separates stable repository checkouts from isolated agent worktrees:
 
 ```text
 <root>/
 ├── README.md                     this guide
 ├── repos/
-│   └── pi-cloud/                 base repository, usually on main
+│   └── e/                        base repository, usually on main
 └── worktrees/
-    └── pi-cloud/
-        └── colored-logo/         isolated task checkout and branch
+    └── e-e/                      agent e working on repository e
 ```
 
-## Start a task
+## Start a session
 
-Choose a base repository, create a task, and enter the exact path printed by
+Choose a base repository, name the agent, and enter the exact path printed by
 Code:
 
 ```bash
 root=$(code root)
-cd "$root/repos/pi-cloud"
-cd "$(code new)"
+cd "$root/repos/e"
+cd "$(code new e)"
 git status --short --branch
 ```
 
-From a base checkout in `repos/`, `new` discovers the repository from the
-current folder.
-Without an explicit task name, Code chooses an unused world capital for
-both the folder and branch, such as
-`<root>/worktrees/pi-cloud/reykjavik`. Pass a name when you want one:
-`code new pi-cloud colored-logo`.
+`new` discovers the repository from the current folder and names the checkout
+and branch `<agent>-<repo>`, such as `e-e`. An occupied name suffixes `-1`,
+`-2`, and so on. The worktree shares Git history with the base repository but
+has independent working files and its own branch.
 
-With `CODE_AGENT` set, `new` instead creates a flat agent worktree named
-`<agent>-<repo>`, such as `<root>/worktrees/e-pi-cloud`, and suffixes the
-name `-1`, `-2`, ... when occupied.
-
-The task shares Git history with the base repository but has independent working
-files and a separate branch.
-
-## Finish a task
+## Finish a session
 
 ```bash
-code remove pi-cloud/reykjavik
+code remove e-e
 ```
 
 Removal keeps the branch and refuses uncommitted changes. `--force` explicitly
-discards those changes. If a task folder is manually deleted, `code list` omits
-it and `code doctor` reports the stale Git metadata.
+discards those changes. If a worktree folder is manually deleted, `code list`
+omits it and `code doctor` reports the stale Git metadata.
 
 ## Rules
 
 - Put base repositories in `repos/`; use `code clone` or ordinary `git clone`.
-- Create task checkouts with `code new`; they belong in
-  `worktrees/<repo>/<task>`, or flat as `worktrees/<agent>-<repo>` when
-  `CODE_AGENT` is set.
+- Create worktrees with `code new <agent>`; they belong in
+  `worktrees/<agent>-<repo>`.
 - Do not use `mkdir`, `cp`, `git clone`, or raw `git worktree add` to create a
-  managed task.
+  managed worktree.
 - Automated coding sessions must not edit a base checkout in `repos/`. If one
-  starts there, create a task and continue only in the returned path.
-- Code removes only task worktrees carrying its private ownership marker.
+  starts there, create a worktree and continue only in the returned path.
+- Code removes only worktrees carrying its private ownership marker.
 
 Run `code help` for the complete CLI.
 

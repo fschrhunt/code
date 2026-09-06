@@ -3,10 +3,9 @@
 ## Product boundary
 
 Code is a small local CLI for normal repository checkouts beneath
-`repos/<repo>`, isolated task worktrees beneath `worktrees/<repo>/<task>`, and
-flat agent worktrees named `worktrees/<agent>-<repo>`. Its complete
-job is to select a root, clone repositories, create task worktrees, list them,
-remove them safely, and diagnose local Git metadata.
+`repos/<repo>` and flat agent worktrees named `worktrees/<agent>-<repo>`. Its
+complete job is to select a root, clone repositories, create agent worktrees,
+list them, remove them safely, and diagnose local Git metadata.
 
 Do not add agent orchestration, remote stores, SSH, mounting, editor launch,
 shell hooks, dashboards, branch deletion, archive state, migration state,
@@ -15,11 +14,11 @@ package-management behavior, or automatic Git synchronization.
 ## Safety
 
 - Work only in an isolated Git worktree and preserve unrelated changes.
-- Repository checkouts beneath `repos/` are task bases, not agent editing locations.
-  When started in one, run `code new <repo> [task]` and continue only in
+- Repository checkouts beneath `repos/` are work bases, not agent editing locations.
+  When started in one, run `code new <agent>` and continue only in
   the exact returned path before changing files.
-- Never create task directories manually or place them at the collection root.
-- A task worktree is owned only when its private Git administrative directory
+- Never create worktree directories manually or place them at the collection root.
+- A worktree is owned only when its private Git administrative directory
   carries the Code marker.
 - A path, name, branch, or Git worktree record alone is not ownership.
 - Never remove an unmarked checkout or any checkout outside
