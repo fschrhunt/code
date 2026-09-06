@@ -1,13 +1,13 @@
-Code — ordinary Git repositories with isolated task checkouts.
+Code — ordinary Git repositories with isolated agent worktrees.
 
 Start
   code setup [--root <path>] [--yes]
   code clone <owner/repo | url | path>
 
 Work
-  code new [<repo> [task]]
+  code new <agent>
   code list
-  code remove <repo/task | path> [--force]
+  code remove <branch | path> [--force]
 
 Inspect
   code root
@@ -17,7 +17,7 @@ Inspect
 `setup` is an interactive wizard in a terminal; --root answers the path and
 --yes skips every prompt.
 It creates or upgrades the root to README.md, repos/, and worktrees/.
-Repositories live in repos/<repo>; tasks live in worktrees/<repo>/<task>.
-From a base checkout in repos/, `new` can discover the repository. Without a
-task name, it chooses an unused world capital.
+Repositories live in repos/<repo>; agent worktrees live flat in
+worktrees/<agent>-<repo>. From a base checkout in repos/, `new` discovers the
+repository and suffixes -1, -2, ... when the name is occupied.
 Code only removes worktrees it created.

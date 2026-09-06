@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Nested worktree lifecycle and destructive-action safety.
+# Agent worktree lifecycle and destructive-action safety.
 
 load helper
 
@@ -8,40 +8,26 @@ setup() {
   _seed_repo demo
 }
 
-@test "new creates a task checkout under worktrees" {
-  run "$CODE" new demo fix-login
+@test "new creates an agent worktree under worktrees" {
+  cd "$CODE_ROOT/repos/demo"
+  run "$CODE" new e
   [ "$status" -eq 0 ]
-  [ "$output" = "$CODE_ROOT/worktrees/demo/fix-login" ]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo" ]
   [ -e "$output/.git" ]
-  [ "$(git -C "$output" branch --show-current)" = fix-login ]
+  [ "$(git -C "$output" branch --show-current)" = e-demo ]
   local git_dir
   git_dir=$(git -C "$output" rev-parse --absolute-git-dir)
   [ -f "$git_dir/code-managed" ]
 }
 
-@test "new chooses distinct path-safe world capitals when task is omitted" {
-  local first second name
-
-  first=$("$CODE" new demo)
-  name=${first##*/}
-  [[ "$name" =~ ^[a-z]+(-[a-z]+)*$ ]]
-  [ "$(git -C "$first" branch --show-current)" = "$name" ]
-
-  second=$("$CODE" new demo)
-  [ "$second" != "$first" ]
-  name=${second##*/}
-  [[ "$name" =~ ^[a-z]+(-[a-z]+)*$ ]]
-  [ "$(git -C "$second" branch --show-current)" = "$name" ]
-}
-
-@test "new discovers a directly cloned repository from the current folder" {
+@test "new discovers the repository from the current folder" {
   mkdir -p "$CODE_ROOT/repos/demo/nested"
   cd "$CODE_ROOT/repos/demo/nested"
 
-  run "$CODE" new
+  run "$CODE" new e
 
   [ "$status" -eq 0 ]
-  [[ "$output" == "$CODE_ROOT/worktrees/demo/"* ]]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo" ]
   [ -e "$output/.git" ]
 }
 
@@ -51,59 +37,109 @@ setup() {
   git clone -q "$origin" "$outside"
   cd "$outside"
 
-  run "$CODE" new
+  run "$CODE" new e
 
   [ "$status" -ne 0 ]
-  [[ "$output" == *"run from $CODE_ROOT/repos/<repo> or pass <repo>"* ]]
-  [ ! -e "$CODE_ROOT/worktrees/outside" ]
+  [[ "$output" == *"run from $CODE_ROOT/repos/<repo>"* ]]
+  [ -z "$(ls "$CODE_ROOT/worktrees" 2>/dev/null)" ]
 }
 
 @test "new branches from the repository checkout's current HEAD" {
-  printf 'local\n' >> "$CODE_ROOT/repos/demo/README.md"
-  git -C "$CODE_ROOT/repos/demo" add README.md
-  git -C "$CODE_ROOT/repos/demo" commit -qm local
+  cd "$CODE_ROOT/repos/demo"
+  printf 'local\n' >> README.md
+  git add README.md
+  git commit -qm local
 
-  run "$CODE" new demo current-head
+  run "$CODE" new e
   [ "$status" -eq 0 ]
   [ "$(git -C "$output" rev-parse HEAD)" = "$(git -C "$CODE_ROOT/repos/demo" rev-parse HEAD)" ]
 }
 
 @test "new reattaches an existing inactive branch" {
-  git -C "$CODE_ROOT/repos/demo" branch paused
+  git -C "$CODE_ROOT/repos/demo" branch e-demo
+  cd "$CODE_ROOT/repos/demo"
 
-  run "$CODE" new demo paused
-
-  [ "$status" -eq 0 ]
-  [ "$output" = "$CODE_ROOT/worktrees/demo/paused" ]
-  [ "$(git -C "$output" branch --show-current)" = paused ]
-}
-
-@test "parallel tasks have independent working files" {
-  local first second
-  first=$("$CODE" new demo first)
-  second=$("$CODE" new demo second)
-  printf 'first\n' > "$first/task.txt"
-  printf 'second\n' > "$second/task.txt"
-
-  [ "$(cat "$first/task.txt")" = first ]
-  [ "$(cat "$second/task.txt")" = second ]
-  [ ! -e "$CODE_ROOT/repos/demo/task.txt" ]
-}
-
-@test "new disambiguates an occupied task name" {
-  mkdir -p "$CODE_ROOT/worktrees/demo/collision"
-
-  run "$CODE" new demo collision
+  run "$CODE" new e
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$CODE_ROOT/worktrees/demo/collision-2" ]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo" ]
+  [ "$(git -C "$output" branch --show-current)" = e-demo ]
+}
+
+@test "agent worktrees suffix -1 when the name is occupied" {
+  mkdir -p "$CODE_ROOT/worktrees/e-demo"
+  cd "$CODE_ROOT/repos/demo"
+
+  run "$CODE" new e
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo-1" ]
   [ -e "$output/.git" ]
+}
+
+@test "parallel agent worktrees have independent working files" {
+  local first second
+  cd "$CODE_ROOT/repos/demo"
+  first=$("$CODE" new e)
+  second=$("$CODE" new claude)
+  printf 'first\n' > "$first/work.txt"
+  printf 'second\n' > "$second/work.txt"
+
+  [ "$(cat "$first/work.txt")" = first ]
+  [ "$(cat "$second/work.txt")" = second ]
+  [ ! -e "$CODE_ROOT/repos/demo/work.txt" ]
+}
+
+@test "agent worktrees reuse the branch after a worktree is removed" {
+  local first
+  cd "$CODE_ROOT/repos/demo"
+  first=$("$CODE" new e)
+  run "$CODE" remove "$first"
+  [ "$status" -eq 0 ]
+
+  run "$CODE" new e
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "$first" ]
+  [ "$(git -C "$output" branch --show-current)" = e-demo ]
+}
+
+@test "agent worktrees list and remove by name" {
+  local path
+  cd "$CODE_ROOT/repos/demo"
+  path=$("$CODE" new e)
+
+  run "$CODE" list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"demo/e-demo"* ]]
+
+  run "$CODE" remove demo/e-demo
+  [ "$status" -eq 0 ]
+  [ ! -e "$path" ]
+  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/e-demo
+}
+
+@test "remove accepts a bare branch name" {
+  local first second
+  cd "$CODE_ROOT/repos/demo"
+  first=$("$CODE" new e)
+  second=$("$CODE" new e)
+
+  run "$CODE" remove e-demo-1
+  [ "$status" -eq 0 ]
+  [ ! -e "$second" ]
+  [ -e "$first" ]
+
+  run "$CODE" remove e-demo
+  [ "$status" -eq 0 ]
+  [ ! -e "$first" ]
 }
 
 @test "ownership survives branch and Git worktree renames" {
   local original moved
-  original=$("$CODE" new demo initial)
-  moved="$CODE_ROOT/worktrees/demo/better-name"
+  cd "$CODE_ROOT/repos/demo"
+  original=$("$CODE" new e)
+  moved="$CODE_ROOT/worktrees/e-demo-moved"
   git -C "$original" branch -m better-branch
   git -C "$CODE_ROOT/repos/demo" worktree move "$original" "$moved"
 
@@ -120,18 +156,19 @@ setup() {
 
 @test "new refuses a marked branch moved outside its repository worktree folder" {
   local original outside
-  original=$("$CODE" new demo moved)
+  cd "$CODE_ROOT/repos/demo"
+  original=$("$CODE" new e)
   outside="$BATS_TEST_TMPDIR/outside"
   git -C "$CODE_ROOT/repos/demo" worktree move "$original" "$outside"
 
-  run "$CODE" new demo moved
+  run "$CODE" new e
 
   [ "$status" -ne 0 ]
   [[ "$output" == *'outside worktrees/demo'* ]]
   [ -e "$outside/.git" ]
 }
 
-@test "unmarked worktrees are ignored and cannot be removed" {
+@test "unmarked nested worktrees are ignored and cannot be removed" {
   local foreign="$CODE_ROOT/worktrees/demo/manual"
   mkdir -p "$(dirname "$foreign")"
   git -C "$CODE_ROOT/repos/demo" worktree add -q -b manual "$foreign" HEAD
@@ -145,15 +182,30 @@ setup() {
   [ -e "$foreign/.git" ]
 }
 
-@test "list omits a task deleted outside Code" {
+@test "unmarked flat worktrees are ignored and cannot be removed" {
+  local foreign="$CODE_ROOT/worktrees/manual-demo"
+  mkdir -p "$CODE_ROOT/worktrees"
+  git -C "$CODE_ROOT/repos/demo" worktree add -q -b manual-demo "$foreign" HEAD
+
+  run "$CODE" list
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"manual-demo"* ]]
+
+  run "$CODE" remove "$foreign"
+  [ "$status" -ne 0 ]
+  [ -e "$foreign/.git" ]
+}
+
+@test "list omits a worktree deleted outside Code" {
   local path
-  path=$("$CODE" new demo abandoned)
+  cd "$CODE_ROOT/repos/demo"
+  path=$("$CODE" new e)
   rm -rf "$path"
 
   run "$CODE" list
 
   [ "$status" -eq 0 ]
-  [[ "$output" != *'demo/abandoned'* ]]
+  [[ "$output" != *'demo/e-demo'* ]]
   [[ "$output" != *"$path"* ]]
 
   run "$CODE" doctor
@@ -164,23 +216,26 @@ setup() {
 
 @test "remove refuses dirty work unless force is explicit" {
   local path
-  path=$("$CODE" new demo dirty)
+  cd "$CODE_ROOT/repos/demo"
+  path=$("$CODE" new e)
   printf 'change\n' > "$path/change.txt"
 
-  run "$CODE" remove demo/dirty
+  run "$CODE" remove demo/e-demo
   [ "$status" -eq 3 ]
   [ -e "$path/.git" ]
 
-  run "$CODE" remove demo/dirty --force
+  run "$CODE" remove demo/e-demo --force
   [ "$status" -eq 0 ]
   [ ! -e "$path" ]
-  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/dirty
+  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/e-demo
 }
 
-@test "new rejects path-like task names" {
+@test "new rejects invalid agent names and wrong arity" {
+  cd "$CODE_ROOT/repos/demo"
   local bad
-  for bad in 'feature/auth' '../escape' 'two words' '-flag'; do
-    run "$CODE" new demo "$bad"
+  for bad in 'feature/auth' '../escape' 'two words' '-flag' 'demo fix-login'; do
+    run "$CODE" $bad
     [ "$status" -ne 0 ]
   done
+  [ -z "$(ls "$CODE_ROOT/worktrees" 2>/dev/null)" ]
 }

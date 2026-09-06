@@ -80,7 +80,7 @@ setup() { _use_test_root; }
 @test "setup moves legacy repositories and repairs active dirty tasks" {
   local task git_dir
   _seed_repo demo
-  task=$("$CODE" new demo repair-me)
+  task=$(cd "$CODE_ROOT/repos/demo" && "$CODE" new e)
   printf 'base change\n' > "$CODE_ROOT/repos/demo/base.txt"
   printf 'task change\n' > "$task/task.txt"
   _make_legacy_repo demo "$task"
@@ -93,11 +93,11 @@ setup() { _use_test_root; }
   [ -d "$CODE_ROOT/repos/demo/.git" ]
   [ "$(cat "$CODE_ROOT/repos/demo/base.txt")" = 'base change' ]
   [ "$(cat "$task/task.txt")" = 'task change' ]
-  [ "$(git -C "$task" branch --show-current)" = repair-me ]
+  [ "$(git -C "$task" branch --show-current)" = e-demo ]
   git_dir=$(git -C "$task" rev-parse --absolute-git-dir)
   [ -f "$git_dir/code-managed" ]
 
-  run "$CODE" remove demo/repair-me
+  run "$CODE" remove demo/e-demo
   [ "$status" -eq 3 ]
   [ -e "$task/.git" ]
 }
@@ -126,10 +126,10 @@ setup() { _use_test_root; }
   local first_task second_task mockbin="$BATS_TEST_TMPDIR/mockbin" real_git
   real_git=$(command -v git)
   _seed_repo first
-  first_task=$("$CODE" new first task-one)
+  first_task=$(cd "$CODE_ROOT/repos/first" && "$CODE" new e)
   _make_legacy_repo first "$first_task"
   _seed_repo second
-  second_task=$("$CODE" new second task-two)
+  second_task=$(cd "$CODE_ROOT/repos/second" && "$CODE" new claude)
   _make_legacy_repo second "$second_task"
   mkdir -p "$mockbin"
   cat > "$mockbin/git" <<'EOF'
@@ -245,18 +245,18 @@ EOF
   [ "$(git -C "$CODE_ROOT/repos/source" branch --show-current)" = main ]
 }
 
-@test "an empty clone can create an unnamed task worktree" {
-  local source="$BATS_TEST_TMPDIR/empty-source" path name git_dir
+@test "an empty clone can create an agent worktree" {
+  local source="$BATS_TEST_TMPDIR/empty-source" path git_dir
   git init -q "$source"
   "$CODE" clone "$source" >/dev/null 2>&1
+  cd "$CODE_ROOT/repos/empty-source"
 
-  run "$CODE" new empty-source
+  run "$CODE" new e
 
   [ "$status" -eq 0 ]
   path=$output
-  name=${path##*/}
-  [ "$path" = "$CODE_ROOT/worktrees/empty-source/$name" ]
-  [ "$(git -C "$path" branch --show-current)" = "$name" ]
+  [ "$path" = "$CODE_ROOT/worktrees/e-empty-source" ]
+  [ "$(git -C "$path" branch --show-current)" = e-empty-source ]
   git_dir=$(git -C "$path" rev-parse --absolute-git-dir)
   [ -f "$git_dir/code-managed" ]
 }
@@ -273,17 +273,18 @@ EOF
   [ -d "$CODE_ROOT/worktrees" ]
 }
 
-@test "list shows normal repositories and task checkouts" {
+@test "list shows normal repositories and agent worktrees" {
   _seed_repo demo
-  "$CODE" new demo docs >/dev/null
+  cd "$CODE_ROOT/repos/demo"
+  "$CODE" new e >/dev/null
 
   run "$CODE" list
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'Repositories'* ]]
   [[ "$output" == *"demo  main"* ]]
-  [[ "$output" == *'Task worktrees'* ]]
-  [[ "$output" == *'demo/docs'* ]]
+  [[ "$output" == *'Worktrees'* ]]
+  [[ "$output" == *'demo/e-demo'* ]]
 }
 
 @test "root prints the selected collection" {

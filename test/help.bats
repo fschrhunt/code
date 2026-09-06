@@ -8,17 +8,16 @@ load helper
   diff -u "$BATS_TEST_DIRNAME/golden/help.txt" "$output_file"
 }
 
-@test "help describes repositories and nested task worktrees" {
+@test "help describes repositories and agent worktrees" {
   run "$CODE" help
   [ "$status" -eq 0 ]
-  [[ "$output" == *'code new [<repo> [task]]'* ]]
-  [[ "$output" == *'can discover the repository'* ]]
+  [[ "$output" == *'code new <agent>'* ]]
+  [[ "$output" == *'discovers the'* ]]
   [[ "$output" == *'creates or upgrades the root'* ]]
   [[ "$output" == *'repos/<repo>'* ]]
-  [[ "$output" == *'worktrees/<repo>/<task>'* ]]
-  [[ "$output" == *'unused world capital'* ]]
+  [[ "$output" == *'worktrees/<agent>-<repo>'* ]]
   [[ "$output" == *'Code only removes worktrees it created.'* ]]
   [[ "$output" != *'ws'* ]]
   [[ "$output" != *'archive'* ]]
-  [[ "$output" != *'agent'* ]]
+  [[ "$output" != *'orchestrat'* ]]
 }
