@@ -36,11 +36,11 @@ SAFETY:
 ///
 
 REFERENCE:
- - https://github.com/fschrhunt/code/blob/main/docs/getting-started.md
- - https://github.com/fschrhunt/code/blob/main/docs/concepts.md
- - https://github.com/fschrhunt/code/blob/main/docs/reference/cli.md
- - https://github.com/fschrhunt/code/blob/main/docs/reference/filesystem.md
- - https://github.com/fschrhunt/code/blob/main/CHANGELOG.md
- - https://github.com/fschrhunt/code/blob/main/CONTRIBUTING.md
- - https://github.com/fschrhunt/code/blob/main/SECURITY.md
- - https://github.com/fschrhunt/code/blob/main/AGENTS.md
+ - [Getting started](https://github.com/fschrhunt/code/blob/main/docs/getting-started.md)
+ - [Concepts](https://github.com/fschrhunt/code/blob/main/docs/concepts.md)
+ - [CLI reference](https://github.com/fschrhunt/code/blob/main/docs/reference/cli.md)
+ - [Filesystem reference](https://github.com/fschrhunt/code/blob/main/docs/reference/filesystem.md)
+ - [Changes](https://github.com/fschrhunt/code/blob/main/CHANGELOG.md)
+ - [Contributing](https://github.com/fschrhunt/code/blob/main/CONTRIBUTING.md)
+ - [Security](https://github.com/fschrhunt/code/blob/main/SECURITY.md)
+ - [Agent guide](https://github.com/fschrhunt/code/blob/main/AGENTS.md)
