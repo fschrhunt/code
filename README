@@ -11,7 +11,7 @@ OVERVIEW:
  - Every repository gets a stable base checkout in repos/.
  - Every work session gets an isolated Git worktree in worktrees/.
  - One small Bash CLI over ordinary Git: setup, clone, new, list, remove, doctor.
- - No index, no daemon, no migration state; ownership is a marker in Git metadata.
+ - No index, no daemon; ownership is a marker in Git metadata.
 
 ///
 
@@ -36,7 +36,11 @@ SAFETY:
 ///
 
 REFERENCE:
- - [Getting started](docs/getting-started.md)
- - [Concepts](docs/concepts.md)
- - [CLI reference](docs/reference/cli.md)
- - [Filesystem reference](docs/reference/filesystem.md)
+ - https://github.com/fschrhunt/code/blob/main/docs/getting-started.md
+ - https://github.com/fschrhunt/code/blob/main/docs/concepts.md
+ - https://github.com/fschrhunt/code/blob/main/docs/reference/cli.md
+ - https://github.com/fschrhunt/code/blob/main/docs/reference/filesystem.md
+ - https://github.com/fschrhunt/code/blob/main/CHANGELOG.md
+ - https://github.com/fschrhunt/code/blob/main/CONTRIBUTING.md
+ - https://github.com/fschrhunt/code/blob/main/SECURITY.md
+ - https://github.com/fschrhunt/code/blob/main/AGENTS.md
