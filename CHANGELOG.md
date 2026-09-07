@@ -3,6 +3,13 @@
 Notable changes to Code are documented here. The project follows
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The repository README is now a plain-text `README` file whose reference
+  section uses direct URLs, matching the other repositories in the collection.
+
 ## 0.0.1
 
 First release of the restarted project. The version history restarts here.
