@@ -36,11 +36,11 @@ SAFETY:
 ///
 
 REFERENCE:
- - [Getting started](https://github.com/fschrhunt/code/blob/main/docs/getting-started.md)
+ - [Start](https://github.com/fschrhunt/code/blob/main/docs/getting-started.md)
  - [Concepts](https://github.com/fschrhunt/code/blob/main/docs/concepts.md)
- - [CLI reference](https://github.com/fschrhunt/code/blob/main/docs/reference/cli.md)
- - [Filesystem reference](https://github.com/fschrhunt/code/blob/main/docs/reference/filesystem.md)
+ - [CLI](https://github.com/fschrhunt/code/blob/main/docs/reference/cli.md)
+ - [Filesystem](https://github.com/fschrhunt/code/blob/main/docs/reference/filesystem.md)
  - [Changes](https://github.com/fschrhunt/code/blob/main/CHANGELOG.md)
  - [Contributing](https://github.com/fschrhunt/code/blob/main/CONTRIBUTING.md)
  - [Security](https://github.com/fschrhunt/code/blob/main/SECURITY.md)
- - [Agent guide](https://github.com/fschrhunt/code/blob/main/AGENTS.md)
+ - [Agents](https://github.com/fschrhunt/code/blob/main/AGENTS.md)
