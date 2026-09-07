@@ -80,7 +80,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$VERSION" -m "Code v$VERSION"
+          git tag -a "v$VERSION" -m "v$VERSION"
           git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "v$VERSION"
 
       - name: Publish GitHub release
@@ -90,6 +90,6 @@ jobs:
         run: |
           gh release create "v$VERSION" \
             --verify-tag \
-            --title "Code v$VERSION" \
+            --title "v$VERSION" \
             --notes-file RELEASE_NOTES.md \
             "code-$VERSION.tar.gz" SHA256SUMS
