@@ -1,1 +1,16 @@
-* @fschrhunt
+# Every change needs the maintainer's eyes; these paths are called out because
+# they are the trust boundary: the CLI that creates and removes managed
+# worktrees and rewrites Git metadata, the installer, the collection README
+# that setup writes into ~/Code, and CI itself. This file is informational on
+# purpose. The merge gate is CI (strict required checks, conversation
+# resolution, no force-push or deletion, admins included), matching
+# intuitums/e and fschrhunt/flip.
+
+*                     @fschrhunt
+
+/bin/                 @fschrhunt
+/lib/                 @fschrhunt
+/install.sh           @fschrhunt
+/scripts/             @fschrhunt
+/.github/             @fschrhunt
+/docs/reference/filesystem.md @fschrhunt
