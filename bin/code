@@ -147,7 +147,10 @@ _emit_managed_record(){
   local repo=$1 canonical=$2 path=$3 branch=$4
   [ -n "$path" ] && [ "$path" != "$canonical" ] || return 0
   _is_managed_task "$path" || return 0
-  printf '%s\t%s\t%s\n' "$repo" "$path" "${branch:--}"
+  # A detached worktree (the default) has no branch; its stable handle is the
+  # directory name, so list and remove still address it by name until the
+  # agent names a branch from the work.
+  printf '%s\t%s\t%s\n' "$repo" "$path" "${branch:-${path##*/}}"
 }
 
 # Read Git's porcelain records without splitting paths that contain spaces.
@@ -208,7 +211,10 @@ Inspect
 It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; agent worktrees live flat in
 worktrees/<agent>-<repo>. From a base checkout in repos/, `new` discovers the
-repository and suffixes -1, -2, ... when the name is occupied.
+repository and suffixes -1, -2, ... when the name is occupied. The worktree is
+detached — no branch is created, so the agent names one from the work
+(git switch -c <name>) before pushing. list and remove address a worktree by
+its branch once it has one, or by its directory name until then.
 Code only removes worktrees it created.
 EOF
 }
@@ -463,12 +469,18 @@ cmd_new(){
   mkdir -p "$ROOT/worktrees" || _die 'could not create worktrees'
   git -C "$canonical" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
+    # A branch of this exact name already exists — checked out by hand, or
+    # named before detach-by-default. Reattach it rather than detaching.
     git -C "$canonical" worktree add "$destination" "$task" >/dev/null 2>&1 || _die 'could not create worktree'
   elif git -C "$canonical" rev-parse --verify --quiet HEAD >/dev/null; then
-    git -C "$canonical" worktree add -b "$task" "$destination" HEAD >/dev/null 2>&1 || _die 'could not create worktree'
-    created_branch=1
+    # The normal case: a detached worktree with no branch at all. Nothing is
+    # named up front, so the agent names one from the work
+    # (git switch -c <name>) before it can push — the name comes from the
+    # task, never from this directory.
+    git -C "$canonical" worktree add --detach "$destination" HEAD >/dev/null 2>&1 || _die 'could not create worktree'
   else
-    # Empty clones need an unborn agent branch because there is no HEAD to branch from.
+    # An empty clone has no HEAD to detach from, so an unborn branch is the
+    # only way to start committing; it takes the task directory's name.
     git -C "$canonical" worktree add --orphan -b "$task" "$destination" >/dev/null 2>&1 ||
       _die 'could not create worktree for repository without commits'
     created_branch=1

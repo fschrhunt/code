@@ -93,7 +93,8 @@ setup() { _use_test_root; }
   [ -d "$CODE_ROOT/repos/demo/.git" ]
   [ "$(cat "$CODE_ROOT/repos/demo/base.txt")" = 'base change' ]
   [ "$(cat "$task/task.txt")" = 'task change' ]
-  [ "$(git -C "$task" branch --show-current)" = e-demo ]
+  # Detached by default: no branch, and repair preserves that across the move.
+  [ -z "$(git -C "$task" branch --show-current)" ]
   git_dir=$(git -C "$task" rev-parse --absolute-git-dir)
   [ -f "$git_dir/code-managed" ]
 

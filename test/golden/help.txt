@@ -19,5 +19,8 @@ Inspect
 It creates or upgrades the root to README.md, repos/, and worktrees/.
 Repositories live in repos/<repo>; agent worktrees live flat in
 worktrees/<agent>-<repo>. From a base checkout in repos/, `new` discovers the
-repository and suffixes -1, -2, ... when the name is occupied.
+repository and suffixes -1, -2, ... when the name is occupied. The worktree is
+detached — no branch is created, so the agent names one from the work
+(git switch -c <name>) before pushing. list and remove address a worktree by
+its branch once it has one, or by its directory name until then.
 Code only removes worktrees it created.

@@ -14,7 +14,9 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "$CODE_ROOT/worktrees/e-demo" ]
   [ -e "$output/.git" ]
-  [ "$(git -C "$output" branch --show-current)" = e-demo ]
+  # Detached by default: no branch, HEAD at the repository's HEAD.
+  [ -z "$(git -C "$output" branch --show-current)" ]
+  [ "$(git -C "$output" rev-parse HEAD)" = "$(git -C "$CODE_ROOT/repos/demo" rev-parse HEAD)" ]
   local git_dir
   git_dir=$(git -C "$output" rev-parse --absolute-git-dir)
   [ -f "$git_dir/code-managed" ]
@@ -44,7 +46,7 @@ setup() {
   [ -z "$(ls "$CODE_ROOT/worktrees" 2>/dev/null)" ]
 }
 
-@test "new branches from the repository checkout's current HEAD" {
+@test "new checks out the repository's current HEAD, detached" {
   cd "$CODE_ROOT/repos/demo"
   printf 'local\n' >> README.md
   git add README.md
@@ -53,6 +55,7 @@ setup() {
   run "$CODE" new e
   [ "$status" -eq 0 ]
   [ "$(git -C "$output" rev-parse HEAD)" = "$(git -C "$CODE_ROOT/repos/demo" rev-parse HEAD)" ]
+  [ -z "$(git -C "$output" branch --show-current)" ]
 }
 
 @test "new reattaches an existing inactive branch" {
@@ -90,7 +93,7 @@ setup() {
   [ ! -e "$CODE_ROOT/repos/demo/work.txt" ]
 }
 
-@test "agent worktrees reuse the branch after a worktree is removed" {
+@test "agent worktrees reuse the directory after a worktree is removed" {
   local first
   cd "$CODE_ROOT/repos/demo"
   first=$("$CODE" new e)
@@ -101,7 +104,8 @@ setup() {
 
   [ "$status" -eq 0 ]
   [ "$output" = "$first" ]
-  [ "$(git -C "$output" branch --show-current)" = e-demo ]
+  # Detached again — no branch carried over from the removed worktree.
+  [ -z "$(git -C "$output" branch --show-current)" ]
 }
 
 @test "agent worktrees list and remove by name" {
@@ -116,10 +120,9 @@ setup() {
   run "$CODE" remove demo/e-demo
   [ "$status" -eq 0 ]
   [ ! -e "$path" ]
-  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/e-demo
 }
 
-@test "remove accepts a bare branch name" {
+@test "remove accepts a bare name" {
   local first second
   cd "$CODE_ROOT/repos/demo"
   first=$("$CODE" new e)
@@ -140,7 +143,8 @@ setup() {
   cd "$CODE_ROOT/repos/demo"
   original=$("$CODE" new e)
   moved="$CODE_ROOT/worktrees/e-demo-moved"
-  git -C "$original" branch -m better-branch
+  # A detached worktree has no branch; the agent names one from the work.
+  git -C "$original" switch -q -c better-branch
   git -C "$CODE_ROOT/repos/demo" worktree move "$original" "$moved"
 
   run "$CODE" list
@@ -154,17 +158,21 @@ setup() {
   git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/better-branch
 }
 
-@test "new refuses a marked branch moved outside its repository worktree folder" {
+@test "a detached worktree moved outside no longer blocks a fresh one" {
   local original outside
   cd "$CODE_ROOT/repos/demo"
   original=$("$CODE" new e)
   outside="$BATS_TEST_TMPDIR/outside"
   git -C "$CODE_ROOT/repos/demo" worktree move "$original" "$outside"
 
+  # A detached worktree carries no branch, so there is no branch conflict to
+  # detect against a moved-away worktree: `new` creates a fresh detached
+  # worktree at the freed path and leaves the moved one untouched. (The old
+  # branch-based refusal is gone with the branch.)
   run "$CODE" new e
 
-  [ "$status" -ne 0 ]
-  [[ "$output" == *'outside worktrees/demo'* ]]
+  [ "$status" -eq 0 ]
+  [ "$output" = "$CODE_ROOT/worktrees/e-demo" ]
   [ -e "$outside/.git" ]
 }
 
@@ -227,7 +235,6 @@ setup() {
   run "$CODE" remove demo/e-demo --force
   [ "$status" -eq 0 ]
   [ ! -e "$path" ]
-  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/e-demo
 }
 
 @test "new rejects invalid agent names and wrong arity" {
