@@ -24,9 +24,13 @@ git status --short --branch
 ```
 
 `new` discovers the repository from the current folder and names the checkout
-and branch `<agent>-<repo>`, such as `e-e`. An occupied name suffixes `-1`,
-`-2`, and so on. The worktree shares Git history with the base repository but
-has independent working files and its own branch.
+`<agent>-<repo>`, such as `e-e`. An occupied name suffixes `-1`, `-2`, and so
+on. The worktree shares Git history with the base repository but has
+independent working files.
+
+The worktree starts **detached — with no branch**. Nothing is named up front,
+so the agent names one from the work (`git switch -c <name>`) before it can
+push; the name comes from the task, not this directory.
 
 ## Finish a session
 
@@ -34,9 +38,11 @@ has independent working files and its own branch.
 code remove e-e
 ```
 
-Removal keeps the branch and refuses uncommitted changes. `--force` explicitly
-discards those changes. If a worktree folder is manually deleted, `code list`
-omits it and `code doctor` reports the stale Git metadata.
+Removal takes the worktree's branch name, or its directory name while it is
+still detached, and refuses uncommitted changes. `--force` explicitly discards
+those changes. Any branch the agent created is kept for ordinary Git use. If a
+worktree folder is manually deleted, `code list` omits it and `code doctor`
+reports the stale Git metadata.
 
 ## Rules
 
