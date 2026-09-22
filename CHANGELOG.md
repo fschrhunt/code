@@ -7,17 +7,20 @@ Notable changes to Code are documented here. The project follows
 
 ### Added
 
-- Repository governance matching the collection: a Triage workflow that labels
-  pull requests by changed paths, an `.editorconfig`, expanded `CODEOWNERS`
-  with trust-boundary callouts, and strict branch protection on `main`.
+- Repository governance: a Triage workflow that labels pull requests by changed
+  paths, an `.editorconfig`, expanded `CODEOWNERS`, and strict branch protection
+  on `main`.
 
 ### Changed
 
+- Replaced the policy CLI with a bare wrapper over Git: `clone`, `new <branch>`,
+  `list`, `remove`, `root`, and `upgrade`. Removed the setup wizard, ownership
+  markers, detached worktrees, legacy migration, the generated collection
+  README, and the `docs/` tree.
 - Dependabot opens at most five action-bump pull requests at a time.
 - Issue template files are renamed to `bug.yml` and `feature.yml`.
-
 - The repository README is now a plain-text `README` file whose reference
-  section uses direct URLs, matching the other repositories in the collection.
+  section uses direct URLs.
 
 ## 0.0.1
 

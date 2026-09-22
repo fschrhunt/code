@@ -24,7 +24,7 @@ fi
 rm -f "$DESTINATION"
 ln -s "$SOURCE" "$DESTINATION"
 printf 'linked %s -> %s\n' "$DESTINATION" "$SOURCE"
-printf 'next: code setup\n'
+printf 'next: code help\n'
 case ":$PATH:" in
   *":$BINDIR:"*) ;;
   *) printf 'note: %s is not on your PATH\n' "$BINDIR";;

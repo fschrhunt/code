@@ -32,8 +32,8 @@ jobs:
           # `|| true` on every probe: a non-matching grep must read as
           # "no label", not fail the run — the final statement's status is
           # the script's exit code under `set -eu`.
-          echo "$files" | grep -Eq '^(bin/|lib/|contrib/)' && \
-            add_label area:cli 1d76db 'The code command, its templates, and completions' || true
+          echo "$files" | grep -Eq '^(bin/|contrib/)' && \
+            add_label area:cli 1d76db 'The code command and completions' || true
           echo "$files" | grep -q '^test/' && \
             add_label area:tests 5319e7 'Bats behavior tests and fixtures' || true
           echo "$files" | grep -Eq '^(docs/|README$|SECURITY.md|CONTRIBUTING.md|AGENTS.md|SUPPORT.md)' && \
@@ -42,5 +42,5 @@ jobs:
             add_label area:infra 6f42c1 'Build, CI, release, or repository automation' || true
           echo "$files" | grep -Eq '^\.github/dependabot\.yml$' && \
             add_label dependencies 0366d6 'Dependency or toolchain changes' || true
-          echo "$files" | grep -Eq '^(bin/|install\.sh|scripts/install\.sh|\.github/(CODEOWNERS|workflows)/|lib/README\.md$)' && \
+          echo "$files" | grep -Eq '^(bin/|install\.sh|scripts/install\.sh|\.github/(CODEOWNERS|workflows)/)' && \
             add_label security-surface b60205 'Touches a reviewed trust boundary' || true

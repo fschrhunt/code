@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Code keeps base repositories in repos/ and task worktrees beneath worktrees/.
+# Code — a thin wrapper over Git checkouts and worktrees in one folder.
+#
+# Layout:
+#   <root>/repos/<repo>        clones, kept on their default branch
+#   <root>/worktrees/<branch>  one branch and one task per worktree
+#
+# The root defaults to ~/Code and can be overridden with CODE_ROOT.
 set -uo pipefail
 
+# Resolve the script's real path so a symlinked install still finds VERSION.
 _src=${BASH_SOURCE[0]}
 while [ -L "$_src" ]; do
   _dir=$(cd -P "$(dirname "$_src")" >/dev/null 2>&1 && pwd)
@@ -10,84 +17,27 @@ while [ -L "$_src" ]; do
 done
 PREFIX=$(cd -P "$(dirname "$_src")/.." >/dev/null 2>&1 && pwd)
 VERSION=$(cat "$PREFIX/VERSION" 2>/dev/null || printf '0.0.0')
-ROOT_POINTER="${XDG_CONFIG_HOME:-$HOME/.config}/code/root"
 
 _die(){ printf 'error: %s\n' "$*" >&2; exit 1; }
-_warn(){ printf 'warning: %s\n' "$*" >&2; }
 
-# Accept only absolute, non-root paths without control characters.
-_root_path_ok(){
-  case "$1" in ''|'/'|[!/]*) return 1;; *$'\n'*|*$'\r'*) return 1;; esac
-  return 0
-}
+ROOT=${CODE_ROOT:-$HOME/Code}
+ROOT=${ROOT%/}
+case "$ROOT" in
+  ''|'/'|[!/]*) _die 'CODE_ROOT must be an absolute path';;
+  *$'\n'*|*$'\r'*) _die 'CODE_ROOT must not contain newlines';;
+esac
 
-# Select the process override, saved root, or ~/Code in that order.
-_select_root(){
-  if [ -n "${CODE_ROOT:-}" ]; then
-    ROOT=${CODE_ROOT%/}
-    _root_path_ok "$ROOT" || _die "invalid CODE_ROOT '$ROOT'"
-  elif [ -f "$ROOT_POINTER" ]; then
-    IFS= read -r ROOT < "$ROOT_POINTER" || ROOT=''
-    ROOT=${ROOT%/}
-    _root_path_ok "$ROOT" || ROOT="$HOME/Code"
-  else
-    ROOT="$HOME/Code"
-  fi
-  [ ! -L "$ROOT" ] || _die "refusing symlinked collection root: $ROOT"
-  [ -d "$ROOT" ] && ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd)
-}
-_select_root
-
-# Install or refresh only byte-identical Code collection guides.
-_ensure_readme(){
-  local tmp
-  [ ! -L "$ROOT/README.md" ] || _die "refusing to replace symlink: $ROOT/README.md"
-  if [ -e "$ROOT/README.md" ]; then
-    cmp -s "$ROOT/README.md" "$PREFIX/lib/README.md" && return 0
-    cmp -s "$ROOT/README.md" "$PREFIX/lib/README.pre-4.0.md" || return 0
-  fi
-  tmp=$(umask 022; mktemp "$ROOT/.README.XXXXXX") || _die 'could not prepare collection README'
-  if ! { command cat "$PREFIX/lib/README.md" > "$tmp" && chmod 644 "$tmp" && mv -f "$tmp" "$ROOT/README.md"; }; then
-    rm -f -- "$tmp"
-    _die "could not write $ROOT/README.md"
-  fi
-}
-
-# Create the current collection layout without following directory symlinks.
-_ensure_root(){
-  [ ! -L "$ROOT/repos" ] || _die "refusing symlinked collection directory: $ROOT/repos"
-  [ ! -L "$ROOT/worktrees" ] || _die "refusing symlinked collection directory: $ROOT/worktrees"
-  [ ! -d "$ROOT/repos/.git" ] || _die "cannot upgrade a root-level repository named 'repos'"
-  [ ! -d "$ROOT/worktrees/.git" ] || _die "cannot upgrade a root-level repository named 'worktrees'"
-  mkdir -p "$ROOT/repos" || _die "could not create $ROOT/repos"
-  mkdir -p "$ROOT/worktrees" || _die "could not create $ROOT/worktrees"
-  ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd) || _die "could not resolve $ROOT"
-}
-
-# Save a custom collection root as a values-only pointer.
-_save_root(){
-  local dir tmp
-  dir=${ROOT_POINTER%/*}
-  mkdir -p "$dir" || _die "could not create $dir"
-  tmp=$(umask 077; mktemp "$dir/.root.XXXXXX") || _die 'could not create root pointer'
-  if ! { printf '%s\n' "$ROOT" > "$tmp" && chmod 600 "$tmp" && mv -f "$tmp" "$ROOT_POINTER"; }; then
-    rm -f -- "$tmp"
-    _die 'could not save root pointer'
-  fi
-}
-
-# Repository and task names are single safe path components.
+# A repository name is one safe path component.
 _name_ok(){
-  case "$1" in ''|'.'|'..'|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) return 1;; esac
+  case "$1" in
+    ''|'.'|'..'|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) return 1;;
+  esac
   return 0
 }
 
-_repo_path(){
-  _name_ok "$1" || _die "invalid repository name '$1'"
-  printf '%s/repos/%s' "$ROOT" "$1"
-}
+_repo_dir(){ printf '%s/repos/%s' "$ROOT" "$1"; }
 
-# Identify the base repository containing the caller's current directory.
+# Identify the base checkout containing the current directory.
 _current_repository(){
   local top repo
   top=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
@@ -99,316 +49,22 @@ _current_repository(){
   printf '%s' "$repo"
 }
 
-# Print Git checkout names inside an absolute directory.
-_checkouts_under(){
-  local parent=$1 path name
-  [ -d "$parent" ] || return 0
-  for path in "$parent"/*; do
-    [ -d "$path/.git" ] || continue
-    name=${path##*/}
-    _name_ok "$name" && printf '%s\n' "$name"
-  done
-}
-
-# Print normal repository checkouts from the collection's repos directory.
-_repositories(){ _checkouts_under "$ROOT/repos"; }
-
-# Print pre-4.0 repository checkouts still directly beneath the root.
-_legacy_repositories(){ _checkouts_under "$ROOT"; }
-
-# Explain how to make a legacy collection usable without changing it.
-_warn_legacy_layout(){
-  local first
-  first=$(_legacy_repositories | head -n 1)
-  [ -z "$first" ] || _warn "repositories still live at the root; run 'code setup' to move them into repos/"
-}
-
-# Resolve a linked worktree's private Git directory.
-_worktree_git_dir(){ git -C "$1" rev-parse --absolute-git-dir 2>/dev/null; }
-
-# Code ownership is attached to the worktree, so branch and path renames remain safe.
-_is_managed_worktree(){
-  local git_dir
-  git_dir=$(_worktree_git_dir "$1") || return 1
-  [ -f "$git_dir/code-managed" ]
-}
-
-# A managed checkout is a live linked worktree of the repository, marked in
-# its private Git administrative directory, and located beneath worktrees/.
-_is_managed_task(){
-  local path=$1
-  [ -e "$path/.git" ] || return 1
-  case "$path" in "$ROOT/worktrees/"*) ;; *) return 1;; esac
-  _is_managed_worktree "$path"
-}
-
-# Emit one managed task as repo, path, branch.
-_emit_managed_record(){
-  local repo=$1 canonical=$2 path=$3 branch=$4
-  [ -n "$path" ] && [ "$path" != "$canonical" ] || return 0
-  _is_managed_task "$path" || return 0
-  # A detached worktree (the default) has no branch; its stable handle is the
-  # directory name, so list and remove still address it by name until the
-  # agent names a branch from the work.
-  printf '%s\t%s\t%s\n' "$repo" "$path" "${branch:-${path##*/}}"
-}
-
-# Read Git's porcelain records without splitting paths that contain spaces.
-_managed_worktrees(){
-  local repo canonical line path branch
-  for repo in $(_repositories); do
-    canonical=$(_repo_path "$repo")
-    path=''; branch=''
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in
-        'worktree '*)
-          [ -z "$path" ] || _emit_managed_record "$repo" "$canonical" "$path" "$branch"
-          path=${line#worktree }; branch=''
-          ;;
-        'branch refs/heads/'*) branch=${line#branch refs/heads/};;
-        '')
-          [ -z "$path" ] || _emit_managed_record "$repo" "$canonical" "$path" "$branch"
-          path=''; branch=''
-          ;;
-      esac
-    done < <(git -C "$canonical" worktree list --porcelain 2>/dev/null)
-    [ -z "$path" ] || _emit_managed_record "$repo" "$canonical" "$path" "$branch"
-  done
-}
-
-# Find the path currently checking out a local branch.
-_branch_worktree(){
-  local canonical=$1 wanted=$2 line path=''
-  while IFS= read -r line; do
-    case "$line" in
-      'worktree '*) path=${line#worktree };;
-      "branch refs/heads/$wanted") printf '%s' "$path"; return 0;;
-    esac
-  done < <(git -C "$canonical" worktree list --porcelain 2>/dev/null)
-  return 1
-}
-
-_help(){
-  cat <<'EOF'
-Code — ordinary Git repositories with isolated agent worktrees.
-
-Start
-  code setup [--root <path>] [--yes]
-  code clone <owner/repo | url | path>
-
-Work
-  code new <agent>
-  code list
-  code remove <branch | path> [--force]
-
-Inspect
-  code root
-  code doctor
-  code version
-
-`setup` is an interactive wizard in a terminal; --root answers the path and
---yes skips every prompt.
-It creates or upgrades the root to README.md, repos/, and worktrees/.
-Repositories live in repos/<repo>; agent worktrees live flat in
-worktrees/<agent>-<repo>. From a base checkout in repos/, `new` discovers the
-repository and suffixes -1, -2, ... when the name is occupied. The worktree is
-detached — no branch is created, so the agent names one from the work
-(git switch -c <name>) before pushing. list and remove address a worktree by
-its branch once it has one, or by its directory name until then.
-Code only removes worktrees it created.
-EOF
-}
-
-# Restore moved repositories if an upgrade cannot repair every linked worktree.
-_rollback_restructure(){
-  local i name old new record record_name path status=0
-  for ((i = ${#MOVED_REPOS[@]} - 1; i >= 0; i--)); do
-    name=${MOVED_REPOS[$i]}
-    old="$ROOT/$name"
-    new="$ROOT/repos/$name"
-    local paths=()
-    for record in "${REPAIR_RECORDS[@]}"; do
-      record_name=${record%%$'\034'*}
-      [ "$record_name" = "$name" ] || continue
-      path=${record#*$'\034'}
-      paths+=("$path")
-    done
-    if [ -d "$new/.git" ] && mv "$new" "$old"; then
-      if [ ${#paths[@]} -gt 0 ] && ! git -C "$old" worktree repair "${paths[@]}" >/dev/null 2>&1; then
-        _warn "rollback moved $name but could not repair its worktrees; run 'git -C $old worktree repair <task-path>'"
-        status=1
-        continue
-      fi
-      for path in "${paths[@]}"; do
-        if ! git -C "$path" rev-parse --absolute-git-dir >/dev/null 2>&1; then
-          _warn "rollback could not verify $path; run 'git -C $old worktree repair $path'"
-          status=1
-        fi
-      done
-    else
-      _warn "automatic rollback failed for $name; move $new back to $old and run 'git -C $old worktree repair <task-path>'"
-      status=1
-    fi
-  done
-  return "$status"
-}
-
-# Report whether a failed upgrade was completely rolled back.
-_restructure_failed(){
-  local message=$1
-  if _rollback_restructure; then
-    _die "$message; all moves were rolled back"
-  fi
-  _die "$message; automatic rollback was incomplete — follow the warnings above"
-}
-
-# Move legacy base checkouts into repos/ and repair every live linked worktree.
-_restructure_legacy(){
-  local name old new porcelain line path help
-  local names=() paths=()
-  MOVED_REPOS=()
-  REPAIR_RECORDS=()
-  command -v git >/dev/null 2>&1 || _die 'git is required to upgrade the collection'
-  help=$(git worktree -h 2>&1 || true)
-  case "$help" in *repair*) ;; *) _die "Git does not support 'worktree repair'; upgrade Git before running setup";; esac
-  while IFS= read -r name; do [ -z "$name" ] || names+=("$name"); done < <(_legacy_repositories)
-  [ ${#names[@]} -gt 0 ] || return 0
-
-  for name in "${names[@]}"; do
-    old="$ROOT/$name"
-    new="$ROOT/repos/$name"
-    if [ -e "$new" ] || [ -L "$new" ]; then
-      _die "cannot move $old: destination already exists: $new"
-    fi
-    [ ! -e "$old/.git/index.lock" ] || _die "cannot move $old while Git is locked"
-    git -C "$old" rev-parse --git-dir >/dev/null 2>&1 || _die "cannot inspect repository: $old"
-  done
-
-  for name in "${names[@]}"; do
-    old="$ROOT/$name"
-    new="$ROOT/repos/$name"
-    paths=()
-    porcelain=$(git -C "$old" worktree list --porcelain 2>/dev/null) ||
-      _restructure_failed "could not read worktrees for $old"
-    while IFS= read -r line; do
-      case "$line" in
-        'worktree '*)
-          path=${line#worktree }
-          if [ "$path" != "$old" ] && [ -e "$path/.git" ]; then
-            paths+=("$path")
-            REPAIR_RECORDS+=("$name"$'\034'"$path")
-          fi
-          ;;
-      esac
-    done <<< "$porcelain"
-
-    if ! mv "$old" "$new"; then
-      _restructure_failed "could not move $old to $new"
-    fi
-    MOVED_REPOS+=("$name")
-    if [ ${#paths[@]} -gt 0 ] && ! git -C "$new" worktree repair "${paths[@]}" >/dev/null 2>&1; then
-      _restructure_failed "could not repair linked worktrees for $name"
-    fi
-    for path in "${paths[@]}"; do
-      if ! git -C "$path" rev-parse --absolute-git-dir >/dev/null 2>&1; then
-        _restructure_failed "could not verify $path"
-      fi
-    done
-    git -C "$new" config worktree.useRelativePaths true >/dev/null 2>&1 || true
-    printf 'moved: %s -> %s' "$old" "$new" >&2
-    [ ${#paths[@]} -eq 0 ] || printf ' (repaired %d worktree(s))' "${#paths[@]}" >&2
-    printf '\n' >&2
-  done
-}
-
-# Expand the home shorthand accepted by the setup wizard.
-_expand_home(){
-  case "$1" in
-    \~) printf '%s' "$HOME";;
-    \~/*) printf '%s/%s' "$HOME" "${1:2}";;
-    *) printf '%s' "$1";;
-  esac
-}
-
-# Read a path until the user accepts the default or enters a valid absolute root.
-_prompt_setup_root(){
-  local answer display
-  display=$ROOT
-  case "$display" in "$HOME"/*) display=$(printf '%s/%s' '~' "${display#"$HOME"/}");; esac
-  while true; do
-    printf '? Collection root [%s]: ' "$display" >&2
-    if ! IFS= read -r answer; then _die 'setup cancelled: no input available'; fi
-    [ -n "$answer" ] || return 0
-    answer=$(_expand_home "$answer")
-    answer=${answer%/}
-    if _root_path_ok "$answer"; then
-      ROOT=$answer
-      SETUP_REQUESTED=$answer
-      return 0
-    fi
-    printf '  Enter an absolute path, such as %s/code.\n' "$HOME" >&2
-  done
-}
-
-# Show the pending layout and require confirmation before changing files.
-_confirm_setup(){
-  local answer legacy_count=0 name
-  while IFS= read -r name; do [ -z "$name" ] || legacy_count=$((legacy_count + 1)); done < <(_legacy_repositories)
-  printf '\nCode will use:\n' >&2
-  printf '  Root          %s\n' "$ROOT" >&2
-  printf '  Repositories  %s/repos\n' "$ROOT" >&2
-  printf '  Worktrees     %s/worktrees\n' "$ROOT" >&2
-  if [ "$legacy_count" -gt 0 ]; then
-    printf '  Upgrade       move %d root-level repository checkout(s)\n' "$legacy_count" >&2
-  fi
-  while true; do
-    printf '? Set up this collection? [Y/n]: ' >&2
-    if ! IFS= read -r answer; then _die 'setup cancelled: no input available'; fi
-    case "$answer" in
-      ''|y|Y|yes|Yes|YES) return 0;;
-      n|N|no|No|NO) _die 'setup cancelled; no changes were made';;
-      *) printf '  Answer yes or no.\n' >&2;;
+# Flatten a branch into a folder name: feat/thing -> feat-thing.
+_branch_folder(){
+  local name
+  name=$(printf '%s' "$1" | LC_ALL=C tr -c 'A-Za-z0-9._-' '-')
+  while :; do
+    case "$name" in
+      [-.]*) name=${name#?};;
+      *[-.]) name=${name%?};;
+      *) break;;
     esac
   done
+  case "$name" in ''|'.'|'..') return 1;; esac
+  printf '%s' "$name"
 }
 
-# Initialize a collection, upgrading pre-4.0 repository paths when present.
-cmd_setup(){
-  local assume_yes=0 interactive=0
-  SETUP_REQUESTED=''
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --root) [ $# -ge 2 ] || _die 'missing value for --root'; SETUP_REQUESTED=$2; shift 2;;
-      -y|--yes) assume_yes=1; shift;;
-      -h|--help)
-        printf 'usage: code setup [--root <path>] [--yes]\n'
-        printf '\nOptions:\n  --root <path>  select and remember an absolute collection path\n  -y, --yes      accept defaults and skip interactive prompts\n'
-        return 0
-        ;;
-      *) _die 'usage: code setup [--root <path>] [--yes]' ;;
-    esac
-  done
-  if [ -n "$SETUP_REQUESTED" ]; then
-    SETUP_REQUESTED=$(_expand_home "$SETUP_REQUESTED")
-    SETUP_REQUESTED=${SETUP_REQUESTED%/}
-    _root_path_ok "$SETUP_REQUESTED" || _die "invalid root '$SETUP_REQUESTED'"
-    ROOT=$SETUP_REQUESTED
-  fi
-  if [ "$assume_yes" = 0 ] && [ -t 0 ] && [ -t 2 ] && [ -z "${CODE_ROOT:-}" ]; then interactive=1; fi
-  if [ "$interactive" = 1 ] && [ -z "$SETUP_REQUESTED" ]; then
-    _prompt_setup_root
-  fi
-  _root_path_ok "$ROOT" || _die "invalid root '$ROOT'"
-  [ ! -L "$ROOT" ] || _die "refusing symlinked collection root: $ROOT"
-  [ "$interactive" = 0 ] || _confirm_setup
-  _ensure_root
-  _restructure_legacy
-  _ensure_readme
-  [ -z "$SETUP_REQUESTED" ] || _save_root
-  printf '%s\n' "$ROOT"
-}
-
-# Derive a safe destination name from a Git clone source.
+# Derive a repository name from a clone source.
 _clone_name(){
   local source=${1%/} name
   source=${source%.git}
@@ -417,7 +73,27 @@ _clone_name(){
   printf '%s' "$name"
 }
 
-# Clone a normal checkout into the collection's repos directory.
+_help(){
+  cat <<'EOF'
+Code — Git checkouts and worktrees in one folder.
+
+Usage
+  code clone <owner/repo | url | path>
+  code new <branch>
+  code list
+  code remove <name | path> [--force]
+  code root
+  code upgrade
+  code version
+  code help
+
+Repositories are cloned to <root>/repos/<repo>. Run `new` inside one to create
+<root>/worktrees/<branch> on branch <branch>. The root defaults to ~/Code; set
+CODE_ROOT to use another folder.
+EOF
+}
+
+# Clone a repository into repos/.
 cmd_clone(){
   [ $# -eq 1 ] || _die 'usage: code clone <owner/repo | url | path>'
   local source=$1 url name destination
@@ -432,163 +108,125 @@ cmd_clone(){
   fi
   name=$(_clone_name "$source")
   _name_ok "$name" || _die "invalid repository name '$name'"
-  _ensure_root
-  _ensure_readme
+  mkdir -p "$ROOT/repos" || _die "could not create $ROOT/repos"
   destination="$ROOT/repos/$name"
   [ ! -e "$destination" ] || _die "destination already exists: $destination"
   git clone -- "$url" "$destination" >&2 || _die 'clone failed'
-  git -C "$destination" config worktree.useRelativePaths true >/dev/null 2>&1 || true
   printf '%s\n' "$destination"
 }
 
-# Create or reattach a flat agent worktree beneath worktrees/.
-# Run from a base checkout: `code new <agent>` names the checkout
-# <agent>-<repo>, suffixing -1, -2, and so on when the name is occupied.
+# Create worktrees/<branch> from the base checkout containing the current
+# directory. An existing local branch is checked out; otherwise it is created
+# at the base checkout's current HEAD.
 cmd_new(){
-  [ $# -eq 1 ] || _die 'usage: code new <agent>'
-  local agent=$1 repo canonical destination active created_branch=0 git_dir task
-  _name_ok "$agent" || _die "invalid agent name '$agent'"
-  _ensure_root
-  _ensure_readme
-  repo=$(_current_repository) ||
-    _die "cannot identify a base repository here — run from $ROOT/repos/<repo>"
-  canonical=$(_repo_path "$repo")
-  [ -d "$canonical/.git" ] || _die "no repository '$repo' — clone it first"
-  destination="$ROOT/worktrees/$agent-$repo"
-  if [ -e "$destination" ]; then
-    local suffix=1
-    while [ -e "$destination-$suffix" ]; do suffix=$((suffix + 1)); done
-    destination="$destination-$suffix"
-  fi
-  task=${destination##*/}
-  active=$(_branch_worktree "$canonical" "$task" || true)
-  if [ -n "$active" ]; then
-    if _is_managed_task "$active"; then printf '%s\n' "$active"; return 0; fi
-    _die "branch '$task' is already checked out outside worktrees/$repo at $active"
-  fi
-  mkdir -p "$ROOT/worktrees" || _die 'could not create worktrees'
-  git -C "$canonical" config worktree.useRelativePaths true >/dev/null 2>&1 || true
-  if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
-    # A branch of this exact name already exists — checked out by hand, or
-    # named before detach-by-default. Reattach it rather than detaching.
-    git -C "$canonical" worktree add "$destination" "$task" >/dev/null 2>&1 || _die 'could not create worktree'
-  elif git -C "$canonical" rev-parse --verify --quiet HEAD >/dev/null; then
-    # The normal case: a detached worktree with no branch at all. Nothing is
-    # named up front, so the agent names one from the work
-    # (git switch -c <name>) before it can push — the name comes from the
-    # task, never from this directory.
-    git -C "$canonical" worktree add --detach "$destination" HEAD >/dev/null 2>&1 || _die 'could not create worktree'
+  [ $# -eq 1 ] || _die 'usage: code new <branch>'
+  local branch=$1 repo canonical folder destination
+  case "$branch" in
+    '') _die 'branch name is required';;
+    *$'\n'*|*$'\r'*) _die 'branch name must not contain newlines';;
+  esac
+  repo=$(_current_repository) || _die "run from a base checkout under $ROOT/repos/<repo>"
+  canonical=$(_repo_dir "$repo")
+  [ -d "$canonical/.git" ] || _die "no repository '$repo'"
+  folder=$(_branch_folder "$branch") || _die "cannot derive a folder from branch '$branch'"
+  destination="$ROOT/worktrees/$folder"
+  [ ! -e "$destination" ] || _die "worktree already exists: $destination"
+  mkdir -p "$ROOT/worktrees" || _die "could not create $ROOT/worktrees"
+  if git -C "$canonical" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$canonical" worktree add "$destination" "$branch" >&2 || _die 'could not create worktree'
   else
-    # An empty clone has no HEAD to detach from, so an unborn branch is the
-    # only way to start committing; it takes the task directory's name.
-    git -C "$canonical" worktree add --orphan -b "$task" "$destination" >/dev/null 2>&1 ||
-      _die 'could not create worktree for repository without commits'
-    created_branch=1
-  fi
-  git_dir=$(_worktree_git_dir "$destination") || git_dir=''
-  if [ -z "$git_dir" ] || ! printf '1\n' > "$git_dir/code-managed"; then
-    git -C "$canonical" worktree remove --force "$destination" >/dev/null 2>&1 || true
-    [ "$created_branch" = 0 ] || git -C "$canonical" branch -D "$task" >/dev/null 2>&1 || true
-    _die 'could not record worktree ownership'
+    git -C "$canonical" worktree add -b "$branch" "$destination" HEAD >&2 || _die 'could not create worktree'
   fi
   printf '%s\n' "$destination"
 }
 
-# Show normal repositories and active managed task worktrees.
+# List base checkouts and their worktrees beneath worktrees/.
 cmd_list(){
   [ $# -eq 0 ] || _die 'usage: code list'
-  local repo path branch dirty found=0
-  _warn_legacy_layout
+  local canonical repo branch path line found=0
   printf 'Repositories\n'
-  for repo in $(_repositories); do
-    path=$(_repo_path "$repo")
-    branch=$(git -C "$path" symbolic-ref --quiet --short HEAD 2>/dev/null); branch=${branch:-detached}
-    dirty=''; [ -z "$(git -C "$path" status --porcelain 2>/dev/null)" ] || dirty=' dirty'
-    printf '  %s  %s%s  %s\n' "$repo" "$branch" "$dirty" "$path"
+  for canonical in "$ROOT"/repos/*; do
+    [ -d "$canonical/.git" ] || continue
+    repo=${canonical##*/}
+    branch=$(git -C "$canonical" symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=detached
+    printf '  %s  %s  %s\n' "$repo" "$branch" "$canonical"
     found=1
   done
   [ "$found" = 1 ] || printf '  (none)\n'
   printf '\nWorktrees\n'
   found=0
-  while IFS=$'\t' read -r repo path branch; do
-    [ -n "$path" ] || continue
-    dirty=''; [ -z "$(git -C "$path" status --porcelain 2>/dev/null)" ] || dirty=' dirty'
-    printf '  %s/%s%s  %s\n' "$repo" "$branch" "$dirty" "$path"
-    found=1
-  done < <(_managed_worktrees)
+  for canonical in "$ROOT"/repos/*; do
+    [ -d "$canonical/.git" ] || continue
+    repo=${canonical##*/}
+    path=''
+    branch=''
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        'worktree '*) path=${line#worktree }; branch='';;
+        'branch refs/heads/'*) branch=${line#branch refs/heads/};;
+        '')
+          case "$path" in
+            "$ROOT/worktrees/"*)
+              printf '  %s/%s  %s\n' "$repo" "${branch:-${path##*/}}" "$path"
+              found=1
+              ;;
+          esac
+          path=''
+          branch=''
+          ;;
+      esac
+    done < <(git -C "$canonical" worktree list --porcelain 2>/dev/null)
+    case "$path" in
+      "$ROOT/worktrees/"*)
+        printf '  %s/%s  %s\n' "$repo" "${branch:-${path##*/}}" "$path"
+        found=1
+        ;;
+    esac
+  done
   [ "$found" = 1 ] || printf '  (none)\n'
 }
 
-# Resolve an exact repo/branch identity or managed worktree path; emit repo<TAB>path.
-_resolve_managed(){
-  local selector=$1 candidate=$1 repo path branch match_repo='' match_path='' count=0
-  if [ -d "$candidate" ]; then candidate=$(cd -P "$candidate" >/dev/null 2>&1 && pwd); fi
-  while IFS=$'\t' read -r repo path branch; do
-    [ -n "$path" ] || continue
-    if [ "$selector" = "$repo/$branch" ] || [ "$selector" = "$branch" ] || [ "$candidate" = "$path" ]; then
-      match_repo=$repo
-      match_path=$path
-      count=$((count + 1))
-    fi
-  done < <(_managed_worktrees)
-  [ "$count" -eq 1 ] && { printf '%s\t%s\n' "$match_repo" "$match_path"; return 0; }
-  [ "$count" -eq 0 ] && _die "no managed worktree matching '$selector'"
-  _die "'$selector' matches multiple worktrees; use its path"
-}
-
-# Remove only a marked task checkout; retain its branch for ordinary Git use.
+# Remove a worktree under worktrees/; the branch is kept.
 cmd_remove(){
-  local selector='' force=0 repo path canonical rel task_dir
+  local selector='' force=0 path common canonical
   while [ $# -gt 0 ]; do
     case "$1" in
       --force) force=1; shift;;
-      -h|--help) printf 'usage: code remove <branch | path> [--force]\n'; return 0;;
-      *) [ -z "$selector" ] || _die 'usage: code remove <branch | path> [--force]'; selector=$1; shift;;
+      -h|--help) printf 'usage: code remove <name | path> [--force]\n'; return 0;;
+      *) [ -z "$selector" ] || _die 'usage: code remove <name | path> [--force]'; selector=$1; shift;;
     esac
   done
-  [ -n "$selector" ] || _die 'usage: code remove <branch | path> [--force]'
-  IFS=$'\t' read -r repo path < <(_resolve_managed "$selector") || exit 1
-  case "$path" in "$ROOT/worktrees/"*) rel=${path#"$ROOT/worktrees/"};; *) _die 'refusing to remove a worktree outside worktrees/';; esac
-  # Legacy tasks add a folder level; agent worktrees sit flat in worktrees/.
-  case "$rel" in */*) task_dir=${rel#*/};; *) task_dir=$rel;; esac
-  case "$task_dir" in ''|*/*) _die 'refusing to remove an invalid task path';; esac
-  if [ -n "$(git -C "$path" status --porcelain 2>/dev/null)" ] && [ "$force" = 0 ]; then
-    printf 'refused: uncommitted changes; commit them or use --force to discard them\n' >&2
-    return 3
-  fi
-  _is_managed_task "$path" || _die 'refusing to remove an unmarked worktree'
-  canonical=$(_repo_path "$repo")
+  [ -n "$selector" ] || _die 'usage: code remove <name | path> [--force]'
+  case "$selector" in
+    /*) path=$selector;;
+    *) path="$ROOT/worktrees/$selector";;
+  esac
+  case "$path" in
+    "$ROOT/worktrees/"*) ;;
+    *) _die 'refusing to remove a worktree outside the worktrees folder';;
+  esac
+  [ -e "$path/.git" ] || _die "no worktree at $path"
+  common=$(git -C "$path" rev-parse --git-common-dir 2>/dev/null) || _die "not a Git worktree: $path"
+  case "$common" in /*) ;; *) common="$path/$common";; esac
+  common=$(cd -P "$common" >/dev/null 2>&1 && pwd) || _die "cannot resolve the Git directory for $path"
+  canonical=${common%/.git}
   if [ "$force" = 1 ]; then
-    git -C "$canonical" worktree remove --force "$path" >/dev/null || _die 'could not remove worktree'
+    git -C "$canonical" worktree remove --force "$path" >&2 || _die 'could not remove worktree'
   else
-    git -C "$canonical" worktree remove "$path" >/dev/null || _die 'could not remove worktree'
+    git -C "$canonical" worktree remove "$path" >&2 || _die 'could not remove worktree'
   fi
   printf 'removed: %s\n' "$path"
 }
 
-# Check the local collection and Git worktree metadata without changing either.
-cmd_doctor(){
-  [ $# -eq 0 ] || _die 'usage: code doctor'
-  local repo canonical status=0
-  command -v git >/dev/null 2>&1 || { printf 'error: git is not installed\n'; return 1; }
-  printf 'ok: git available\n'
-  if [ ! -d "$ROOT" ]; then
-    printf 'warning: collection does not exist; run code setup\n'
-    return 0
+# Update Code itself: pull a checkout install, else re-run the release installer.
+cmd_upgrade(){
+  [ $# -eq 0 ] || _die 'usage: code upgrade'
+  if [ -d "$PREFIX/.git" ]; then
+    git -C "$PREFIX" pull --ff-only
+  else
+    command -v curl >/dev/null 2>&1 || _die 'curl is required to upgrade'
+    curl -fsSL https://raw.githubusercontent.com/fschrhunt/code/main/scripts/install.sh | sh
   fi
-  printf 'ok: root %s\n' "$ROOT"
-  _warn_legacy_layout
-  for repo in $(_repositories); do
-    canonical=$(_repo_path "$repo")
-    if ! git -C "$canonical" fsck --no-dangling >/dev/null 2>&1; then
-      printf 'error: repository check failed: %s\n' "$repo"
-      status=1
-    fi
-    if git -C "$canonical" worktree list --porcelain 2>/dev/null | grep -q '^prunable '; then
-      printf "warning: stale worktree metadata: %s; run 'git worktree prune' in %s\n" "$repo" "$canonical"
-    fi
-  done
-  return "$status"
 }
 
 command_name=${1:-help}
@@ -596,12 +234,11 @@ command_name=${1:-help}
 case "$command_name" in
   help|-h|--help) _help;;
   version|-v|--version) printf 'code %s\n' "$VERSION";;
-  setup) cmd_setup "$@";;
   clone) cmd_clone "$@";;
   new) cmd_new "$@";;
   list|ls) cmd_list "$@";;
-  remove) cmd_remove "$@";;
+  remove|rm) cmd_remove "$@";;
   root) [ $# -eq 0 ] || _die 'usage: code root'; printf '%s\n' "$ROOT";;
-  doctor) cmd_doctor "$@";;
+  upgrade) cmd_upgrade "$@";;
   *) _die "unknown command: $command_name (try: code help)";;
 esac
