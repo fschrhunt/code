@@ -9,7 +9,7 @@ STATUS: DEVELOPMENT
 
 OVERVIEW:
  - One folder for Git work: repos/<repo> for clones, worktrees/<branch> for tasks.
- - A small Bash wrapper over ordinary Git: clone, new, list, remove, upgrade.
+ - A small Bash wrapper over ordinary Git: new, list, remove, upgrade.
  - No index, no daemon, no configuration. The root defaults to ~/Code.
 
 ///
@@ -18,7 +18,7 @@ INSTALL:
  curl -fsSL https://raw.githubusercontent.com/fschrhunt/code/main/scripts/install.sh | sh
 
 START:
- code clone fschrhunt/e
+ git clone https://github.com/fschrhunt/e.git ~/Code/repos/e
  cd ~/Code/repos/e
  code new feat/thing
  # → ~/Code/worktrees/feat-thing

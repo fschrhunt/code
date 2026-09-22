@@ -3,7 +3,6 @@
 _code() {
   local -a commands
   commands=(
-    'clone:clone a repository into repos/'
     'new:create a worktree on a new branch'
     'list:list repositories and worktrees'
     'remove:remove a worktree'

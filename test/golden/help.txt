@@ -1,7 +1,6 @@
 Code — Git checkouts and worktrees in one folder.
 
 Usage
-  code clone <owner/repo | url | path>
   code new <branch>
   code list
   code remove <name | path> [--force]
@@ -10,6 +9,6 @@ Usage
   code version
   code help
 
-Repositories are cloned to <root>/repos/<repo>. Run `new` inside one to create
+Repositories live in <root>/repos/<repo>. Run `new` inside one to create
 <root>/worktrees/<branch> on branch <branch>. The root defaults to ~/Code; set
 CODE_ROOT to use another folder.
