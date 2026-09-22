@@ -3,7 +3,7 @@
 _code() {
   local -a commands
   commands=(
-    'new:create a worktree on a new branch'
+    'new:create an isolated worktree for an agent'
     'list:list repositories and worktrees'
     'remove:remove a worktree'
     'root:print the Code root'

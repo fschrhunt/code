@@ -1,7 +1,7 @@
 Code — Git checkouts and worktrees in one folder.
 
 Usage
-  code new <branch>
+  code new <agent>
   code list
   code remove <name | path> [--force]
   code root
@@ -9,6 +9,7 @@ Usage
   code version
   code help
 
-Repositories live in <root>/repos/<repo>. Run `new` inside one to create
-<root>/worktrees/<branch> on branch <branch>. The root defaults to ~/Code; set
-CODE_ROOT to use another folder.
+Run `new <agent>` inside a base checkout under <root>/repos/<repo> to create
+<root>/worktrees/<agent>-<repo>, suffixed -1, -2, ... when occupied. The
+worktree starts detached: name a branch from the work (git switch -c <name>).
+The root defaults to ~/Code; set CODE_ROOT to use another folder.
