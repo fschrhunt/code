@@ -22,6 +22,11 @@ Notable changes to Code are documented here. The project follows
 - The repository README is now a plain-text `README` file whose reference
   section uses direct URLs.
 
+### Fixed
+
+- `new` and `clone` resolve `CODE_ROOT` through symlinks, so a root reached by
+  a symlinked path is still recognized as a repository checkout.
+
 ## 0.0.1
 
 First release of the restarted project. The version history restarts here.

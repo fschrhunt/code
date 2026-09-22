@@ -27,6 +27,11 @@ case "$ROOT" in
   *$'\n'*|*$'\r'*) _die 'CODE_ROOT must not contain newlines';;
 esac
 
+# Resolve symlinks so paths reported by Git match the root.
+if [ -d "$ROOT" ]; then
+  ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd) || _die "could not resolve $ROOT"
+fi
+
 # A repository name is one safe path component.
 _name_ok(){
   case "$1" in
@@ -109,6 +114,7 @@ cmd_clone(){
   name=$(_clone_name "$source")
   _name_ok "$name" || _die "invalid repository name '$name'"
   mkdir -p "$ROOT/repos" || _die "could not create $ROOT/repos"
+  ROOT=$(cd -P "$ROOT" >/dev/null 2>&1 && pwd) || _die "could not resolve $ROOT"
   destination="$ROOT/repos/$name"
   [ ! -e "$destination" ] || _die "destination already exists: $destination"
   git clone -- "$url" "$destination" >&2 || _die 'clone failed'

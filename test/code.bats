@@ -87,6 +87,18 @@ setup() { _use_test_root; }
   [[ "$output" == *"demo/task"* ]]
 }
 
+@test "new resolves a symlinked root" {
+  _seed_repo demo
+  ln -s "$CODE_ROOT" "$BATS_TEST_TMPDIR/link"
+  export CODE_ROOT="$BATS_TEST_TMPDIR/link"
+  cd "$BATS_TEST_TMPDIR/link/repos/demo"
+
+  run --separate-stderr "$CODE" new task
+
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$CODE_ROOT/worktrees/task" symbolic-ref --short HEAD)" = "task" ]
+}
+
 @test "help byte-matches the golden fixture" {
   local output_file="$BATS_TEST_TMPDIR/help.out"
   "$CODE" help > "$output_file"
