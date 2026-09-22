@@ -24,6 +24,8 @@ Notable changes to Code are documented here. The project follows
 
 ### Fixed
 
+- `new` reports a usage error for a flag-like branch name instead of failing
+  inside Git.
 - `new` and `clone` resolve `CODE_ROOT` through symlinks, so a root reached by
   a symlinked path is still recognized as a repository checkout.
 
