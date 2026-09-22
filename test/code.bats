@@ -6,17 +6,6 @@ load helper
 
 setup() { _use_test_root; }
 
-@test "clone checks out a repository under repos/" {
-  local origin
-  origin=$(_make_origin demo)
-
-  run --separate-stderr "$CODE" clone "$origin"
-
-  [ "$status" -eq 0 ]
-  [ "$output" = "$CODE_ROOT/repos/demo-origin" ]
-  [ -d "$CODE_ROOT/repos/demo-origin/.git" ]
-}
-
 @test "new creates a worktree on a named branch" {
   _seed_repo demo
   cd "$CODE_ROOT/repos/demo"

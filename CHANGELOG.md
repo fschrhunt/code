@@ -13,8 +13,8 @@ Notable changes to Code are documented here. The project follows
 
 ### Changed
 
-- Replaced the policy CLI with a bare wrapper over Git: `clone`, `new <branch>`,
-  `list`, `remove`, `root`, and `upgrade`. Removed the setup wizard, ownership
+- Replaced the policy CLI with a bare wrapper over Git: `new <branch>`, `list`,
+  `remove`, `root`, and `upgrade`. Removed `clone`, the setup wizard, ownership
   markers, detached worktrees, legacy migration, the generated collection
   README, and the `docs/` tree.
 - Dependabot opens at most five action-bump pull requests at a time.
@@ -26,8 +26,8 @@ Notable changes to Code are documented here. The project follows
 
 - `new` reports a usage error for a flag-like branch name instead of failing
   inside Git.
-- `new` and `clone` resolve `CODE_ROOT` through symlinks, so a root reached by
-  a symlinked path is still recognized as a repository checkout.
+- `new` resolves `CODE_ROOT` through symlinks, so a root reached by a symlinked
+  path is still recognized as a repository checkout.
 
 ## 0.0.1
 

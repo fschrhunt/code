@@ -19,7 +19,7 @@ agreement.
 
 ## Security model
 
-Code runs with the invoking user's permissions. It clones repositories and
-creates or removes linked Git worktrees. Removal refuses paths outside the
+Code runs with the invoking user's permissions. It creates and removes linked
+Git worktrees. Removal refuses paths outside the
 worktrees folder and refuses uncommitted changes unless `--force` is explicit.
 Test automation against a disposable `CODE_ROOT`.

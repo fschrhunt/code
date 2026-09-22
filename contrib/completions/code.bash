@@ -4,7 +4,7 @@ _code_complete() {
   cur=${COMP_WORDS[COMP_CWORD]}
   prev=${COMP_WORDS[COMP_CWORD-1]}
   case "$prev" in
-    code) COMPREPLY=( $(compgen -W 'clone new list remove root upgrade version help' -- "$cur") );;
+    code) COMPREPLY=( $(compgen -W 'new list remove root upgrade version help' -- "$cur") );;
     remove) COMPREPLY=( $(compgen -W '--force --help' -- "$cur") );;
     *) COMPREPLY=();;
   esac
