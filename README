@@ -8,10 +8,9 @@ STATUS: DEVELOPMENT
 ///
 
 OVERVIEW:
- - Every repository gets a stable base checkout in repos/.
- - Every work session gets an isolated Git worktree in worktrees/.
- - One small Bash CLI over ordinary Git: setup, clone, new, list, remove, doctor.
- - No index, no daemon; ownership is a marker in Git metadata.
+ - One folder for Git work: repos/<repo> for clones, worktrees/<branch> for tasks.
+ - A small Bash wrapper over ordinary Git: clone, new, list, remove, upgrade.
+ - No index, no daemon, no configuration. The root defaults to ~/Code.
 
 ///
 
@@ -21,26 +20,22 @@ INSTALL:
 START:
  code clone fschrhunt/e
  cd ~/Code/repos/e
- code new e
- # → ~/Code/worktrees/e-e
+ code new feat/thing
+ # → ~/Code/worktrees/feat-thing
  code list
- code remove e-e
+ code remove feat-thing
 
 ///
 
-SAFETY:
- - Code removes only worktrees carrying its private ownership marker.
- - Dirty work refuses removal unless --force is explicit.
- - Branches are never deleted.
+NOTES:
+ - Each worktree carries one branch and one task.
+ - remove keeps the branch; delete it with ordinary Git when you mean to.
+ - upgrade updates Code itself.
 
 ///
 
 REFERENCE:
- - [Start](https://github.com/fschrhunt/code/blob/main/docs/getting-started.md)
- - [Concepts](https://github.com/fschrhunt/code/blob/main/docs/concepts.md)
- - [CLI](https://github.com/fschrhunt/code/blob/main/docs/reference/cli.md)
- - [Filesystem](https://github.com/fschrhunt/code/blob/main/docs/reference/filesystem.md)
  - [Changes](https://github.com/fschrhunt/code/blob/main/CHANGELOG.md)
  - [Contributing](https://github.com/fschrhunt/code/blob/main/CONTRIBUTING.md)
  - [Security](https://github.com/fschrhunt/code/blob/main/SECURITY.md)
- - [Agents](https://github.com/fschrhunt/code/blob/main/AGENTS.md)
+ - [Support](https://github.com/fschrhunt/code/blob/main/SUPPORT.md)

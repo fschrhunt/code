@@ -3,13 +3,12 @@
 _code() {
   local -a commands
   commands=(
-    'setup:initialize or select the collection root'
-    'clone:clone a normal repository checkout'
-    'new:create an isolated task checkout'
-    'list:list repositories and task checkouts'
-    'remove:remove a managed task checkout'
-    'root:print the collection root'
-    'doctor:check local Git metadata'
+    'clone:clone a repository into repos/'
+    'new:create a worktree on a new branch'
+    'list:list repositories and worktrees'
+    'remove:remove a worktree'
+    'root:print the Code root'
+    'upgrade:update Code itself'
     'version:print the installed version'
     'help:show command help'
   )
@@ -18,7 +17,6 @@ _code() {
     return
   fi
   case $words[2] in
-    setup) _arguments '--root[select an absolute collection path]:path:_directories' '(-y --yes)'{-y,--yes}'[accept defaults and skip prompts]' ;;
     remove) _arguments '--force[discard uncommitted changes]' ;;
   esac
 }
