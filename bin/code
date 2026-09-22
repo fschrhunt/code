@@ -128,6 +128,8 @@ cmd_new(){
   [ $# -eq 1 ] || _die 'usage: code new <branch>'
   local branch=$1 repo canonical folder destination
   case "$branch" in
+    -h|--help) printf 'usage: code new <branch>\n'; return 0;;
+    -*) _die "branch name must not start with '-'";;
     '') _die 'branch name is required';;
     *$'\n'*|*$'\r'*) _die 'branch name must not contain newlines';;
   esac

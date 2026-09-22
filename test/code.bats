@@ -99,6 +99,16 @@ setup() { _use_test_root; }
   [ "$(git -C "$CODE_ROOT/worktrees/task" symbolic-ref --short HEAD)" = "task" ]
 }
 
+@test "new rejects a flag-like branch name" {
+  _seed_repo demo
+  cd "$CODE_ROOT/repos/demo"
+
+  run "$CODE" new --worktree
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"must not start with"* ]]
+}
+
 @test "help byte-matches the golden fixture" {
   local output_file="$BATS_TEST_TMPDIR/help.out"
   "$CODE" help > "$output_file"
