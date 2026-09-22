@@ -6,74 +6,74 @@ load helper
 
 setup() { _use_test_root; }
 
-@test "new creates a worktree on a named branch" {
+@test "new creates a detached worktree named <agent>-<repo>" {
   _seed_repo demo
   cd "$CODE_ROOT/repos/demo"
 
-  run --separate-stderr "$CODE" new feat/thing
+  run --separate-stderr "$CODE" new pi
 
   [ "$status" -eq 0 ]
-  [ "$output" = "$CODE_ROOT/worktrees/feat-thing" ]
-  [ "$(git -C "$CODE_ROOT/worktrees/feat-thing" symbolic-ref --short HEAD)" = "feat/thing" ]
+  [ "$output" = "$CODE_ROOT/worktrees/pi-demo" ]
+  [ -z "$(git -C "$CODE_ROOT/worktrees/pi-demo" branch --show-current)" ]
 }
 
-@test "new checks out an existing local branch" {
+@test "new suffixes an occupied name" {
   _seed_repo demo
-  git -C "$CODE_ROOT/repos/demo" branch feat/existing
   cd "$CODE_ROOT/repos/demo"
+  "$CODE" new pi > /dev/null
 
-  run "$CODE" new feat/existing
+  run --separate-stderr "$CODE" new pi
 
   [ "$status" -eq 0 ]
-  [ "$(git -C "$CODE_ROOT/worktrees/feat-existing" symbolic-ref --short HEAD)" = "feat/existing" ]
+  [ "$output" = "$CODE_ROOT/worktrees/pi-demo-1" ]
 }
 
-@test "new refuses an occupied worktree name" {
+@test "new reattaches an existing branch" {
   _seed_repo demo
+  git -C "$CODE_ROOT/repos/demo" branch pi-demo
   cd "$CODE_ROOT/repos/demo"
-  "$CODE" new task > /dev/null
 
-  run "$CODE" new task
+  run --separate-stderr "$CODE" new pi
 
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$CODE_ROOT/worktrees/pi-demo" symbolic-ref --short HEAD)" = "pi-demo" ]
 }
 
 @test "remove refuses dirty work without --force" {
   _seed_repo demo
   cd "$CODE_ROOT/repos/demo"
-  "$CODE" new task > /dev/null
-  printf 'change\n' > "$CODE_ROOT/worktrees/task/file.txt"
+  "$CODE" new pi > /dev/null
+  printf 'change\n' > "$CODE_ROOT/worktrees/pi-demo/file.txt"
 
-  run "$CODE" remove task
+  run "$CODE" remove pi-demo
 
   [ "$status" -ne 0 ]
-  [ -d "$CODE_ROOT/worktrees/task" ]
+  [ -d "$CODE_ROOT/worktrees/pi-demo" ]
 }
 
-@test "remove --force discards work and keeps the branch" {
+@test "remove --force discards work" {
   _seed_repo demo
   cd "$CODE_ROOT/repos/demo"
-  "$CODE" new task > /dev/null
-  printf 'change\n' > "$CODE_ROOT/worktrees/task/file.txt"
+  "$CODE" new pi > /dev/null
+  printf 'change\n' > "$CODE_ROOT/worktrees/pi-demo/file.txt"
 
-  run "$CODE" remove task --force
+  run "$CODE" remove pi-demo --force
 
   [ "$status" -eq 0 ]
-  [ ! -e "$CODE_ROOT/worktrees/task" ]
-  git -C "$CODE_ROOT/repos/demo" show-ref --verify --quiet refs/heads/task
+  [ ! -e "$CODE_ROOT/worktrees/pi-demo" ]
 }
 
 @test "list shows repositories and their worktrees" {
   _seed_repo demo
   cd "$CODE_ROOT/repos/demo"
-  "$CODE" new task > /dev/null
+  "$CODE" new pi > /dev/null
 
   run "$CODE" list
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Repositories"* ]]
   [[ "$output" == *"demo"* ]]
-  [[ "$output" == *"demo/task"* ]]
+  [[ "$output" == *"demo/pi-demo"* ]]
 }
 
 @test "new resolves a symlinked root" {
@@ -82,13 +82,13 @@ setup() { _use_test_root; }
   export CODE_ROOT="$BATS_TEST_TMPDIR/link"
   cd "$BATS_TEST_TMPDIR/link/repos/demo"
 
-  run --separate-stderr "$CODE" new task
+  run --separate-stderr "$CODE" new pi
 
   [ "$status" -eq 0 ]
-  [ "$(git -C "$CODE_ROOT/worktrees/task" symbolic-ref --short HEAD)" = "task" ]
+  [ -e "$CODE_ROOT/worktrees/pi-demo/.git" ]
 }
 
-@test "new rejects a flag-like branch name" {
+@test "new rejects a flag-like name" {
   _seed_repo demo
   cd "$CODE_ROOT/repos/demo"
 

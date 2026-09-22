@@ -2,8 +2,8 @@
 # Code — a thin wrapper over Git checkouts and worktrees in one folder.
 #
 # Layout:
-#   <root>/repos/<repo>        clones, kept on their default branch
-#   <root>/worktrees/<branch>  one branch and one task per worktree
+#   <root>/repos/<repo>              base clones, kept on their default branch
+#   <root>/worktrees/<agent>-<repo>  isolated worktrees, detached by default
 #
 # The root defaults to ~/Code and can be overridden with CODE_ROOT.
 set -uo pipefail
@@ -54,27 +54,12 @@ _current_repository(){
   printf '%s' "$repo"
 }
 
-# Flatten a branch into a folder name: feat/thing -> feat-thing.
-_branch_folder(){
-  local name
-  name=$(printf '%s' "$1" | LC_ALL=C tr -c 'A-Za-z0-9._-' '-')
-  while :; do
-    case "$name" in
-      [-.]*) name=${name#?};;
-      *[-.]) name=${name%?};;
-      *) break;;
-    esac
-  done
-  case "$name" in ''|'.'|'..') return 1;; esac
-  printf '%s' "$name"
-}
-
 _help(){
   cat <<'EOF'
 Code — Git checkouts and worktrees in one folder.
 
 Usage
-  code new <branch>
+  code new <agent>
   code list
   code remove <name | path> [--force]
   code root
@@ -82,35 +67,42 @@ Usage
   code version
   code help
 
-Repositories live in <root>/repos/<repo>. Run `new` inside one to create
-<root>/worktrees/<branch> on branch <branch>. The root defaults to ~/Code; set
-CODE_ROOT to use another folder.
+Run `new <agent>` inside a base checkout under <root>/repos/<repo> to create
+<root>/worktrees/<agent>-<repo>, suffixed -1, -2, ... when occupied. The
+worktree starts detached: name a branch from the work (git switch -c <name>).
+The root defaults to ~/Code; set CODE_ROOT to use another folder.
 EOF
 }
 
-# Create worktrees/<branch> from the base checkout containing the current
-# directory. An existing local branch is checked out; otherwise it is created
-# at the base checkout's current HEAD.
+# Create worktrees/<agent>-<repo> from the base checkout containing the current
+# directory, suffixed -1, -2, ... when occupied. The worktree starts detached
+# unless a branch of the same name already exists.
 cmd_new(){
-  [ $# -eq 1 ] || _die 'usage: code new <branch>'
-  local branch=$1 repo canonical folder destination
-  case "$branch" in
-    -h|--help) printf 'usage: code new <branch>\n'; return 0;;
-    -*) _die "branch name must not start with '-'";;
-    '') _die 'branch name is required';;
-    *$'\n'*|*$'\r'*) _die 'branch name must not contain newlines';;
+  [ $# -eq 1 ] || _die 'usage: code new <agent>'
+  local agent=$1 repo canonical destination task
+  case "$agent" in
+    -h|--help) printf 'usage: code new <agent>\n'; return 0;;
+    -*) _die "agent name must not start with '-'";;
   esac
+  _name_ok "$agent" || _die "invalid agent name '$agent'"
   repo=$(_current_repository) || _die "run from a base checkout under $ROOT/repos/<repo>"
   canonical=$(_repo_dir "$repo")
   [ -d "$canonical/.git" ] || _die "no repository '$repo'"
-  folder=$(_branch_folder "$branch") || _die "cannot derive a folder from branch '$branch'"
-  destination="$ROOT/worktrees/$folder"
-  [ ! -e "$destination" ] || _die "worktree already exists: $destination"
+  destination="$ROOT/worktrees/$agent-$repo"
+  if [ -e "$destination" ]; then
+    local suffix=1
+    while [ -e "$destination-$suffix" ]; do suffix=$((suffix + 1)); done
+    destination="$destination-$suffix"
+  fi
+  task=${destination##*/}
   mkdir -p "$ROOT/worktrees" || _die "could not create $ROOT/worktrees"
-  if git -C "$canonical" show-ref --verify --quiet "refs/heads/$branch"; then
-    git -C "$canonical" worktree add "$destination" "$branch" >&2 || _die 'could not create worktree'
+  if git -C "$canonical" show-ref --verify --quiet "refs/heads/$task"; then
+    git -C "$canonical" worktree add "$destination" "$task" >&2 || _die 'could not create worktree'
+  elif git -C "$canonical" rev-parse --verify --quiet HEAD >/dev/null; then
+    git -C "$canonical" worktree add --detach "$destination" HEAD >&2 || _die 'could not create worktree'
   else
-    git -C "$canonical" worktree add -b "$branch" "$destination" HEAD >&2 || _die 'could not create worktree'
+    git -C "$canonical" worktree add --orphan -b "$task" "$destination" >&2 ||
+      _die 'could not create worktree for a repository without commits'
   fi
   printf '%s\n' "$destination"
 }

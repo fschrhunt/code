@@ -13,10 +13,10 @@ Notable changes to Code are documented here. The project follows
 
 ### Changed
 
-- Replaced the policy CLI with a bare wrapper over Git: `new <branch>`, `list`,
+- Replaced the policy CLI with a bare wrapper over Git: `new <agent>`, `list`,
   `remove`, `root`, and `upgrade`. Removed `clone`, the setup wizard, ownership
-  markers, detached worktrees, legacy migration, the generated collection
-  README, and the `docs/` tree.
+  markers, legacy migration, the generated collection README, and the `docs/`
+  tree.
 - Dependabot opens at most five action-bump pull requests at a time.
 - Issue template files are renamed to `bug.yml` and `feature.yml`.
 - The repository README is now a plain-text `README` file whose reference
@@ -24,8 +24,10 @@ Notable changes to Code are documented here. The project follows
 
 ### Fixed
 
-- `new` reports a usage error for a flag-like branch name instead of failing
-  inside Git.
+- `new <agent>` creates `worktrees/<agent>-<repo>` again, detached and suffixed
+  when occupied, matching the harness `--worktree` launchers.
+- `new` reports a usage error for a flag-like name instead of failing inside
+  Git.
 - `new` resolves `CODE_ROOT` through symlinks, so a root reached by a symlinked
   path is still recognized as a repository checkout.
 

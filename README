@@ -8,7 +8,7 @@ STATUS: DEVELOPMENT
 ///
 
 OVERVIEW:
- - One folder for Git work: repos/<repo> for clones, worktrees/<branch> for tasks.
+ - One folder for Git work: repos/<repo> for clones, worktrees/<agent>-<repo> for tasks.
  - A small Bash wrapper over ordinary Git: new, list, remove, upgrade.
  - No index, no daemon, no configuration. The root defaults to ~/Code.
 
@@ -20,14 +20,15 @@ INSTALL:
 START:
  git clone https://github.com/fschrhunt/e.git ~/Code/repos/e
  cd ~/Code/repos/e
- code new feat/thing
- # → ~/Code/worktrees/feat-thing
+ code new pi
+ # → ~/Code/worktrees/pi-e
  code list
- code remove feat-thing
+ code remove pi-e
 
 ///
 
 NOTES:
+ - new names the worktree <agent>-<repo>, detached; name the branch from the work.
  - Each worktree carries one branch and one task.
  - remove keeps the branch; delete it with ordinary Git when you mean to.
  - upgrade updates Code itself.
